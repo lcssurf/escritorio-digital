@@ -8,6 +8,8 @@
   let office = window.office, dicts = null, cfg = { lang: 'pt-BR', sound: true };
   const pets = new Map(); // id -> pet
   let offline = false, through = true, lastAlertIds = new Set(), started = false, crowd = 5;
+  const lastActive = new Map();   // member id -> when it last worked or waited for approval
+  const LINGER = 15000;
 
   if (!office && mock) office = mockOffice();
 
@@ -53,7 +55,7 @@
     const now = performance.now();
     crowd = specs.length;   // a big team gets closer slots so everyone fits on the bar
     const ids = new Set(specs.map((s) => s.id));
-    for (const [id, p] of pets) if (!ids.has(id) && !(p.cheerUntil > now)) { p.el.remove(); pets.delete(id); }
+    for (const [id, p] of pets) if (!ids.has(id) && !(p.cheerUntil > now)) { pets.delete(id); p.el.classList.add('leave'); setTimeout(() => p.el.remove(), 450); }
     for (const s of specs) {
       const p = ensurePet(s);
       if (p.cheerUntil > now) continue;
@@ -150,7 +152,10 @@
     offline = !st.ok && st.status === 0;
     const landings = ld.ok && Array.isArray(ld.data) ? ld.data : [];
     const members = tm.ok && Array.isArray(tm.data) ? tm.data : null;
-    applySpecs(O.buildPets(st.ok ? st.data : null, landings, offline, members));
+    const now = performance.now(), keep = new Set([...lastActive].filter(([, t]) => now - t < LINGER).map(([id]) => id));
+    const list = O.buildPets(st.ok ? st.data : null, landings, offline, members, keep);
+    for (const p of list) if (p.memberId && (p.state === 'working' || p.state === 'alert')) lastActive.set(p.memberId, now);
+    applySpecs(list);
   }
 
   async function init() {

@@ -136,9 +136,21 @@
   "job.who": "Quem faz?",
   "job.chief": "O chefe decide (recomendado)",
   "team.pack.title": "Pacote pronto: escritório previdenciário",
-  "team.pack.text": "16 especialistas já configurados (INSS, prazos, documentos, peças, revisão, agenda, financeiro e mais), com as regras de segurança. Você pode editar cada um depois.",
+  "team.pack.text": "5 orquestradores e 16 especialistas já configurados e organizados em equipes (INSS, judicial e prazos, documentos e peças, cliente e agenda, gestão), com as regras de segurança. Você pode editar cada um depois.",
   "team.pack.install": "Instalar a equipe completa",
   "team.pack.installing": "Instalando...",
   "team.pack.done": "{n} especialistas adicionados.",
-  "banner.hidden": "Os bonecos estão escondidos."
+  "banner.hidden": "Os bonecos estão escondidos.",
+  "team.lead": "Orquestrador",
+  "team.addto": "Novo especialista nesta equipe",
+  "edit.kind": "Tipo",
+  "kind.specialist": "Especialista",
+  "kind.lead": "Orquestrador",
+  "edit.kindhint": "Orquestradores coordenam uma equipe e ficam sempre na barra. Especialistas só aparecem quando são chamados.",
+  "edit.reports": "Reporta a",
+  "edit.reports.chief": "Chefe do escritório",
+  "edit.pinned": "Sempre visível na barra",
+  "edit.pinnedhint": "Por padrão, o especialista só aparece quando está trabalhando.",
+  "job.group.leads": "Orquestradores",
+  "job.group.specialists": "Especialistas"
 }

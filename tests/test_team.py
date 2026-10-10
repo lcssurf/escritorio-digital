@@ -114,3 +114,56 @@ def test_a_job_goes_to_the_chief_unless_someone_is_named(ui):
     assert farm_ui.store.get_task(a["id"])["specialist"] == "chief"
     assert farm_ui.store.get_task(b["id"])["specialist"] == "ana"
     assert anon(base + "/api/tasks/new", {"title": "x", "specialist": "ghost"}, key)[0] == 400
+
+
+def lead(**kw):
+    base = {"name": "Helena", "title": "Coordenação INSS", "lead": True, "instructions": "Coordene a frente do INSS."}
+    return member(**{**base, **kw})
+
+
+def test_leads_coordinate_a_team_of_their_own(tm):
+    h = tm.upsert(lead())
+    assert h["lead"] is True and h["parent"] == "chief"
+    a = tm.upsert(member(parent="helena"))
+    b = tm.upsert(member(name="Bruno", title="Prazos", gender="m"))
+    assert a["parent"] == "helena" and b["parent"] == "chief", "no boss named: under the chief"
+    # a lead is told its own people, not everyone
+    text = tm.briefing({"specialist": "helena"})
+    assert "- ana: Ana, Documentos" in text and "bruno" not in text and "clodfarm spawn" in text and "Coordene a frente do INSS." in text
+    # the chief sees the leads (with their teams) and the specialists who report to the chief directly
+    chief = tm.briefing({"specialist": "chief"})
+    assert "- helena: Helena, Coordenação INSS (coordena: ana)" in chief and "- bruno: Bruno, Prazos" in chief and "- ana:" not in chief
+
+
+def test_the_hierarchy_has_three_levels_and_no_loops(tm):
+    tm.upsert(lead())
+    tm.upsert(member(parent="helena"))
+    for bad in (member(name="X", parent="ghost"), member(name="Y", parent="ana"),           # unknown boss / a specialist as boss
+                member(name="Z", lead=True, parent="helena"), lead(name="Outra", parent="helena")):  # a lead under a lead
+        with pytest.raises(team.TeamError):
+            tm.upsert(bad)
+    with pytest.raises(team.TeamError):
+        tm.upsert(member(name="Helena", lead=True, parent="helena"), "helena")      # herself as boss
+    with pytest.raises(team.TeamError):
+        tm.upsert(lead(lead=False), "helena")                                        # a lead with a team can't become a specialist
+
+
+def test_removing_a_lead_hands_the_team_to_the_chief(tm):
+    tm.upsert(lead())
+    tm.upsert(member(parent="helena"))
+    tm.delete("helena")
+    assert tm.get("ana")["parent"] == "chief"
+
+
+def test_records_from_before_the_hierarchy_still_load(tm):
+    import json as _json, os
+    os.makedirs(os.path.dirname(tm.path), exist_ok=True)
+    open(tm.path, "w", encoding="utf-8").write(_json.dumps({"members": [{"id": "ana", "name": "Ana", "title": "", "gender": "f", "instructions": "", "look": {}}]}))
+    ana, chief = tm.get("ana"), tm.get("chief")
+    assert ana["parent"] == "chief" and ana["lead"] is False and ana["pinned"] is False
+    assert chief["lead"] is True and chief["parent"] is None
+
+
+def test_the_chief_stays_on_top(tm):
+    c = tm.upsert({**member(name="Marina", title="Chefe"), "parent": "helena", "lead": False, "pinned": False}, "chief")
+    assert c["parent"] is None and c["lead"] is True and c["pinned"] is True

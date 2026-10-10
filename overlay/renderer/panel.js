@@ -139,21 +139,31 @@
     if (members.length <= 2) s.append(h('div', { class: 'label' }, tr('team.templates')),
       h('div', { class: 'opts', style: 'margin-bottom:12px' }, (window.Templates[cfg.lang] || window.Templates.en).map((t) =>
         h('button', { onclick: () => startEdit(null, t) }, t.name + ' · ' + t.title))));
-    for (const m of members) {
+    const kids = (id) => members.filter((m) => m.id !== 'chief' && (m.parent || 'chief') === id && !(m.lead && id !== 'chief'));
+    const memberCard = (m, nested) => {
       const p = states.get(m.id) || { status: 'idle', label: '' };
       const open = focusId === m.id;
-      const card = h('div', { class: 'card' });
+      const card = h('div', { class: 'card' + (nested ? ' nested' : '') });
       card.append(h('div', { class: 'agent', role: 'button', tabindex: '0', onclick: () => { focusId = open ? '' : m.id; renderTeam(); } },
         avatar(m, 'idle'),
-        h('div', { class: 'who' }, h('div', { class: 'name' }, m.name, m.id === 'chief' ? h('span', { class: 'badge-chief' }, tr('team.chief')) : null,
+        h('div', { class: 'who' }, h('div', { class: 'name' }, m.name,
+          m.id === 'chief' ? h('span', { class: 'badge-chief' }, tr('team.chief')) : m.lead ? h('span', { class: 'badge-lead' }, tr('team.lead')) : null,
           roleOf(m) && m.id !== 'chief' ? h('span', { class: 'role' }, ' · ' + roleOf(m)) : null),
           h('div', { class: 'task' }, p.label || tr(p.status === 'working' ? 'state.working' : p.status === 'alert' ? 'state.alert' : 'state.idle'))),
         h('span', { class: 'chip ' + p.status }, tr('state.' + p.status))));
       if (open) {
-        card.append(h('div', { class: 'detail' }, m.instructions || ''),
-          h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => startEdit(m) }, tr('team.edit'))));
+        const acts = [h('button', { class: 'btn ghost', onclick: () => startEdit(m) }, tr('team.edit'))];
+        if (m.lead) acts.unshift(h('button', { class: 'btn ghost', onclick: () => startEdit(null, null, { parent: m.id }) }, '+ ' + tr('team.addto')));
+        card.append(h('div', { class: 'detail' }, m.instructions || ''), h('div', { class: 'actions' }, acts));
       }
-      s.append(card);
+      return card;
+    };
+    const chief = memberOf('chief');
+    if (chief) s.append(memberCard(chief, false));
+    for (const k of kids('chief').filter((m) => !m.lead)) s.append(memberCard(k, false));
+    for (const l of members.filter((m) => m.id !== 'chief' && m.lead)) {
+      s.append(memberCard(l, false));
+      for (const k of kids(l.id)) s.append(memberCard(k, true));
     }
     s.append(h('h2', {}, tr('team.activity')));
     const titles = tasksById(), evs = (farm && farm.events) || [];
@@ -170,14 +180,30 @@
     const pack = window.PackPrevidenciario;
     const btn = h('button', { class: 'btn acc', onclick: async () => {
       btn.disabled = true; btn.textContent = tr('team.pack.installing');
-      let n = 0;
-      const have = new Set(members.map((m) => (m.name + '|' + m.title).toLowerCase()));
-      const chief = memberOf('chief');
-      if (chief && !chief.instructions) await office.api('POST', '/api/team', { ...chief, instructions: pack.chief });
+      let list = members.slice(), n = 0, failed = false;
+      const find = (m) => list.find((x) => x.name === m.name && (x.title || '') === (m.title || ''));
+      const send = async (body) => {
+        const r = await office.api('POST', '/api/team', body);
+        if (!r.ok) { toast(tr('edit.err', { why: (r.data && r.data.error) || r.status }), true); failed = true; return null; }
+        list = r.data; return r.data;
+      };
+      const chief = list.find((x) => x.id === 'chief');
+      if (chief && !chief.instructions) await send({ ...chief, instructions: pack.chief });
+      const leadId = {};
+      for (const l of pack.leads) {
+        if (failed) break;
+        const { team, key, ...body } = l;
+        const have = find(l);
+        if (!have) n++;
+        if (!await send(have ? { ...have, ...body, id: have.id, lead: true, parent: 'chief' } : { ...body, lead: true, parent: 'chief' })) break;
+        leadId[key] = find(l).id;
+      }
       for (const m of pack.members) {
-        if (have.has((m.name + '|' + m.title).toLowerCase())) continue;
-        const r = await office.api('POST', '/api/team', m);
-        if (r.ok) n++; else { toast(tr('edit.err', { why: (r.data && r.data.error) || r.status }), true); break; }
+        if (failed) break;
+        const { team, ...body } = m;
+        const have = find(m);
+        if (!have) n++;
+        if (!await send(have ? { ...have, parent: leadId[team] || 'chief', lead: false, id: have.id } : { ...body, parent: leadId[team] || 'chief', lead: false })) break;
       }
       toast(tr('team.pack.done', { n }));
       await refresh(true);
@@ -187,10 +213,12 @@
 
   // ------------------------------------------------------------------ team editor
   const PROPS = [0, 1, 2, 3, 4];
-  function startEdit(m, tpl) {
+  function startEdit(m, tpl, extra) {
     const base = m ? JSON.parse(JSON.stringify(m)) : tpl ? { name: tpl.name, title: tpl.title, gender: tpl.gender, instructions: tpl.instructions, look: { ...tpl.look } }
       : { name: '', title: '', gender: 'f', instructions: '', look: { style: 'long', prop: 0, hair: '#5b3a29', skin: '#e8b685', suit: '#3e5483' } };
     base.look = base.look || {};
+    if (extra) Object.assign(base, extra);
+    if (!m) { base.lead = !!base.lead; base.parent = base.parent || 'chief'; base.pinned = !!base.pinned; }
     editing = { id: m ? m.id : null, data: base, confirm: false, saving: false };
     render();
   }
@@ -212,6 +240,14 @@
     const seg = h('div', { class: 'seg' }, [['f', 'gender.f'], ['m', 'gender.m']].map(([v, k]) =>
       h('button', { class: d.gender === v ? 'on' : '', onclick: () => { d.gender = v; if (!stylesNow().includes(d.look.style)) d.look.style = stylesNow()[0]; keepScroll(); } }, tr(k))));
     const styleOpts = h('div', { class: 'opts' }, stylesNow().map((st) => h('button', { class: (d.look.style || look().style) === st ? 'on' : '', onclick: () => { d.look.style = st; keepScroll(); } }, tr('style.' + st))));
+    const kindSeg = h('div', { class: 'seg' }, [[false, 'kind.specialist'], [true, 'kind.lead']].map(([v, k]) =>
+      h('button', { class: !!d.lead === v ? 'on' : '', onclick: () => { d.lead = v; if (v) d.parent = 'chief'; keepScroll(); } }, tr(k))));
+    const leadsList = members.filter((m) => m.lead && m.id !== 'chief' && m.id !== e.id);
+    const parentSel = h('select', { 'aria-label': tr('edit.reports'), onchange: (ev) => { d.parent = ev.target.value; } }, h('option', { value: 'chief' }, tr('edit.reports.chief')),
+      leadsList.map((m) => h('option', { value: m.id }, m.name + (m.title ? ' · ' + m.title : ''))));
+    parentSel.value = d.parent && (d.parent === 'chief' || leadsList.some((m) => m.id === d.parent)) ? d.parent : 'chief';
+    const pinBox = h('input', { type: 'checkbox', onchange: (ev) => { d.pinned = ev.target.checked; } });
+    pinBox.checked = !!d.pinned;
     const propOpts = h('div', { class: 'opts' }, PROPS.map((k) => h('button', { class: (d.look.prop != null ? d.look.prop : look().role) === k ? 'on' : '', onclick: () => { d.look.prop = k; keepScroll(); } }, tr('prop.' + k))));
     const glassBox = h('input', { type: 'checkbox', onchange: (ev) => { d.look.glasses = ev.target.checked; keepScroll(); } });
     glassBox.checked = d.look.glasses != null ? !!d.look.glasses : look().glasses;
@@ -242,6 +278,9 @@
       field(tr('edit.name'), name),
       isChief ? null : field(tr('edit.role'), title),
       field(tr('edit.gender'), seg),
+      isChief ? null : field(tr('edit.kind'), kindSeg, tr('edit.kindhint')),
+      isChief || d.lead ? null : field(tr('edit.reports'), parentSel),
+      isChief || d.lead ? null : h('div', { class: 'field' }, h('label', { class: 'switch' }, pinBox, tr('edit.pinned')), h('div', { class: 'note' }, tr('edit.pinnedhint'))),
       h('h2', {}, tr('edit.look')),
       field(tr('edit.hairstyle'), styleOpts),
       field(tr('edit.haircolor'), swatches('hair', S.HAIRS)),
@@ -304,8 +343,10 @@
     const s = $('s-new'); clear(s);
     const b = banner(); if (b) s.append(b);
     s.append(h('h2', {}, tr('job.title')), h('div', { class: 'sub' }, tr('job.sub')));
+    const opt = (m) => h('option', { value: m.id }, m.name + (m.title ? ' · ' + m.title : ''));
     const who = h('select', { 'aria-label': tr('job.who') }, h('option', { value: 'chief' }, tr('job.chief')),
-      members.filter((m) => m.id !== 'chief').map((m) => h('option', { value: m.id }, m.name + (m.title ? ' · ' + m.title : ''))));
+      h('optgroup', { label: tr('job.group.leads') }, members.filter((m) => m.lead && m.id !== 'chief').map(opt)),
+      h('optgroup', { label: tr('job.group.specialists') }, members.filter((m) => !m.lead).map(opt)));
     const ta = h('textarea', { placeholder: tr('job.placeholder'), 'aria-label': tr('job.title') });
     const chips = h('div', { class: 'chips' }, ['docs', 'draft', 'deadlines', 'summary'].map((k) =>
       h('button', { onclick: () => { ta.value = tr('job.chip.' + k) + ' - '; ta.focus(); } }, tr('job.chip.' + k))));

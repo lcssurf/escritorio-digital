@@ -13,6 +13,8 @@
   .pet:hover canvas { filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
   .pet.dragging { cursor: grabbing; transform: translateY(-6px); }
   .pet.pop { animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
+  .pet.leave { animation: leave .45s ease forwards; pointer-events: none; }
+  @keyframes leave { to { opacity: 0; transform: translateY(-30px) scale(.8); } }
   @keyframes pop { from { opacity: 0; transform: translateY(-40px) scale(.7); } to { opacity: 1; transform: none; } }
   .pet .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; min-width: 120px; max-width: 250px;
               background: rgba(24, 22, 34, .94); color: #fff; padding: 6px 10px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.35);

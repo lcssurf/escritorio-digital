@@ -136,9 +136,21 @@
   "job.who": "Who does it?",
   "job.chief": "The chief decides (recommended)",
   "team.pack.title": "Ready-made pack: social-security law office",
-  "team.pack.text": "16 pre-configured specialists (benefits, deadlines, documents, drafting, review, schedule, finance and more) with the safety rules. You can edit each one afterwards.",
+  "team.pack.text": "5 orchestrators and 16 pre-configured specialists organized in teams (benefits, litigation and deadlines, documents and drafting, clients and schedule, management), with the safety rules. You can edit each one afterwards.",
   "team.pack.install": "Install the full team",
   "team.pack.installing": "Installing...",
   "team.pack.done": "{n} specialists added.",
-  "banner.hidden": "The characters are hidden."
+  "banner.hidden": "The characters are hidden.",
+  "team.lead": "Orchestrator",
+  "team.addto": "New specialist in this team",
+  "edit.kind": "Type",
+  "kind.specialist": "Specialist",
+  "kind.lead": "Orchestrator",
+  "edit.kindhint": "Orchestrators coordinate a team and always stand on the bar. Specialists only show up when they are called.",
+  "edit.reports": "Reports to",
+  "edit.reports.chief": "Office chief",
+  "edit.pinned": "Always visible on the bar",
+  "edit.pinnedhint": "By default a specialist only shows up while working.",
+  "job.group.leads": "Orchestrators",
+  "job.group.specialists": "Specialists"
 }

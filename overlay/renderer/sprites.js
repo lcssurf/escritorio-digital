@@ -32,7 +32,7 @@
     const style = o.style && styles.includes(o.style) ? o.style : pick(styles, 12);
     return { gender, style, skin, skinD: shade(skin, 0.86), hair, hairL: shade(hair, 1.3), suit, suitD: shade(suit, 0.76), suitL: shade(suit, 1.18),
              tie: pick(TIES, 9), blouse: shade(pick(TIES, 9), 1.35), glasses: o.glasses != null ? !!o.glasses : ((h >>> 15) % 4) === 0,
-             role: o.prop != null ? o.prop : (h >>> 18) % ROLES.length, badge: !!(spec && spec.id === 'chief'),
+             role: o.prop != null ? o.prop : (h >>> 18) % ROLES.length, badge: spec && spec.id === 'chief' ? '#f5c542' : spec && spec.lead ? '#9fb4d9' : null,
              pants: '#2b2b3a', pantsD: '#21212d' };
   }
   const R = (c, col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
@@ -78,7 +78,7 @@
       R(c, L.tie, x + 1, hy - 8, 1, 6); R(c, shade(L.tie, 0.8), x + 1, hy - 3, 1, 1);
       R(c, '#1b1824', x - 4, hy - 1, 9, 1);                                // belt
     }
-    if (L.badge) { R(c, '#f5c542', x - 3, hy - 7, 3, 3); R(c, '#b8860b', x - 3, hy - 4, 3, 1); R(c, '#fff3b0', x - 2, hy - 6, 1, 1); }   // the chief's badge
+    if (L.badge) { R(c, L.badge, x - 3, hy - 7, 3, 3); R(c, shade(L.badge, 0.62), x - 3, hy - 4, 3, 1); R(c, shade(L.badge, 1.35), x - 2, hy - 6, 1, 1); }   // chief: gold, orchestrators: silver-blue
   }
   function legsStand(c, L, x, hy, offFar, offNear) {
     const len = FY - 2 - hy;

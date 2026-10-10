@@ -20,10 +20,11 @@
   // The characters on the taskbar. With a team (members from /api/team) every member is always there: working when a job
   // is running for them, asking for you when finished work of theirs waits for approval, otherwise at ease. Jobs that
   // belong to nobody on the team still get a generic character, so nothing is ever invisible.
-  function buildPets(state, landings, offline, members) {
+  // keep: ids of specialists that were active a moment ago, so they don't vanish the instant they finish.
+  function buildPets(state, landings, offline, members, keep) {
     if (offline) return [{ id: 'A:offline', kind: 'offline', state: 'sofa', label: '', status: 'offline', persona: { name: '', role: 'chief' } }];
     landings = landings || [];
-    const subs = ((state && state.subagents) || []).filter((s) => s.status === 'running');
+    const subs = ((state && state.subagents) || []).filter((s) => s.status === 'running' || s.status === 'waiting');   // waiting = coordinating its team
     const pets = [];
     if (members && members.length) {
       const known = new Set(members.map((m) => m.id));
@@ -31,6 +32,8 @@
         const wait = landings.filter((l) => (l.specialist || 'chief') === m.id);
         const run = subs.filter((t) => (t.specialist || 'chief') === m.id);
         const st = wait.length ? 'alert' : run.length ? 'working' : 'idle';
+        const standing = m.id === 'chief' || m.lead || m.pinned || (keep && keep.has(m.id));
+        if (st === 'idle' && !standing) continue;   // an idle specialist is not on the bar: they appear when called
         const t = wait[0] || run[0];
         pets.push({ id: 'S:' + m.id, kind: 'member', member: m, memberId: m.id, taskId: t && t.id, state: st, status: st,
           count: wait.length || run.length, label: wait.length > 1 ? '' : (t && t.title) || '',
@@ -53,7 +56,7 @@
     // keep the team's own order on the bar (the chief first), whatever they are doing
     return head.sort((a, b) => order(a) - order(b));
   }
-  const order = (p) => (p.kind === 'member' ? (p.memberId === 'chief' ? 0 : 1) : 2);
+  const order = (p) => (p.kind === 'member' ? (p.memberId === 'chief' ? 0 : p.member && p.member.lead ? 1 : 2) : 3);
   const orphanLanding = (l) => ({ id: 'L:' + l.id, kind: 'landing', taskId: l.id, state: 'alert', status: 'alert', label: l.title || l.id, persona: persona(l.id) });
   const orphanTask = (t) => ({ id: 'T:' + t.id, kind: 'task', taskId: t.id, state: 'working', status: 'working', label: t.title || t.id, persona: persona(t.id) });
 

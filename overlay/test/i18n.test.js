@@ -33,8 +33,8 @@ assert.deepStrictEqual(Office.persona('abc'), Office.persona('abc'), 'a persona 
 assert.ok(Office.ROLES.includes(Office.persona('t1').role));
 assert.strictEqual(Office.buildPets(state, [], false).find((p) => p.id === 'T:t1').persona.name.length > 0, true);
 
-// a team: every member is always on the bar, the chief first
-const members = [{ id: 'chief', name: 'Chefe', title: 'Chefe' }, { id: 'ana', name: 'Ana', title: 'Docs' }, { id: 'bruno', name: 'Bruno', title: 'Prazos' }];
+// a team: the chief and the orchestrators always stand on the bar; specialists show up when they are called
+const members = [{ id: 'chief', name: 'Chefe', title: 'Chefe', lead: true }, { id: 'ana', name: 'Ana', title: 'Docs' }, { id: 'bruno', name: 'Bruno', title: 'Prazos' }];
 const st2 = { subagents: [{ id: 'r1', title: 'organizar', status: 'running', specialist: 'ana' }, { id: 'r2', title: 'solto', status: 'running' }, { id: 'r3', title: 'fantasma', status: 'running', specialist: 'ghost' }] };
 let tp = Office.buildPets(st2, [{ id: 'l1', title: 'peca', specialist: 'bruno' }, { id: 'l2', title: 'resumo' }], false, members);
 const by = Object.fromEntries(tp.map((p) => [p.id, p.state]));
@@ -45,19 +45,31 @@ assert.strictEqual(tp[0].id, 'S:chief', 'the chief stands first');
 assert.ok(tp.some((p) => p.id === 'T:r3'), 'a job of someone no longer on the team still shows');
 assert.strictEqual(tp.find((p) => p.id === 'S:chief').taskId, 'l2');
 tp = Office.buildPets({ subagents: [] }, [], false, members);
-assert.deepStrictEqual(tp.map((p) => p.state), ['idle', 'idle', 'idle'], 'an idle team is still on the bar');
+assert.deepStrictEqual(tp.map((p) => p.id + ':' + p.state), ['S:chief:idle'], 'an idle team: only the orchestrators are on the bar');
+tp = Office.buildPets({ subagents: [{ id: 'r9', title: 'x', status: 'running', specialist: 'ana' }] }, [], false, members);
+assert.deepStrictEqual(tp.map((p) => p.id), ['S:chief', 'S:ana'], 'a specialist appears when called');
+tp = Office.buildPets({ subagents: [] }, [], false, members, new Set(['ana']));
+assert.deepStrictEqual(tp.map((p) => p.id), ['S:chief', 'S:ana'], 'and lingers a moment after finishing');
+tp = Office.buildPets({ subagents: [{ id: 'w1', title: 'coordena', status: 'waiting', specialist: 'chief' }] }, [], false, members);
+assert.strictEqual(tp[0].state, 'working', 'an orchestrator waiting for its team is working');
+tp = Office.buildPets({ subagents: [] }, [], false, [...members.slice(0, 2), { id: 'fixo', name: 'Fixo', pinned: true }, { id: 'lider', name: 'Lia', lead: true }]);
+assert.deepStrictEqual(tp.map((p) => p.id), ['S:chief', 'S:lider', 'S:fixo'], 'chief, then orchestrators, then pinned');
 assert.ok(Office.buildPets(state, [], false, []).some((p) => p.id === 'A:a'), 'without a team it falls back to the old characters');
 
 // the ready-made pack: 16 valid specialists, every rule the server enforces already holds
 const Pack = require('../renderer/pack-previdenciario.js'), Sprites = require('../renderer/sprites.js');
 assert.strictEqual(Pack.members.length, 16);
-assert.strictEqual(new Set(Pack.members.map((m) => m.name)).size, 16, 'names are unique');
-for (const m of Pack.members) {
+assert.strictEqual(Pack.leads.length, 5, 'five orchestrators');
+const leadKeys = new Set(Pack.leads.map((l) => l.key));
+for (const m of Pack.members) assert.ok(leadKeys.has(m.team), 'every specialist belongs to a team: ' + m.name);
+for (const l of Pack.leads) assert.ok(Pack.members.some((m) => m.team === l.key), 'every orchestrator has a team: ' + l.name);
+assert.strictEqual(new Set([...Pack.members, ...Pack.leads].map((m) => m.name)).size, 21, 'names are unique');
+for (const m of [...Pack.members, ...Pack.leads]) {
   assert.ok(m.name.length >= 1 && m.name.length <= 40 && m.title.length <= 60, 'name/title limits: ' + m.name);
   assert.ok(m.instructions.length > 80 && m.instructions.length <= 6000, 'instructions size: ' + m.name);
   assert.ok(['m', 'f'].includes(m.gender));
   assert.ok((m.gender === 'f' ? Sprites.STYLE_F : Sprites.STYLE_M).includes(m.look.style), 'hair style fits the gender: ' + m.name);
-  assert.ok(m.look.prop >= 0 && m.look.prop <= 4);
+  assert.ok(m.look.prop == null || (m.look.prop >= 0 && m.look.prop <= 4));
   for (const k of ['hair', 'skin', 'suit']) assert.ok(/^#[0-9a-fA-F]{6}$/.test(m.look[k]), k + ' colour: ' + m.name);
   assert.ok(!/senha|login/i.test(m.instructions) || /nunca|não|nao/i.test(m.instructions), 'no specialist is told to log in: ' + m.name);
 }

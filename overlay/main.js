@@ -139,7 +139,7 @@ function rebuildTray() {
   ]));
 }
 function togglePets() {
-  cfg.hidden = !cfg.hidden; saveCfg({});
+  cfg.hidden = !cfg.hidden; saveCfg({}); // saveCfg also tells the panel, so its button follows
   if (overlay) cfg.hidden ? overlay.hide() : overlay.showInactive();
 }
 
@@ -171,6 +171,7 @@ ipcMain.on('click-through', (_e, through) => {
 ipcMain.on('broadcast', (_e, evt) => { if (overlay && !overlay.isDestroyed()) overlay.webContents.send('event', evt); });
 ipcMain.on('open-panel', (_e, opts) => openPanel(opts || {}));
 ipcMain.on('quit', () => app.quit());
+ipcMain.on('toggle-pets', () => togglePets());
 ipcMain.on('open-farm', () => shell.openExternal(cfg.url));
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -181,6 +182,7 @@ app.whenReady().then(async () => {
   try {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
     tray.on('click', () => openPanel({ tab: 'approvals' }));
+    tray.on('double-click', () => togglePets());
     rebuildTray();
   } catch (_) { /* no tray icon: the characters still work */ }
   await refreshTaskbar();

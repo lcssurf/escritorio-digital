@@ -24,7 +24,7 @@
       api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => cfg,
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json')).json(), en: await (await fetch('../i18n/en.json')).json() }),
-      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, quit() {}, broadcast() {},
+      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, quit() {}, togglePets() {}, broadcast() {},
     };
   }
 
@@ -243,7 +243,9 @@
       h('div', { class: 'field' }, h('label', {}, tr('settings.height')), heightRow, h('div', { class: 'note' }, tr('settings.heightHint'))),
       h('div', { class: 'stack' },
         h('button', { class: 'btn ghost', onclick: () => office.openFarm() }, tr('settings.openfarm')),
-        h('button', { class: 'btn danger', onclick: () => office.quit() }, tr('settings.quit'))));
+        h('button', { class: 'btn ghost', onclick: () => office.togglePets() }, tr(cfg.hidden ? 'settings.show' : 'settings.hide')),
+        h('button', { class: 'btn danger', onclick: () => office.quit() }, tr('settings.exit')),
+        h('div', { class: 'note' }, tr('settings.trayhint'))));
   }
 
   function render() {

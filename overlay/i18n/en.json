@@ -67,7 +67,6 @@
   "settings.save": "Save",
   "settings.saved": "Saved.",
   "settings.openfarm": "Open technical dashboard",
-  "settings.quit": "Quit overlay",
   "ev.task.added": "New job: {t}",
   "ev.task.done": "Done: {t}",
   "ev.task.failed": "Failed: {t}",
@@ -86,5 +85,9 @@
   "tray.quit": "Quit",
   "settings.height": "Fine-tune height",
   "settings.heightHint": "The taskbar height is detected automatically. Only use this to correct it.",
-  "settings.auto": "Automatic"
+  "settings.auto": "Automatic",
+  "settings.hide": "Hide characters",
+  "settings.show": "Show characters",
+  "settings.exit": "Quit the app",
+  "settings.trayhint": "The characters disappear, but the icon stays in the Windows tray (near the clock). Click it to come back. If you don't see it, check the ^ arrow."
 }

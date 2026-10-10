@@ -67,7 +67,6 @@
   "settings.save": "Salvar",
   "settings.saved": "Salvo.",
   "settings.openfarm": "Abrir painel técnico",
-  "settings.quit": "Fechar overlay",
   "ev.task.added": "Novo trabalho: {t}",
   "ev.task.done": "Concluído: {t}",
   "ev.task.failed": "Falhou: {t}",
@@ -86,5 +85,9 @@
   "tray.quit": "Sair",
   "settings.height": "Ajuste fino da altura",
   "settings.heightHint": "A altura da barra é detectada sozinha. Use só se precisar corrigir.",
-  "settings.auto": "Automático"
+  "settings.auto": "Automático",
+  "settings.hide": "Esconder bonecos",
+  "settings.show": "Mostrar bonecos",
+  "settings.exit": "Sair do programa",
+  "settings.trayhint": "Os bonecos somem, mas o ícone continua na bandeja do Windows (perto do relógio). Clique nele para voltar. Se não aparecer, procure na seta ^."
 }

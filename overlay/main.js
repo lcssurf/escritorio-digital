@@ -1,12 +1,12 @@
 // Escritório Digital overlay: little office workers standing on the Windows taskbar.
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, nativeTheme, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
 const I18N = require('./i18n');
 
 const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.json') };
-const SCALE = 3, PET_H = 40 * SCALE, WIN_H = PET_H + 56; // pets plus room for the name tag
+const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 56; // pets plus room for the name tag
 const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm' };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
@@ -75,7 +75,7 @@ function createOverlay() {
 
 function openPanel(opts = {}) {
   const d = screen.getPrimaryDisplay();
-  const w = 380, h = 520;
+  const w = 420, h = 680;
   const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
   const y = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16);
   if (panel && !panel.isDestroyed()) {
@@ -86,11 +86,11 @@ function openPanel(opts = {}) {
   }
   panel = new BrowserWindow({
     x, y, width: w, height: h, frame: false, resizable: false, alwaysOnTop: true,
-    skipTaskbar: true, show: false, backgroundColor: '#1d1b26',
+    skipTaskbar: true, show: false, backgroundColor: nativeTheme.shouldUseDarkColors ? '#15131f' : '#f5f4fa',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
   });
   panel.setAlwaysOnTop(true, 'screen-saver');
-  panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { id: opts.id || '', tab: opts.tab || '' } });
+  panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { id: opts.id || '', tab: opts.tab === 'agent' ? 'team' : (opts.tab || '') } });
   panel.once('ready-to-show', () => panel.show());
   panel.on('blur', () => { if (panel && !panel.isDestroyed() && !panel.webContents.isDevToolsOpened()) panel.hide(); });
   panel.on('closed', () => { panel = null; });
@@ -134,6 +134,7 @@ ipcMain.handle('dicts', () => DICTS);
 ipcMain.on('click-through', (_e, through) => {
   if (overlay && !overlay.isDestroyed()) overlay.setIgnoreMouseEvents(!!through, { forward: true });
 });
+ipcMain.on('broadcast', (_e, evt) => { if (overlay && !overlay.isDestroyed()) overlay.webContents.send('event', evt); });
 ipcMain.on('open-panel', (_e, opts) => openPanel(opts || {}));
 ipcMain.on('quit', () => app.quit());
 ipcMain.on('open-farm', () => shell.openExternal(cfg.url));

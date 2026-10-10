@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('office', {
   openPanel: (opts) => ipcRenderer.send('open-panel', opts),
   openFarm: () => ipcRenderer.send('open-farm'),
   quit: () => ipcRenderer.send('quit'),
-  on: (channel, fn) => { if (['config', 'focus'].includes(channel)) ipcRenderer.on(channel, (_e, v) => fn(v)); },
+  broadcast: (evt) => ipcRenderer.send('broadcast', evt),
+  on: (channel, fn) => { if (['config', 'focus', 'event'].includes(channel)) ipcRenderer.on(channel, (_e, v) => fn(v)); },
 });

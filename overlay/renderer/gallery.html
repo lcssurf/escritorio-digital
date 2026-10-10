@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Galeria</title>
+<style>body{margin:0;background:linear-gradient(#6c8cc0 0 55%,#2a2a38 55%);font:12px monospace;color:#fff;padding:12px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.c{text-align:center}canvas{display:block;image-rendering:pixelated;width:168px;height:138px}</style></head>
+<body><div id="g"></div>
+<script src="sprites.js"></script>
+<script>
+const S = window.Sprites, g = document.getElementById('g');
+const states = ['walk','coffee','sofa','read','working','alert','cheer'];
+const seeds = ['ana','bruno','carla','davi'];
+const cvs = [];
+for (const seed of seeds) {
+  const row = document.createElement('div'); row.className = 'row';
+  for (const st of states) {
+    const d = document.createElement('div'); d.className = 'c';
+    const cv = document.createElement('canvas'); cv.width = S.W; cv.height = S.H;
+    d.append(cv, document.createTextNode(seed + ' ' + st)); row.append(d);
+    cvs.push({ cv, ctx: cv.getContext('2d'), look: S.look(seed), st });
+  }
+  g.append(row);
+}
+let f = Number(new URLSearchParams(location.search).get('f') || 0);
+function paint(){ for (const p of cvs) S.draw(p.ctx, p.look, p.st, p.st === 'walk' ? f : f, 1, f); }
+paint();
+if (!new URLSearchParams(location.search).has('f')) setInterval(() => { f++; paint(); }, 220);
+</script></body></html>

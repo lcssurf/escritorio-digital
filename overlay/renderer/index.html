@@ -5,17 +5,29 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
 <title>Escritório Digital</title>
 <style>
-  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; font-family: Consolas, "Courier New", monospace; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; font-family: "Segoe UI", system-ui, sans-serif; }
   #stage { position: absolute; inset: 0; }
-  .pet { position: absolute; bottom: 10px; cursor: pointer; }
-  .pet canvas { display: block; image-rendering: pixelated; width: 144px; height: 120px; }
-  .pet .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: -4px; white-space: nowrap;
-              background: rgba(20, 18, 28, .92); color: #fff; font-size: 12px; padding: 3px 7px; border-radius: 3px;
-              border: 1px solid #000; display: none; pointer-events: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .pet { position: absolute; bottom: 10px; cursor: pointer; transition: transform .12s ease; will-change: left; }
+  .pet canvas { display: block; image-rendering: pixelated; width: 168px; height: 138px; filter: drop-shadow(0 2px 0 rgba(0,0,0,.18)); }
+  .pet:hover { transform: translateY(-3px); }
+  .pet:hover canvas { filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
+  .pet.dragging { cursor: grabbing; transform: translateY(-6px); }
+  .pet.pop { animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes pop { from { opacity: 0; transform: translateY(-40px) scale(.7); } to { opacity: 1; transform: none; } }
+  .pet .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; min-width: 120px; max-width: 250px;
+              background: rgba(24, 22, 34, .94); color: #fff; padding: 6px 10px; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+              border: 1px solid rgba(255,255,255,.12); display: none; pointer-events: none; text-align: left; }
+  .pet .tag::after { content: ""; position: absolute; left: 50%; top: 100%; margin-left: -5px; border: 5px solid transparent; border-top-color: rgba(24,22,34,.94); }
   .pet:hover .tag, .pet.dragging .tag { display: block; }
-  .pet.alert .tag { display: block; background: #e03131; }
-  .pet .dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #868e96; }
-  .pet .dot.working { background: #37b24d; } .pet .dot.alert { background: #e03131; } .pet .dot.idle { background: #f08c00; }
+  .tag .l1 { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .tag .l2 { font-size: 11.5px; opacity: .78; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pet.alert .tag { display: block; background: #e5484d; border-color: #ff9b9e; }
+  .pet.alert .tag::after { border-top-color: #e5484d; }
+  .pet.alert:hover .tag { background: #cf3a3f; }
+  .pet.alert { animation: nudge 2.4s ease-in-out infinite; }
+  @keyframes nudge { 0%, 88%, 100% { transform: translateY(0); } 92% { transform: translateY(-5px); } 96% { transform: translateY(0); } }
+  .dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #868e96; vertical-align: 0; }
+  .dot.working { background: #30a46c; } .dot.alert { background: #fff; } .dot.idle { background: #f5a524; } .dot.offline { background: #868e96; }
 </style>
 </head>
 <body>

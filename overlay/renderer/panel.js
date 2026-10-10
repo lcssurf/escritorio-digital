@@ -104,6 +104,7 @@
     for (const id of ['team', 'approvals', 'new', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
   }
   function banner() {
+    if (cfg.hidden) return h('div', { class: 'banner' }, tr('banner.hidden'), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => office.togglePets() }, tr('settings.show')));
     if (offline) return h('div', { class: 'banner' }, tr('error.offline', { url: cfg.url || '' }));
     if (authErr) return h('div', { class: 'banner' }, tr('error.auth'));
     return null;

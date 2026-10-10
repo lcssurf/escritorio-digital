@@ -139,5 +139,6 @@
   "team.pack.text": "16 pre-configured specialists (benefits, deadlines, documents, drafting, review, schedule, finance and more) with the safety rules. You can edit each one afterwards.",
   "team.pack.install": "Install the full team",
   "team.pack.installing": "Installing...",
-  "team.pack.done": "{n} specialists added."
+  "team.pack.done": "{n} specialists added.",
+  "banner.hidden": "The characters are hidden."
 }

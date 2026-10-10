@@ -139,5 +139,6 @@
   "team.pack.text": "16 especialistas já configurados (INSS, prazos, documentos, peças, revisão, agenda, financeiro e mais), com as regras de segurança. Você pode editar cada um depois.",
   "team.pack.install": "Instalar a equipe completa",
   "team.pack.installing": "Instalando...",
-  "team.pack.done": "{n} especialistas adicionados."
+  "team.pack.done": "{n} especialistas adicionados.",
+  "banner.hidden": "Os bonecos estão escondidos."
 }

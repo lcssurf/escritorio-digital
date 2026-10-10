@@ -1,0 +1,11 @@
+# Rebuild only OUR code on top of an image that already has Claude Code, Node, Chromium and the rest.
+#   docker build -f Dockerfile.dev -t escritorio-digital:dev .
+# Use it when the full Dockerfile cannot reach the internet (a proxy or antivirus re-signing HTTPS breaks the Claude
+# Code download). The base must be an image made from the full Dockerfile (or the upstream clodfarm image).
+ARG BASE=escritorio-digital:dev
+FROM ${BASE}
+USER root
+COPY pyproject.toml README.md /src/
+COPY clodfarm /src/clodfarm
+RUN /opt/clodfarm/bin/pip install --no-cache-dir /src && rm -rf /src
+USER farm

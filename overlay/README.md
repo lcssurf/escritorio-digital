@@ -14,6 +14,10 @@ Os agentes do escritório aparecem como bonecos pequenos em pixel-art, em pé so
 - **Ícone da bandeja:** abrir painel, esconder os bonecos, sair.
 - **Idiomas:** português (Brasil) e inglês, trocáveis em Ajustes.
 
+## Equipe
+
+Você cria os **especialistas** (nome, função, gênero, aparência e instruções) na aba Equipe do painel, ou parte de um modelo pronto (Agenda, Documentos, Peças, Revisão, Prazos). Há sempre um **Chefe**, que recebe os pedidos e entrega cada parte ao especialista certo (`clodfarm spawn --specialist <id>`). Cada especialista é um boneco na barra, sempre presente: trabalhando, ocioso ou chamando você para aprovar. Todos trabalham sob as regras do escritório (sem dados reais, a IA rascunha, o advogado decide).
+
 ## Rodar
 
 Requisitos: Node 20+ e o escritório (container) rodando em `http://localhost:8080`.

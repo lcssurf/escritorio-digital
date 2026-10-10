@@ -1,11 +1,11 @@
-// Panel: team, approvals, new job, settings. Plain language, nothing technical. All farm text goes in with textContent.
+﻿// Panel: team, approvals, new job, settings. Plain language, nothing technical. All farm text goes in with textContent.
 (function () {
   const S = window.Sprites, O = window.Office;
   const q = new URLSearchParams(location.search);
   const mock = q.has('mock');
   let office = window.office, dicts = null, cfg = { lang: q.get('lang') || 'pt-BR', sound: true, url: 'http://localhost:8080', hasToken: true };
   let tab = q.get('tab') || '', focusId = q.get('id') || '';
-  let landings = [], farm = null, offline = false, authErr = false, lastSig = '';
+  let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
   const tr = (k, v) => I18N.make(dicts, cfg.lang)(k, v);
@@ -20,10 +20,14 @@
       subagents: [{ id: 'task-run1', title: 'Conferir prazos da semana (fictício)', status: 'running' }, { id: 'task-run2', title: 'Resumo do caso Exemplo', status: 'running' }],
       recent: [{ id: 'task-draft', title: 'Petição inicial (rascunho fictício)' }],
       events: [{ at: now - 40, type: 'landing.awaiting', task: 'task-draft', msg: '' }, { at: now - 400, type: 'task.added', task: 'task-run1', msg: 'task-run1 Conferir prazos da semana (fictício)' }, { at: now - 5000, type: 'task.done', task: 'task-docs', msg: 'x Organizar documentos' }] };
+    const M = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', instructions: 'Priorize prazos curtos.', look: { style: 'bun', suit: '#2f2f3a', glasses: true } },
+      { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', instructions: 'Organize documentos por tipo e caso.', look: { style: 'long', prop: 1 } },
+      { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', instructions: 'Vigie prazos.', look: { style: 'beard', prop: 4 } }];
+    L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
     return {
-      api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      api: async (m, p, b) => ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => cfg,
-      dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json')).json(), en: await (await fetch('../i18n/en.json')).json() }),
+      dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, quit() {}, togglePets() {}, broadcast() {},
     };
   }
@@ -59,16 +63,17 @@
 
   // ------------------------------------------------------------------ data
   async function refresh(force) {
-    const [ld, st] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state')]);
+    const [ld, st, tm] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state'), office.api('GET', '/api/team')]);
+    if (tm.ok && Array.isArray(tm.data)) members = tm.data;
     offline = !st.ok && st.status === 0;
     authErr = ld.status === 401 || ld.status === 403;
     landings = ld.ok && Array.isArray(ld.data) ? ld.data : [];
     farm = st.ok ? st.data : null;
-    const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), offline, authErr, [...confirmDeny], [...busy]]);
+    const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), members, offline, authErr, [...confirmDeny], [...busy]]);
     if (!force && sig === lastSig) return;
     lastSig = sig;
     if (!tab) tab = landings.length ? 'approvals' : 'team';
-    if (tab === 'new' || tab === 'settings') { renderChrome(); return; } // never wipe what is being typed
+    if (tab === 'new' || tab === 'settings' || editing) { renderChrome(); return; } // never wipe what is being typed
     render();
   }
   const tasksById = () => {
@@ -109,34 +114,43 @@
   }
 
   // ------------------------------------------------------------------ team
-  function agentRows() {
-    const rows = [];
-    const waiting = new Set(landings.map((l) => l.id));
-    for (const l of landings) rows.push({ id: l.id, seed: l.id, persona: O.persona(l.id), status: 'alert', task: l.title, taskId: l.id });
-    for (const s of ((farm && farm.subagents) || [])) if (s.status === 'running' && !waiting.has(s.id)) rows.push({ id: s.id, seed: s.id, persona: O.persona(s.id), status: 'working', task: s.title, taskId: s.id });
-    for (const a of ((farm && farm.agents) || [])) if (a.loggedIn !== false) {
-      const busy = Number(a.running || 0) > 0;
-      rows.push({ id: a.id, seed: a.id, persona: { name: a.name || a.id, role: 'chief' }, status: busy ? 'working' : 'idle', task: '', chief: true });
-    }
-    return rows;
+  const roleOf = (m) => m.title || (m.id === 'chief' ? tr('pet.chief') : '');
+  const memberOf = (id) => members.find((m) => m.id === (id || 'chief')) || null;
+  function memberStates() {   // what each member is doing right now, from the same logic as the characters on the bar
+    const pets = O.buildPets(farm, landings, false, members), out = new Map();
+    for (const p of pets) if (p.memberId) out.set(p.memberId, p);
+    return out;
+  }
+  function avatar(member, state) {
+    const cv = h('canvas', { width: S.W, height: S.H });
+    S.draw(cv.getContext('2d'), S.look(member.id, member), state || 'idle', 3, 1, 3);
+    return h('div', { class: 'avatar' }, cv);
   }
   function renderTeam() {
     const s = $('s-team'); clear(s);
+    if (editing) return renderEditor(s);
     const b = banner(); if (b) s.append(b);
     s.append(h('h2', {}, tr('team.title')));
-    const rows = agentRows();
-    if (!rows.length) s.append(h('div', { class: 'empty' }, tr('team.empty')));
-    for (const r of rows) {
-      const role = r.persona.role === 'chief' ? tr('pet.chief') : tr('role.' + r.persona.role);
+    const states = memberStates();
+    if (members.length <= 1) s.append(h('div', { class: 'intro' }, tr('team.intro')));
+    s.append(h('div', { class: 'addrow' }, h('button', { class: 'btn acc', onclick: () => startEdit(null) }, '+ ' + tr('team.new'))));
+    if (members.length <= 2) s.append(h('div', { class: 'label' }, tr('team.templates')),
+      h('div', { class: 'opts', style: 'margin-bottom:12px' }, (window.Templates[cfg.lang] || window.Templates.en).map((t) =>
+        h('button', { onclick: () => startEdit(null, t) }, t.name + ' · ' + t.title))));
+    for (const m of members) {
+      const p = states.get(m.id) || { status: 'idle', label: '' };
+      const open = focusId === m.id;
       const card = h('div', { class: 'card' });
-      const open = focusId === r.id;
-      const head = h('div', { class: 'agent', role: 'button', tabindex: '0', onclick: () => { focusId = open ? '' : r.id; renderTeam(); if (!open && r.taskId) loadDetail(r, card); } },
-        h('div', { class: 'avatar' }, sprite(r.seed, r.status === 'working' ? 'idle' : 'idle')),
-        h('div', { class: 'who' }, h('div', { class: 'name' }, r.persona.name, ' ', h('span', { class: 'role' }, r.persona.role === 'chief' ? '' : '· ' + role)),
-          h('div', { class: 'task' }, r.task || tr(r.status === 'idle' ? 'state.idle' : 'state.working'))),
-        h('span', { class: 'chip ' + r.status }, tr('state.' + r.status)));
-      card.append(head);
-      if (open) { card.append(h('div', { class: 'detail', id: 'd-' + r.id }, r.taskId ? '…' : tr('pet.chief'))); if (r.taskId) loadDetail(r, card); }
+      card.append(h('div', { class: 'agent', role: 'button', tabindex: '0', onclick: () => { focusId = open ? '' : m.id; renderTeam(); } },
+        avatar(m, 'idle'),
+        h('div', { class: 'who' }, h('div', { class: 'name' }, m.name, m.id === 'chief' ? h('span', { class: 'badge-chief' }, tr('team.chief')) : null,
+          roleOf(m) && m.id !== 'chief' ? h('span', { class: 'role' }, ' · ' + roleOf(m)) : null),
+          h('div', { class: 'task' }, p.label || tr(p.status === 'working' ? 'state.working' : p.status === 'alert' ? 'state.alert' : 'state.idle'))),
+        h('span', { class: 'chip ' + p.status }, tr('state.' + p.status))));
+      if (open) {
+        card.append(h('div', { class: 'detail' }, m.instructions || ''),
+          h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => startEdit(m) }, tr('team.edit'))));
+      }
       s.append(card);
     }
     s.append(h('h2', {}, tr('team.activity')));
@@ -149,12 +163,75 @@
       return h('li', {}, h('time', {}, ago(e.at, farm && farm.now)), h('span', { class: 't' }, tr('ev.' + e.type, { t })));
     })));
   }
-  async function loadDetail(r, card) {
-    const r2 = await office.api('GET', '/api/tasks/' + encodeURIComponent(r.taskId));
-    const el = card.querySelector('.detail'); if (!el) return;
-    const text = r2.ok && r2.data ? cleanSummary(r2.data.summary || r2.data.result) : '';
-    el.textContent = text || tr('team.noresult');
+
+  // ------------------------------------------------------------------ team editor
+  const PROPS = [0, 1, 2, 3, 4];
+  function startEdit(m, tpl) {
+    const base = m ? JSON.parse(JSON.stringify(m)) : tpl ? { name: tpl.name, title: tpl.title, gender: tpl.gender, instructions: tpl.instructions, look: { ...tpl.look } }
+      : { name: '', title: '', gender: 'f', instructions: '', look: { style: 'long', prop: 0, hair: '#5b3a29', skin: '#e8b685', suit: '#3e5483' } };
+    base.look = base.look || {};
+    editing = { id: m ? m.id : null, data: base, confirm: false, saving: false };
+    render();
   }
+  function renderEditor(s) {
+    const e = editing, d = e.data, isChief = e.id === 'chief';
+    const look = () => S.look(e.id || 'novo', d);
+    const preview = h('canvas', { width: S.W, height: S.H });
+    S.draw(preview.getContext('2d'), look(), 'idle', 3, 1, 3);
+    const stylesNow = () => (d.gender === 'f' ? S.STYLE_F : S.STYLE_M);
+    const keepScroll = () => { const m = document.querySelector('main'), y = m.scrollTop; renderTeam(); m.scrollTop = y; };
+    const swatches = (key, list) => h('div', { class: 'sw' }, list.map((c) =>
+      h('button', { style: 'background:' + c, 'aria-label': c, class: (d.look[key] || look()[key]) === c ? 'on' : '', onclick: () => { d.look[key] = c; keepScroll(); } })));
+    const field = (label, control, hint) => h('div', { class: 'field' }, h('label', {}, label), control, hint ? h('div', { class: 'note' }, hint) : null);
+    const name = h('input', { type: 'text', value: d.name || '', maxlength: '40', oninput: (ev) => { d.name = ev.target.value; } });
+    const title = h('input', { type: 'text', value: d.title || '', maxlength: '60', placeholder: tr('edit.rolehint'), oninput: (ev) => { d.title = ev.target.value; } });
+    const cnt = h('div', { class: 'count' }, (d.instructions || '').length + ' / 6000');
+    const instr = h('textarea', { maxlength: '6000', style: 'height:150px', oninput: (ev) => { d.instructions = ev.target.value; cnt.textContent = d.instructions.length + ' / 6000'; } });
+    instr.value = d.instructions || '';
+    const seg = h('div', { class: 'seg' }, [['f', 'gender.f'], ['m', 'gender.m']].map(([v, k]) =>
+      h('button', { class: d.gender === v ? 'on' : '', onclick: () => { d.gender = v; if (!stylesNow().includes(d.look.style)) d.look.style = stylesNow()[0]; keepScroll(); } }, tr(k))));
+    const styleOpts = h('div', { class: 'opts' }, stylesNow().map((st) => h('button', { class: (d.look.style || look().style) === st ? 'on' : '', onclick: () => { d.look.style = st; keepScroll(); } }, tr('style.' + st))));
+    const propOpts = h('div', { class: 'opts' }, PROPS.map((k) => h('button', { class: (d.look.prop != null ? d.look.prop : look().role) === k ? 'on' : '', onclick: () => { d.look.prop = k; keepScroll(); } }, tr('prop.' + k))));
+    const glassBox = h('input', { type: 'checkbox', onchange: (ev) => { d.look.glasses = ev.target.checked; keepScroll(); } });
+    glassBox.checked = d.look.glasses != null ? !!d.look.glasses : look().glasses;
+    const glasses = h('label', { class: 'switch' }, glassBox, tr('edit.glasses'));
+    const save = h('button', { class: 'btn acc', disabled: e.saving, onclick: async () => {
+      if (!String(d.name || '').trim()) { toast(tr('edit.err', { why: tr('edit.name') }), true); return; }
+      e.saving = true;
+      const r = await office.api('POST', '/api/team', { ...d, id: e.id || undefined });
+      e.saving = false;
+      if (r.ok) { editing = null; toast(tr('edit.saved')); await refresh(true); }
+      else toast(tr('edit.err', { why: (r.data && r.data.error) || r.error || r.status }), true);
+    } }, tr('edit.save'));
+    let del = null;
+    if (!isChief && e.id) {
+      del = e.confirm
+        ? h('div', { class: 'confirm' }, h('p', {}, tr('edit.confirmdelete')), h('div', { class: 'actions' },
+          h('button', { class: 'btn ghost', onclick: () => { e.confirm = false; keepScroll(); } }, tr('edit.cancel')),
+          h('button', { class: 'btn danger', onclick: async () => {
+            const r = await office.api('POST', '/api/team/' + encodeURIComponent(e.id) + '/delete', {});
+            if (r.ok) { editing = null; toast(tr('edit.removed')); await refresh(true); } else toast(tr('edit.err', { why: (r.data && r.data.error) || r.status }), true);
+          } }, tr('edit.yes'))))
+        : h('button', { class: 'btn danger', style: 'margin-top:12px', onclick: () => { e.confirm = true; keepScroll(); } }, tr('edit.delete'));
+    }
+    s.append(
+      h('div', { class: 'backrow' }, h('button', { onclick: () => { editing = null; render(); } }, '‹ ' + tr('nav.team')),
+        h('h2', { style: 'margin:0' }, tr(isChief ? 'edit.title.chief' : e.id ? 'edit.title.edit' : 'edit.title.new'))),
+      h('div', { class: 'preview' }, preview),
+      field(tr('edit.name'), name),
+      isChief ? null : field(tr('edit.role'), title),
+      field(tr('edit.gender'), seg),
+      h('h2', {}, tr('edit.look')),
+      field(tr('edit.hairstyle'), styleOpts),
+      field(tr('edit.haircolor'), swatches('hair', S.HAIRS)),
+      field(tr('edit.skin'), swatches('skin', S.SKINS)),
+      field(tr('edit.suit'), swatches('suit', S.SUITS)),
+      h('div', { class: 'field' }, glasses),
+      isChief ? null : field(tr('edit.prop'), propOpts),
+      field(tr('edit.instr'), h('div', {}, instr, cnt), tr(isChief ? 'edit.chiefhint' : 'edit.instrhint')),
+      h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { editing = null; render(); } }, tr('edit.cancel')), save), del, h('div', { class: 'pad' }));
+  }
+
 
   // ------------------------------------------------------------------ approvals
   function renderApprovals() {
@@ -167,12 +244,12 @@
       return;
     }
     for (const l of landings) {
-      const p = O.persona(l.id), role = tr('role.' + p.role);
+      const mm = memberOf(l.specialist), p = mm ? { name: mm.name } : O.persona(l.id), role = mm ? roleOf(mm) : tr('role.' + O.persona(l.id).role);
       const files = (l.files || []).map((f) => { const [k, ...rest] = f.split('\t'); return { k: /^[AMD]/.test(k) ? k[0] : 'M', name: rest.join('\t') || f }; });
       const busyNow = busy.has(l.id);
       const card = h('div', { class: 'card review' },
         h('h3', {}, l.title || l.id),
-        h('div', { class: 'by' }, tr('approvals.by', { name: p.name, role })),
+        h('div', { class: 'by' }, tr('approvals.by', { name: p.name, role: role || tr('pet.chief') })),
         h('div', { class: 'label' }, tr('approvals.what')),
         h('div', { class: 'said' }, cleanSummary(l.summary) || tr('team.noresult')),
         files.length ? [h('div', { class: 'label' }, tr('approvals.changes')),
@@ -196,7 +273,7 @@
     busy.delete(l.id); confirmDeny.delete(l.id);
     if (r.ok) {
       toast(tr(kind === 'approve' ? 'approvals.done' : 'approvals.denied'));
-      if (kind === 'approve' && office.broadcast) office.broadcast({ type: 'approved', id: l.id });
+      if (kind === 'approve' && office.broadcast) office.broadcast({ type: 'approved', id: l.id, specialist: l.specialist || 'chief' });
     } else toast(tr('approvals.failed', { why: (r.data && r.data.error) || r.error || r.status }), true);
     await refresh(true);
   }
@@ -206,17 +283,19 @@
     const s = $('s-new'); clear(s);
     const b = banner(); if (b) s.append(b);
     s.append(h('h2', {}, tr('job.title')), h('div', { class: 'sub' }, tr('job.sub')));
+    const who = h('select', { 'aria-label': tr('job.who') }, h('option', { value: 'chief' }, tr('job.chief')),
+      members.filter((m) => m.id !== 'chief').map((m) => h('option', { value: m.id }, m.name + (m.title ? ' · ' + m.title : ''))));
     const ta = h('textarea', { placeholder: tr('job.placeholder'), 'aria-label': tr('job.title') });
     const chips = h('div', { class: 'chips' }, ['docs', 'draft', 'deadlines', 'summary'].map((k) =>
       h('button', { onclick: () => { ta.value = tr('job.chip.' + k) + ' - '; ta.focus(); } }, tr('job.chip.' + k))));
     const go = h('button', { class: 'btn acc', onclick: async () => {
       const text = ta.value.trim(); if (!text) { ta.focus(); return; }
       go.disabled = true;
-      const r = await office.api('POST', '/api/tasks/new', { title: text.split('\n')[0].slice(0, 120), prompt: text });
+      const r = await office.api('POST', '/api/tasks/new', { title: text.split('\n')[0].slice(0, 120), prompt: text, specialist: who.value });
       go.disabled = false;
       if (r.ok) { ta.value = ''; toast(tr('job.sent')); refresh(true); } else toast((r.data && r.data.error) || r.error || String(r.status), true);
     } }, tr('job.send'));
-    s.append(ta, chips, h('div', { class: 'actions', style: 'margin-top:0' }, go), h('div', { class: 'note' }, tr('job.safety')));
+    s.append(h('div', { class: 'field' }, h('label', {}, tr('job.who')), who), ta, chips, h('div', { class: 'actions', style: 'margin-top:0' }, go), h('div', { class: 'note' }, tr('job.safety')));
   }
 
   // ------------------------------------------------------------------ settings

@@ -48,7 +48,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, boards, boot, bots, browser, connectors, dashboards, gitops, planner, policy, scrub, sso
+from . import __version__, boards, boot, bots, browser, connectors, dashboards, gitops, planner, policy, scrub, sso, team
 from . import mcp
 from .agents import AgentManager, room_note
 from .slack import SlackBridge
@@ -204,7 +204,7 @@ def _from(seen: dict | None) -> str:
 def _public_task(t: dict, full: bool = False, summary: bool = True) -> dict:
     keep = ["id", "title", "status", "priority", "kind", "parent", "children", "depth", "created", "updated",
             "started", "finished", "attempts", "max_attempts", "worker", "branch", "created_by", "children_open", "owner",
-            "to"]
+            "to", "specialist"]
     out = {k: t.get(k) for k in keep if t.get(k) is not None}
     if t.get("approval"):
         out["approval"] = {k: t["approval"].get(k) for k in ("asked_at", "from", "expires_at", "decided_by", "ok")
@@ -228,6 +228,7 @@ class FarmUI:
         self.oauth = mcp.OAuthStore(mcp.oauth_path(cfg.workspace))
         self.browsers = browser.Browsers(cfg.workspace)  # the farm's Chromium profiles: BROWSER on the farm, /browser
         self.stopping = threading.Event()
+        self.team = team.Team(os.path.join(cfg.workspace, ".farm", "team.json"))
         self.overlay_token()  # make the desktop overlay's secret now, so the install can read it
         self._state_cache: tuple[float, dict] | None = None
         self._views: dict[str, tuple[float, bytes, str]] = {}  # per viewer kind: (at, JSON, ETag)
@@ -266,6 +267,7 @@ class FarmUI:
                 continue
             out.append({"id": t["id"], "title": t.get("title"), "branch": t.get("landing_branch"),
                         "commits": t.get("landing_ahead"), "at": t.get("landing_at"), "owner": t.get("owner"),
+                        "specialist": t.get("specialist"),
                         "summary": (t.get("result") or "")[:1500],
                         "files": gitops.changed_files(self.cfg.repo_dir, t.get("landing_branch") or "")})
         return sorted(out, key=lambda x: float(x.get("at") or 0))
@@ -1144,6 +1146,10 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a Claude's person approves its missions")
                     return self._json(self._approvals(who))
+                if path == "/api/team":  # the office's team: the chief and the specialists
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm sees the team")
+                    return self._json(ui.team.all())
                 if path == "/api/landings":  # finished work waiting for a person's OK
                     if not (who.manager or who.owner):
                         return self._err(403, "only a person of this farm approves work")
@@ -1479,14 +1485,31 @@ def make_handler(ui: FarmUI):
                     raise
                 store.event("owner.account", f"{who.owner}'s person set a username to sign in with", by="ui")
                 return self._json({"username": acct[0]})
+            if path == "/api/team" or re.fullmatch(r"/api/team/[a-z0-9-]{1,31}(/delete)?", path):
+                if not who.manager:
+                    return self._err(403, "only the farm's person manages the team")
+                parts = path.split("/")
+                try:
+                    if path == "/api/team":
+                        ui.team.upsert(data, str(data.get("id") or "") or None)
+                    elif parts[-1] == "delete":
+                        ui.team.delete(parts[3])
+                    else:
+                        ui.team.upsert(data, parts[3])
+                except team.TeamError as e:
+                    raise ValueError(str(e)) from e
+                return self._json(ui.team.all())
             if path == "/api/tasks/new":  # the desktop overlay hands the office a job
                 if not who.manager:
                     return self._err(403, "only the farm's person hands out jobs from here")
                 title = str(data.get("title") or "").strip()[:300]
                 if not title:
                     raise ValueError("give the job a title")
+                spec = str(data.get("specialist") or team.CHIEF)  # no one named: the chief decides who does what
+                if not ui.team.get(spec):
+                    raise ValueError("no such team member")
                 t = store.add_task(title, str(data.get("prompt") or title)[:20000], created_by="overlay",
-                                   owner=ui.cfg.name)
+                                   owner=ui.cfg.name, specialist=spec)
                 return self._json({"id": t["id"]})
             m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/(approve|deny)", path)
             if m:

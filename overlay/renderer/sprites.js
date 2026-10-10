@@ -21,11 +21,18 @@
     const f = (v) => Math.max(0, Math.min(255, Math.round(v * k)));
     return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, '0')).join('');
   }
-  function look(seed) {
+  const STYLE_M = ['short', 'side', 'beard'], STYLE_F = ['long', 'bun', 'pony'];
+  // seed: any string (stable look from its hash); spec: a team member {gender, look:{skin,hair,suit,style,glasses,prop}}
+  function look(seed, spec) {
     const h = hash(String(seed)), pick = (arr, n) => arr[(h >>> n) % arr.length];
-    const skin = pick(SKINS, 0), hair = pick(HAIRS, 3), suit = pick(SUITS, 6);
-    return { skin, skinD: shade(skin, 0.86), hair, hairL: shade(hair, 1.3), suit, suitD: shade(suit, 0.76), suitL: shade(suit, 1.18),
-             tie: pick(TIES, 9), long: ((h >>> 12) % 3) === 0, glasses: ((h >>> 15) % 4) === 0, role: (h >>> 18) % ROLES.length,
+    const o = (spec && spec.look) || {};
+    const gender = (spec && spec.gender) || (((h >>> 24) & 1) ? 'f' : 'm');
+    const skin = o.skin || pick(SKINS, 0), hair = o.hair || pick(HAIRS, 3), suit = o.suit || pick(SUITS, 6);
+    const styles = gender === 'f' ? STYLE_F : STYLE_M;
+    const style = o.style && styles.includes(o.style) ? o.style : pick(styles, 12);
+    return { gender, style, skin, skinD: shade(skin, 0.86), hair, hairL: shade(hair, 1.3), suit, suitD: shade(suit, 0.76), suitL: shade(suit, 1.18),
+             tie: pick(TIES, 9), blouse: shade(pick(TIES, 9), 1.35), glasses: o.glasses != null ? !!o.glasses : ((h >>> 15) % 4) === 0,
+             role: o.prop != null ? o.prop : (h >>> 18) % ROLES.length, badge: !!(spec && spec.id === 'chief'),
              pants: '#2b2b3a', pantsD: '#21212d' };
   }
   const R = (c, col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
@@ -33,33 +40,54 @@
   // ---------------------------------------------------------------- body parts
   function head(c, L, x, hy, o) {
     o = o || {};
-    if (L.long) { R(c, L.hair, x - 6, hy - 16, 3, 12); R(c, L.hairL, x - 6, hy - 16, 1, 12); }
+    const f = L.gender === 'f';
+    // hair behind the head
+    if (L.style === 'long') { R(c, L.hair, x - 6, hy - 17, 3, 14); R(c, L.hairL, x - 6, hy - 17, 1, 14); R(c, L.hair, x + 5, hy - 17, 2, 9); }
+    if (L.style === 'pony') { R(c, L.hair, x - 7, hy - 17, 3, 4); R(c, L.hair, x - 8, hy - 14, 2, 8); R(c, L.hairL, x - 8, hy - 14, 1, 7); }
     R(c, L.skinD, x - 1, hy - 10, 3, 2);                                   // neck
     R(c, L.skin, x - 3, hy - 17, 9, 8);                                    // face
     R(c, L.skinD, x - 3, hy - 11, 9, 1);                                   // jaw shade
     R(c, L.hair, x - 5, hy - 20, 12, 4); R(c, L.hairL, x - 3, hy - 20, 6, 1);   // hair top
     R(c, L.hair, x - 5, hy - 17, 3, 7);                                    // back hair
     R(c, L.hair, x - 3, hy - 17, 9, 1);                                    // fringe
+    if (L.style === 'bun') { R(c, L.hair, x - 4, hy - 24, 6, 4); R(c, L.hairL, x - 3, hy - 24, 3, 1); }
+    if (L.style === 'side') { R(c, L.hair, x + 1, hy - 21, 6, 2); R(c, L.hairL, x + 2, hy - 21, 3, 1); R(c, L.skinD, x + 2, hy - 17, 1, 1); }
+    if (L.style === 'beard') { R(c, L.hair, x - 3, hy - 13, 2, 3); R(c, L.hair, x - 3, hy - 10, 9, 1); R(c, L.hair, x + 5, hy - 13, 1, 3); }
     // eyes (looking right), blink / happy / closed
     const ex = x + 1;
     if (o.closed) { R(c, '#2a2230', ex, hy - 13, 2, 1); R(c, '#2a2230', ex + 3, hy - 13, 2, 1); }
     else if (o.happy) { R(c, '#2a2230', ex, hy - 14, 1, 1); R(c, '#2a2230', ex + 1, hy - 13, 1, 1); R(c, '#2a2230', ex + 3, hy - 14, 1, 1); R(c, '#2a2230', ex + 4, hy - 13, 1, 1); }
     else if (o.blink) { R(c, '#2a2230', ex, hy - 13, 2, 1); R(c, '#2a2230', ex + 3, hy - 13, 2, 1); }
     else { R(c, '#fff', ex, hy - 14, 2, 3); R(c, '#fff', ex + 3, hy - 14, 2, 3); R(c, '#2a2230', ex + 1, hy - 14, 1, 3); R(c, '#2a2230', ex + 4, hy - 14, 1, 3); }
+    if (f && !o.closed) { R(c, '#2a2230', ex, hy - 15, 2, 1); R(c, '#2a2230', ex + 3, hy - 15, 3, 1); }   // lashes
     if (L.glasses) { R(c, '#2a2230', ex - 1, hy - 15, 4, 1); R(c, '#2a2230', ex + 2, hy - 15, 4, 1); R(c, '#2a2230', ex - 1, hy - 12, 4, 1); R(c, '#2a2230', ex + 2, hy - 12, 4, 1); }
-    R(c, o.open ? '#7a3535' : '#b86a6a', x + 2, hy - 11, o.happy || o.open ? 3 : 2, 1);   // mouth
+    R(c, f ? (o.open ? '#9a2f3f' : '#d0606a') : (o.open ? '#7a3535' : '#b86a6a'), x + 2, hy - 11, o.happy || o.open ? 3 : 2, 1);   // mouth
     R(c, '#f2a0a0', x, hy - 12, 1, 1);                                     // cheek
   }
   function torso(c, L, x, hy) {
-    R(c, L.suit, x - 4, hy - 9, 9, 9);
-    R(c, L.suitD, x - 4, hy - 9, 2, 9);
-    R(c, L.suitL, x + 3, hy - 9, 1, 9);
-    R(c, '#f4f4f8', x, hy - 9, 3, 4);                                      // shirt
-    R(c, L.tie, x + 1, hy - 8, 1, 6); R(c, shade(L.tie, 0.8), x + 1, hy - 3, 1, 1);
-    R(c, '#1b1824', x - 4, hy - 1, 9, 1);                                  // belt
+    if (L.gender === 'f') {
+      R(c, L.suit, x - 4, hy - 9, 9, 6); R(c, L.suit, x - 3, hy - 3, 7, 3);               // blazer, waist
+      R(c, L.suitD, x - 4, hy - 9, 2, 6); R(c, L.suitD, x - 3, hy - 3, 1, 3); R(c, L.suitL, x + 3, hy - 9, 1, 6);
+      R(c, L.blouse, x, hy - 9, 3, 3); R(c, '#fff', x + 1, hy - 9, 1, 2);                  // blouse V
+      R(c, '#1b1824', x - 3, hy - 1, 7, 1);
+    } else {
+      R(c, L.suit, x - 4, hy - 9, 9, 9);
+      R(c, L.suitD, x - 4, hy - 9, 2, 9);
+      R(c, L.suitL, x + 3, hy - 9, 1, 9);
+      R(c, '#f4f4f8', x, hy - 9, 3, 4);                                    // shirt
+      R(c, L.tie, x + 1, hy - 8, 1, 6); R(c, shade(L.tie, 0.8), x + 1, hy - 3, 1, 1);
+      R(c, '#1b1824', x - 4, hy - 1, 9, 1);                                // belt
+    }
+    if (L.badge) { R(c, '#f5c542', x - 3, hy - 7, 3, 3); R(c, '#b8860b', x - 3, hy - 4, 3, 1); R(c, '#fff3b0', x - 2, hy - 6, 1, 1); }   // the chief's badge
   }
   function legsStand(c, L, x, hy, offFar, offNear) {
     const len = FY - 2 - hy;
+    if (L.gender === 'f') {
+      R(c, L.suitD, x - 4, hy, 9, 4); R(c, L.suit, x - 4, hy, 9, 1);                      // skirt
+      R(c, L.skinD, x - 2 + offFar, hy + 4, 2, len - 4); R(c, '#1b1824', x - 3 + offFar, FY - 2, 4, 2);
+      R(c, L.skin, x + 1 + offNear, hy + 4, 2, len - 4); R(c, '#1b1824', x + offNear, FY - 2, 4, 2);
+      return;
+    }
     R(c, L.pantsD, x - 3 + offFar, hy, 3, len); R(c, '#111018', x - 4 + offFar, FY - 2, 4, 2);
     R(c, L.pants, x + 1 + offNear, hy, 3, len); R(c, '#1b1824', x + 0 + offNear, FY - 2, 5, 2);
   }
@@ -99,7 +127,8 @@
     R(c, '#5b5d78', x - 8, hy - 9, 2, 12); R(c, '#4a4c64', x - 7, hy + 3, 10, 2);
     R(c, '#3c3e52', x - 3, hy + 5, 2, FY - hy - 6); R(c, '#3c3e52', x - 7, FY - 1, 10, 1);
     // legs sitting
-    R(c, L.pants, x - 3, hy, 8, 3); R(c, L.pants, x + 3, hy + 3, 3, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2);
+    if (L.gender === 'f') { R(c, L.suitD, x - 4, hy, 9, 3); R(c, L.skin, x + 3, hy + 3, 2, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2); }
+    else { R(c, L.pants, x - 3, hy, 8, 3); R(c, L.pants, x + 3, hy + 3, 3, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2); }
     // desk
     R(c, '#a8723a', x + 7, hy - 2, 21, 3); R(c, '#7a4f25', x + 7, hy + 1, 21, 1);
     R(c, '#7a4f25', x + 8, hy + 2, 3, FY - hy - 2); R(c, '#7a4f25', x + 24, hy + 2, 3, FY - hy - 2);
@@ -234,6 +263,6 @@
     ctx.restore();
   }
 
-  root.Sprites = { W, H, CX, ROLES, look, draw, hash, shade };
+  root.Sprites = { W, H, CX, ROLES, SKINS, HAIRS, SUITS, STYLE_M, STYLE_F, look, draw, hash, shade };
   if (typeof module === 'object' && module.exports) module.exports = root.Sprites;
 })(typeof self !== 'undefined' ? self : this);

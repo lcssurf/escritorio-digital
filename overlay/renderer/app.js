@@ -1,4 +1,4 @@
-// Overlay renderer: characters on the taskbar. Polls the farm through the main process (the key never touches this page).
+﻿// Overlay renderer: characters on the taskbar. Polls the farm through the main process (the key never touches this page).
 (function () {
   const S = window.Sprites, O = window.Office;
   const SCALE = 3, PW = S.W * SCALE, SPEED = 28; // px per second when walking
@@ -14,11 +14,15 @@
   function mockOffice() {
     const state = { agents: [{ id: 'clodfarm', name: 'Chefe', loggedIn: true, running: 1 }, { id: 'ana', name: 'Ana', loggedIn: true, running: 0 }, { id: 'rui', name: 'Rui', loggedIn: true, running: 0 }],
       subagents: [{ id: 'task-docs', title: 'Organizar documentos do caso Exemplo', status: 'running' }, { id: 'task-draft', title: 'Minuta da inicial (fictícia)', status: 'running' }] };
-    const landings = [{ id: 'l1', title: 'Petição inicial (rascunho)', commits: 2, at: Date.now() / 1000, files: ['A\tpeticao.md'] }];
+    const members = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', look: { style: 'bun', suit: '#2f2f3a', glasses: true } },
+      { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', look: { style: 'long', prop: 1 } }, { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', look: { style: 'beard', prop: 4 } },
+      { id: 'davi', name: 'Davi', title: 'Peças', gender: 'm', look: { style: 'side', prop: 2 } }, { id: 'elisa', name: 'Elisa', title: 'Revisão', gender: 'f', look: { style: 'pony', prop: 3 } }];
+    state.subagents = [{ id: 'r1', title: 'Organizar documentos do caso Exemplo', status: 'running', specialist: 'ana' }];
+    const landings = [{ id: 'l1', title: 'Petição inicial (rascunho)', commits: 2, at: Date.now() / 1000, specialist: 'davi', files: ['A	peticao.md'] }];
     return {
-      api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/state') ? state : p.startsWith('/api/landings') ? landings : {} }),
+      api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/state') ? state : p.startsWith('/api/landings') ? landings : p.startsWith('/api/team') ? members : {} }),
       getConfig: async () => ({ lang: params.get('lang') || 'pt-BR', sound: false }),
-      dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json')).json(), en: await (await fetch('../i18n/en.json')).json() }),
+      dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       clickThrough() {}, openPanel(o) { console.log('openPanel', JSON.stringify(o)); }, on() {},
     };
   }
@@ -37,7 +41,7 @@
     el.append(cv, tag);
     stage.append(el);
     const taken = [...pets.values()].map((q) => q.x);
-    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, look: S.look(spec.id), x: O.freeSlot(taken, 170, 70),
+    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, 170, 70),
           facing: 1, state: 'walk', mode: 'walk', modeUntil: 0, drawn: '', tagKey: '' };
     bindPet(p);
     pets.set(spec.id, p);
@@ -52,7 +56,9 @@
     for (const s of specs) {
       const p = ensurePet(s);
       if (p.cheerUntil > now) continue;
-      Object.assign(p, { kind: s.kind, taskId: s.taskId, agentId: s.agentId, status: s.status, label: s.label, persona: s.persona, want: s.state });
+      Object.assign(p, { kind: s.kind, taskId: s.taskId, agentId: s.agentId, memberId: s.memberId, status: s.status, label: s.label, persona: s.persona, want: s.state, count: s.count });
+      const lk = JSON.stringify(s.member || null);
+      if (lk !== p.lookKey) { p.lookKey = lk; p.look = S.look(s.id, s.member); p.drawn = ''; }   // the team member was edited
       p.el.classList.toggle('alert', s.state === 'alert');
     }
     const alerts = new Set(specs.filter((s) => s.state === 'alert').map((s) => s.id));
@@ -80,7 +86,7 @@
     });
     p.el.addEventListener('pointerup', () => {
       const d = down; down = null; p.dragging = false; p.el.classList.remove('dragging');
-      if (d && !d.moved) office.openPanel({ id: p.taskId || p.agentId || '', kind: p.kind, tab: p.kind === 'landing' ? 'approvals' : 'team', x: window.screenX + p.x + PW / 2 });
+      if (d && !d.moved) office.openPanel({ id: p.memberId || p.taskId || p.agentId || '', kind: p.kind, tab: p.want === 'alert' ? 'approvals' : 'team', x: window.screenX + p.x + PW / 2 });
     });
   }
 
@@ -101,20 +107,20 @@
 
   function who(p) {
     const ps = p.persona || { name: '', role: '' };
-    const role = ps.role === 'chief' ? tr('pet.chief') : ps.role ? tr('role.' + ps.role) : '';
-    return { name: ps.role === 'chief' ? (ps.name || tr('pet.chief')) : ps.name, role };
+    if (ps.role === 'member' || ps.role === 'chief') return { name: ps.name || tr('pet.chief'), role: ps.title || (ps.role === 'chief' ? tr('pet.chief') : '') };
+    return { name: ps.name, role: ps.role ? tr('role.' + ps.role) : '' };
   }
   function renderTag(p) {
-    const key = [cfg.lang, p.status, p.label, p.persona && p.persona.name, p.state].join('|');
+    const key = [cfg.lang, p.status, p.label, p.count, p.persona && p.persona.name, p.persona && p.persona.title, p.state].join('|');
     if (key === p.tagKey) return;
     p.tagKey = key;
     const w = who(p), tag = p.tag;
     tag.textContent = '';
     const dot = document.createElement('span'); dot.className = 'dot ' + (p.status || 'idle');
     const l1 = document.createElement('div'); l1.className = 'l1';
-    l1.append(dot, document.createTextNode(w.name + (w.role && p.persona.role !== 'chief' ? ' · ' + w.role : '')));
+    l1.append(dot, document.createTextNode(w.name + (w.role ? ' · ' + w.role : '')));
     const l2 = document.createElement('div'); l2.className = 'l2';
-    l2.textContent = p.status === 'alert' ? tr('tag.review') : p.status === 'working' && p.label ? p.label : tr('state.' + (p.status || 'idle'));
+    l2.textContent = p.status === 'alert' ? tr('tag.review') + (p.count > 1 ? ' (' + p.count + ')' : '') : p.status === 'working' && p.label ? p.label : tr('state.' + (p.status || 'idle'));
     tag.append(l1, l2);
   }
 
@@ -139,10 +145,11 @@
   }
 
   async function poll() {
-    const [st, ld] = await Promise.all([office.api('GET', '/api/state'), office.api('GET', '/api/landings')]);
+    const [st, ld, tm] = await Promise.all([office.api('GET', '/api/state'), office.api('GET', '/api/landings'), office.api('GET', '/api/team')]);
     offline = !st.ok && st.status === 0;
     const landings = ld.ok && Array.isArray(ld.data) ? ld.data : [];
-    applySpecs(O.buildPets(st.ok ? st.data : null, landings, offline));
+    const members = tm.ok && Array.isArray(tm.data) ? tm.data : null;
+    applySpecs(O.buildPets(st.ok ? st.data : null, landings, offline, members));
   }
 
   async function init() {
@@ -150,14 +157,14 @@
     dicts = await office.dicts();
     office.on('config', (c) => { cfg = c; });
     office.on('event', (e) => { // the panel tells us what the person decided: celebrate an approval
-      const p = e && e.type === 'approved' && pets.get('L:' + e.id);
+      const p = e && e.type === 'approved' && (pets.get('L:' + e.id) || pets.get('S:' + (e.specialist || 'chief')));
       if (p) { p.cheerUntil = performance.now() + 3600; p.el.classList.remove('alert'); p.status = 'working'; }
     });
     document.title = tr('app.name');
     await poll();
     setInterval(poll, 3000);
     requestAnimationFrame(frame);
-    if (mock && params.get('cheer')) setTimeout(() => { const p = pets.get('L:l1'); if (p) p.cheerUntil = performance.now() + 60000; }, 300);
+    if (mock && params.get('cheer')) setTimeout(() => { const p = pets.get('S:davi'); if (p) p.cheerUntil = performance.now() + 60000; }, 300);
   }
   init();
 })();

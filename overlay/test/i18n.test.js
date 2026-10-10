@@ -32,4 +32,19 @@ assert.ok(['walk', 'coffee', 'sofa', 'read'].includes(Office.nextIdleMode('walk'
 assert.deepStrictEqual(Office.persona('abc'), Office.persona('abc'), 'a persona is stable');
 assert.ok(Office.ROLES.includes(Office.persona('t1').role));
 assert.strictEqual(Office.buildPets(state, [], false).find((p) => p.id === 'T:t1').persona.name.length > 0, true);
+
+// a team: every member is always on the bar, the chief first
+const members = [{ id: 'chief', name: 'Chefe', title: 'Chefe' }, { id: 'ana', name: 'Ana', title: 'Docs' }, { id: 'bruno', name: 'Bruno', title: 'Prazos' }];
+const st2 = { subagents: [{ id: 'r1', title: 'organizar', status: 'running', specialist: 'ana' }, { id: 'r2', title: 'solto', status: 'running' }, { id: 'r3', title: 'fantasma', status: 'running', specialist: 'ghost' }] };
+let tp = Office.buildPets(st2, [{ id: 'l1', title: 'peca', specialist: 'bruno' }, { id: 'l2', title: 'resumo' }], false, members);
+const by = Object.fromEntries(tp.map((p) => [p.id, p.state]));
+assert.strictEqual(by['S:chief'], 'alert', 'a landing with no specialist belongs to the chief... (l2)');
+assert.strictEqual(by['S:ana'], 'working');
+assert.strictEqual(by['S:bruno'], 'alert');
+assert.strictEqual(tp[0].id, 'S:chief', 'the chief stands first');
+assert.ok(tp.some((p) => p.id === 'T:r3'), 'a job of someone no longer on the team still shows');
+assert.strictEqual(tp.find((p) => p.id === 'S:chief').taskId, 'l2');
+tp = Office.buildPets({ subagents: [] }, [], false, members);
+assert.deepStrictEqual(tp.map((p) => p.state), ['idle', 'idle', 'idle'], 'an idle team is still on the bar');
+assert.ok(Office.buildPets(state, [], false, []).some((p) => p.id === 'A:a'), 'without a team it falls back to the old characters');
 console.log('ok');

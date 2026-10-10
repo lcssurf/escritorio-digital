@@ -27,7 +27,7 @@ import sys
 import threading
 import time
 
-from . import awsapps, boot, dashboards, feed, gitops, notify, planner, procs, prompts
+from . import awsapps, boot, dashboards, feed, gitops, notify, planner, procs, prompts, team
 from .auth import (accept_remote_control, auth_status, banner, claude_name, install_browser_mcp, install_commands,
                    install_guide,
                    install_hooks, install_messaging, install_mod, install_model, seat_id, trust_directory)
@@ -773,6 +773,8 @@ class Farm:
         # its session name carries its id, so other Claudes find it in ListAgents and message it with SendMessage
         name = f"[clodfarm] {task.get('owner') or cfg.name} · {task['title'][:50]} · {tid}"
         sysprompt = prompts.task_system_prompt(cfg, task, cwd, branch, name)
+        if task.get("specialist"):  # a job for a member of the office's team: the rules and that person's instructions
+            sysprompt += team.Team(os.path.join(cfg.workspace, ".farm", "team.json")).briefing(task)
         before = store.get_snapshot(self.seat)
         return {"cwd": cwd, "branch": branch, "parent_branch": parent_branch, "name": name, "sysprompt": sysprompt,
                 "session": session, "text": compose(fresh=not session),

@@ -6,18 +6,22 @@
 <script src="sprites.js"></script>
 <script>
 const S = window.Sprites, g = document.getElementById('g');
-const states = ['walk','coffee','sofa','read','working','alert','cheer'];
-const seeds = ['ana','bruno','carla','davi'];
+const states = ['walk','coffee','sofa','working','alert','cheer'];
+const people = [
+  ['ana', { gender: 'f', look: { style: 'long' } }], ['bia', { gender: 'f', look: { style: 'bun', glasses: true, suit: '#7a4568' } }],
+  ['clara', { gender: 'f', look: { style: 'pony', hair: '#d1a43a', skin: '#8d5a3a', suit: '#2f7364' } }],
+  ['davi', { gender: 'm', look: { style: 'short' } }], ['edu', { gender: 'm', look: { style: 'side', hair: '#5b3a29' } }],
+  ['fabio', { gender: 'm', look: { style: 'beard', glasses: true, hair: '#2a2230', skin: '#c98f5c' } }],
+  ['chief', { id: 'chief', gender: 'f', look: { style: 'bun', suit: '#2f2f3a', glasses: true } }],
+];
 const cvs = [];
-for (const seed of seeds) {
-  const row = document.createElement('div'); row.className = 'row';
-  for (const st of states) {
-    const d = document.createElement('div'); d.className = 'c';
-    const cv = document.createElement('canvas'); cv.width = S.W; cv.height = S.H;
-    d.append(cv, document.createTextNode(seed + ' ' + st)); row.append(d);
-    cvs.push({ cv, ctx: cv.getContext('2d'), look: S.look(seed), st });
-  }
-  g.append(row);
+const row = document.createElement('div'); row.className = 'row'; g.append(row);
+const sel = new URLSearchParams(location.search).get('s') || 'walk';
+for (const [seed, spec] of people) {
+  const d = document.createElement('div'); d.className = 'c';
+  const cv = document.createElement('canvas'); cv.width = S.W; cv.height = S.H;
+  d.append(cv, document.createTextNode(seed + ' ' + sel)); row.append(d);
+  cvs.push({ cv, ctx: cv.getContext('2d'), look: S.look(seed, spec), st: sel });
 }
 let f = Number(new URLSearchParams(location.search).get('f') || 0);
 function paint(){ for (const p of cvs) S.draw(p.ctx, p.look, p.st, p.st === 'walk' ? f : f, 1, f); }

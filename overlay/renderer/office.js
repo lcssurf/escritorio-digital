@@ -1,6 +1,6 @@
 // Pure logic: turn the farm's JSON into the list of characters standing on the taskbar. No DOM, so it is testable.
 (function (root) {
-  const MAX_PETS = 8;
+  const MAX_PETS = 10;
   const NAMES = ['Ana', 'Bruno', 'Carla', 'Davi', 'Elisa', 'Fábio', 'Gabi', 'Hugo', 'Iara', 'João', 'Lia', 'Marcos'];
   const ROLES = ['agenda', 'docs', 'drafts', 'review', 'deadlines'];
 
@@ -15,27 +15,47 @@
     return { name: NAMES[(h >>> 21) % NAMES.length], role: ROLES[(h >>> 18) % ROLES.length] };
   }
 
-  // state: farm /api/state, landings: /api/landings (array), offline: couldn't reach the farm
-  function buildPets(state, landings, offline) {
+  const PRIORITY = { alert: 0, working: 1, idle: 2, sofa: 3 };
+
+  // The characters on the taskbar. With a team (members from /api/team) every member is always there: working when a job
+  // is running for them, asking for you when finished work of theirs waits for approval, otherwise at ease. Jobs that
+  // belong to nobody on the team still get a generic character, so nothing is ever invisible.
+  function buildPets(state, landings, offline, members) {
+    if (offline) return [{ id: 'A:offline', kind: 'offline', state: 'sofa', label: '', status: 'offline', persona: { name: '', role: 'chief' } }];
+    landings = landings || [];
+    const subs = ((state && state.subagents) || []).filter((s) => s.status === 'running');
     const pets = [];
-    if (offline) return [{ id: 'A:offline', kind: 'offline', state: 'sofa', label: '', status: 'offline' }];
-    for (const l of landings || []) {
-      pets.push({ id: 'L:' + l.id, kind: 'landing', taskId: l.id, state: 'alert', status: 'alert', label: l.title || l.id, persona: persona(l.id) });
-    }
-    const subs = (state && state.subagents) || [];
-    const waiting = new Set((landings || []).map((l) => l.id));
-    for (const s of subs) {
-      if (s.status === 'running' && !waiting.has(s.id)) {
-        pets.push({ id: 'T:' + s.id, kind: 'task', taskId: s.id, state: 'working', status: 'working', label: s.title || s.id, persona: persona(s.id) });
+    if (members && members.length) {
+      const known = new Set(members.map((m) => m.id));
+      for (const m of members) {
+        const wait = landings.filter((l) => (l.specialist || 'chief') === m.id);
+        const run = subs.filter((t) => (t.specialist || 'chief') === m.id);
+        const st = wait.length ? 'alert' : run.length ? 'working' : 'idle';
+        const t = wait[0] || run[0];
+        pets.push({ id: 'S:' + m.id, kind: 'member', member: m, memberId: m.id, taskId: t && t.id, state: st, status: st,
+          count: wait.length || run.length, label: wait.length > 1 ? '' : (t && t.title) || '',
+          persona: { name: m.name, title: m.title, role: m.id === 'chief' ? 'chief' : 'member' } });
+      }
+      for (const l of landings) if (!known.has(l.specialist || 'chief')) pets.push(orphanLanding(l));
+      for (const t of subs) if (!known.has(t.specialist || 'chief')) pets.push(orphanTask(t));
+    } else {
+      for (const l of landings) pets.push(orphanLanding(l));
+      const waiting = new Set(landings.map((l) => l.id));
+      for (const t of subs) if (!waiting.has(t.id)) pets.push(orphanTask(t));
+      for (const a of (state && state.agents) || []) {
+        if (a.loggedIn === false) continue;
+        const busy = Number(a.running || 0) > 0;
+        pets.push({ id: 'A:' + a.id, kind: 'chief', agentId: a.id, state: busy ? 'working' : 'idle', status: busy ? 'working' : 'idle', label: a.name || a.id, persona: { name: a.name || a.id, role: 'chief' } });
       }
     }
-    for (const a of (state && state.agents) || []) {
-      if (a.loggedIn === false) continue;
-      const busy = Number(a.running || 0) > 0;
-      pets.push({ id: 'A:' + a.id, kind: 'chief', agentId: a.id, state: busy ? 'working' : 'idle', status: busy ? 'working' : 'idle', label: a.name || a.id, persona: { name: a.name || a.id, role: 'chief' } });
-    }
-    return pets.slice(0, MAX_PETS);
+    pets.sort((a, b) => (PRIORITY[a.state] ?? 9) - (PRIORITY[b.state] ?? 9));
+    const head = pets.slice(0, MAX_PETS);
+    // keep the team's own order on the bar (the chief first), whatever they are doing
+    return head.sort((a, b) => order(a) - order(b));
   }
+  const order = (p) => (p.kind === 'member' ? (p.memberId === 'chief' ? 0 : 1) : 2);
+  const orphanLanding = (l) => ({ id: 'L:' + l.id, kind: 'landing', taskId: l.id, state: 'alert', status: 'alert', label: l.title || l.id, persona: persona(l.id) });
+  const orphanTask = (t) => ({ id: 'T:' + t.id, kind: 'task', taskId: t.id, state: 'working', status: 'working', label: t.title || t.id, persona: persona(t.id) });
 
   // Idle characters drift between walking, coffee and the sofa.
   function nextIdleMode(prev, rnd) {

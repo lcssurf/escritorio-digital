@@ -287,9 +287,16 @@ def cmd_spawn(cfg, a):
             print(f"no Claude named '{on}' is on the farm right now ({', '.join(sorted(_names(cfg, store))) or 'none'});"
                   " see `clodfarm agents`, or add --force to wait for it", file=sys.stderr)
             return 2
+        spec = (a.specialist or "").strip() or None
+        if spec:
+            from . import team
+            members = team.Team(os.path.join(cfg.workspace, ".farm", "team.json")).all()
+            if spec not in {m["id"] for m in members}:
+                print(f"no team member '{spec}' (the team: {', '.join(m['id'] for m in members)})", file=sys.stderr)
+                return 2
         t = store.add_task(a.title, _read_prompt(a), parent=parent, created_by=me or cfg.name, to=on,
                            owner=os.environ.get("FARM_OWNER") or cfg.name, max_depth=cfg.max_depth,
-                           max_attempts=cfg.max_attempts)
+                           max_attempts=cfg.max_attempts, specialist=spec)
     except ValueError as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -1614,6 +1621,7 @@ def main(argv=None):
     sw.add_argument("--prompt-file")
     sw.add_argument("--on", help="run it on this Claude's account (see `clodfarm agents`); default: whoever has budget")
     sw.add_argument("--force", action="store_true", help="with --on: wait for that Claude even if it isn't up now")
+    sw.add_argument("--specialist", help="give it to this member of the office's team (their id), so it works as them")
     sw.add_argument("--parent", help="make it the sub-agent of this one (default inside a sub-agent: $FARM_TASK_ID)")
     sw.add_argument("--detach", action="store_true", help="inside a sub-agent: start it on its own, not as your child")
     sl = add("subagents", cmd_subagents, "the sub-agents running and waiting")

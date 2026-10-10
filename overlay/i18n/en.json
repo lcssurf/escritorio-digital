@@ -83,5 +83,8 @@
   "tray.show": "Open panel",
   "tray.hide": "Hide characters",
   "tray.showpets": "Show characters",
-  "tray.quit": "Quit"
+  "tray.quit": "Quit",
+  "settings.height": "Fine-tune height",
+  "settings.heightHint": "The taskbar height is detected automatically. Only use this to correct it.",
+  "settings.auto": "Automatic"
 }

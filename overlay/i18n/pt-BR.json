@@ -83,5 +83,8 @@
   "tray.show": "Abrir painel",
   "tray.hide": "Esconder bonecos",
   "tray.showpets": "Mostrar bonecos",
-  "tray.quit": "Sair"
+  "tray.quit": "Sair",
+  "settings.height": "Ajuste fino da altura",
+  "settings.heightHint": "A altura da barra é detectada sozinha. Use só se precisar corrigir.",
+  "settings.auto": "Automático"
 }

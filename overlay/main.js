@@ -6,8 +6,10 @@ const { execFile } = require('child_process');
 const I18N = require('./i18n');
 
 const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.json') };
-const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 56; // pets plus room for the name tag
-const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm' };
+const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 64; // pets plus room for the name tag
+const FEET_PAD = 6;       // transparent canvas pixels under the soles (2 sprite rows x 3)
+const AUTOHIDE_BAR = 48;  // assumed taskbar height when it hides itself (Windows 11 default, in DIP)
+const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0 };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -23,7 +25,7 @@ function saveCfg(patch) {
   for (const w of [overlay, panel]) if (w && !w.isDestroyed()) w.webContents.send('config', publicCfg());
   rebuildTray();
 }
-const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden });
+const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
 const t = (k, v) => I18N.make(DICTS, cfg.lang)(k, v);
 
 // The farm's secret for this PC: the container wrote it into its volume. It never leaves this machine.
@@ -52,12 +54,42 @@ async function api(method, p, body) {
   }
 }
 
+// Windows keeps the taskbar edge/auto-hide choice in the registry (StuckRects3: byte 8 = auto-hide, byte 12 = edge).
+function taskbarState() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve({ autoHide: false, edge: 3 });
+    execFile('reg', ['query', String.raw`HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3`, '/v', 'Settings'], { timeout: 4000 }, (err, out) => {
+      const m = !err && /REG_BINARY\s+([0-9A-Fa-f]+)/.exec(String(out));
+      if (!m) return resolve({ autoHide: false, edge: 3 });
+      const b = m[1].match(/../g).map((x) => parseInt(x, 16));
+      resolve({ autoHide: (b[8] & 1) === 1, edge: b[12] });
+    });
+  });
+}
+
+// Where the soles go: the top edge of a bottom taskbar, found from what Windows reserves (bounds vs workArea).
+// Works for any taskbar height or DPI; for a top/side taskbar the characters stand on the screen bottom.
+let lastPlace = null, tbState = { autoHide: false, edge: 3 };
+function computePlace() {
+  const d = screen.getPrimaryDisplay();
+  const bar = d.bounds.y + d.bounds.height - (d.workArea.y + d.workArea.height);   // reserved at the bottom (DIP)
+  let floor = d.workArea.y + d.workArea.height;
+  if (bar <= 0 && tbState.autoHide && tbState.edge === 3) floor = d.bounds.y + d.bounds.height - AUTOHIDE_BAR; // hidden bar: stand where it slides in
+  return { x: d.bounds.x, width: d.bounds.width, floor, bar, id: d.id, scale: d.scaleFactor };
+}
 function placeOverlay() {
   if (!overlay || overlay.isDestroyed()) return;
-  const d = screen.getPrimaryDisplay();
-  const bottom = d.workArea.y + d.workArea.height; // top edge of a bottom taskbar: pets stand right on it
-  overlay.setBounds({ x: d.bounds.x, y: bottom - PET_H - 10, width: d.bounds.width, height: WIN_H });
+  const p = computePlace(), y = Math.round(p.floor + FEET_PAD - 1 + (cfg.yoffset || 0) - WIN_H);
+  const sig = [p.x, p.width, p.floor, cfg.yoffset, p.scale].join(',');
+  if (!lastPlace || lastPlace.sig !== sig) {
+    overlay.setBounds({ x: p.x, y, width: p.width, height: WIN_H });
+    lastPlace = { ...p, sig };
+    for (const w of [panel]) if (w && !w.isDestroyed()) w.webContents.send('config', publicCfg());
+  }
+  overlay.setAlwaysOnTop(true, 'screen-saver');   // the taskbar can climb over us when it is clicked: take the top back
+  overlay.moveTop();
 }
+async function refreshTaskbar() { tbState = await taskbarState(); placeOverlay(); }
 
 function createOverlay() {
   overlay = new BrowserWindow({
@@ -77,7 +109,7 @@ function openPanel(opts = {}) {
   const d = screen.getPrimaryDisplay();
   const w = 420, h = 680;
   const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
-  const y = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16);
+  const y = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0));
   if (panel && !panel.isDestroyed()) {
     panel.setBounds({ x, y, width: w, height: h });
     panel.show(); panel.focus();
@@ -119,10 +151,12 @@ ipcMain.handle('api', (_e, method, p, body) => {
 ipcMain.handle('config:get', () => publicCfg());
 ipcMain.handle('config:set', (_e, patch) => {
   const allowed = {};
-  for (const k of ['url', 'lang', 'sound', 'token']) if (k in patch) allowed[k] = patch[k];
+  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset']) if (k in patch) allowed[k] = patch[k];
+  if ('yoffset' in allowed) allowed.yoffset = Math.max(-60, Math.min(60, Math.round(Number(allowed.yoffset) || 0)));
   // the key only ever goes to this PC: refuse any address that is not local
   if (allowed.url && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\/?$/.test(allowed.url)) delete allowed.url;
   saveCfg(allowed);
+  placeOverlay();
   return publicCfg();
 });
 ipcMain.handle('token:auto', async () => {
@@ -149,6 +183,8 @@ app.whenReady().then(async () => {
     tray.on('click', () => openPanel({ tab: 'approvals' }));
     rebuildTray();
   } catch (_) { /* no tray icon: the characters still work */ }
-  for (const ev of ['display-metrics-changed', 'display-added', 'display-removed']) screen.on(ev, placeOverlay);
+  await refreshTaskbar();
+  for (const ev of ['display-metrics-changed', 'display-added', 'display-removed']) screen.on(ev, refreshTaskbar);
+  setInterval(refreshTaskbar, 3000); // taskbar moved, resized or set to auto-hide while we run
 });
 app.on('window-all-closed', (e) => e.preventDefault());

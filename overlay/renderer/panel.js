@@ -228,11 +228,19 @@
     const url = h('input', { type: 'text', value: cfg.url || '', 'aria-label': tr('settings.url'), onchange: async (e) => { cfg = { ...cfg, ...(await office.setConfig({ url: e.target.value.trim() })) }; toast(tr('settings.saved')); refresh(true); } });
     const keyPill = h('span', { class: 'pill' + (cfg.hasToken ? '' : ' off') }, h('i'), tr(cfg.hasToken ? 'settings.keyok' : 'settings.keymissing'));
     const fetchKey = h('button', { class: 'btn ghost', onclick: async () => { const ok = await office.autoToken(); toast(tr(ok ? 'settings.tokenok' : 'settings.tokenfail'), !ok); if (ok) { cfg.hasToken = true; refresh(true); } } }, tr('settings.autotoken'));
+    const yo = Number(cfg.yoffset || 0);
+    const yoVal = h('b', {}, yo === 0 ? tr('settings.auto') : (yo > 0 ? '+' : '') + yo + ' px');
+    const nudge = (d) => async () => { cfg = { ...cfg, ...(await office.setConfig({ yoffset: d === 0 ? 0 : Number(cfg.yoffset || 0) + d })) }; renderSettings(); };
+    const heightRow = h('div', { class: 'keyrow' },
+      h('button', { class: 'btn ghost', 'aria-label': '-', onclick: nudge(1) }, '▼'), yoVal,
+      h('button', { class: 'btn ghost', 'aria-label': '+', onclick: nudge(-1) }, '▲'),
+      h('button', { class: 'btn ghost', onclick: nudge(0) }, tr('settings.auto')));
     s.append(h('h2', {}, tr('nav.settings')),
       h('div', { class: 'field' }, h('label', {}, tr('settings.language')), seg),
       h('div', { class: 'field' }, h('label', { class: 'switch' }, sound, tr('settings.sound'))),
       h('div', { class: 'field' }, h('label', {}, tr('settings.key')), h('div', { class: 'keyrow' }, keyPill, fetchKey)),
       h('div', { class: 'field' }, h('label', {}, tr('settings.url')), url),
+      h('div', { class: 'field' }, h('label', {}, tr('settings.height')), heightRow, h('div', { class: 'note' }, tr('settings.heightHint'))),
       h('div', { class: 'stack' },
         h('button', { class: 'btn ghost', onclick: () => office.openFarm() }, tr('settings.openfarm')),
         h('button', { class: 'btn danger', onclick: () => office.quit() }, tr('settings.quit'))));

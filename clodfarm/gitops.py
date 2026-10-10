@@ -221,6 +221,14 @@ def merge(repo: str, path: str, branch: str, push: bool = True) -> str:
         return out
 
 
+def changed_files(repo: str, branch: str, limit: int = 40) -> list[str]:
+    """Files a branch changes relative to main (for the approver to see what they are approving)."""
+    if not branch:
+        return []
+    out = git(repo, "diff", "--name-status", f"{main_branch(repo)}...{branch}", check=False)
+    return out.splitlines()[:limit]
+
+
 def remove_worktree(repo: str, path: str, branch: str | None = None):
     """Remove a finished task's worktree; delete its branch too when given."""
     with _locked(repo):

@@ -1,0 +1,32 @@
+// Run: node test/i18n.test.js  (no dependencies)
+const assert = require('assert');
+const I18N = require('../i18n');
+const Office = require('../renderer/office.js');
+const ptBR = require('../i18n/pt-BR.json'), en = require('../i18n/en.json');
+
+// both languages have exactly the same keys
+assert.deepStrictEqual(Object.keys(ptBR).sort(), Object.keys(en).sort(), 'pt-BR and en must have the same keys');
+// every {placeholder} appears in both
+for (const k of Object.keys(ptBR)) {
+  const ph = (s) => (s.match(/\{[a-z]+\}/g) || []).sort().join();
+  assert.strictEqual(ph(ptBR[k]), ph(en[k]), 'placeholders differ in ' + k);
+}
+const t = I18N.make({ 'pt-BR': ptBR, en }, 'en');
+assert.strictEqual(t('approval.approve'), 'Approve');
+assert.strictEqual(I18N.make({ 'pt-BR': ptBR, en }, 'pt-BR')('approval.approve'), 'Aprovar');
+assert.strictEqual(I18N.pick('pt-PT'), 'pt-BR');
+assert.strictEqual(I18N.pick('fr-FR'), 'en');
+assert.strictEqual(t('panel.commits', { n: 3 }), '3 change(s)');
+assert.strictEqual(t('no.such.key'), 'no.such.key');
+
+// characters
+const state = { agents: [{ id: 'a', name: 'Chefe', running: 0, loggedIn: true }, { id: 'out', loggedIn: false }],
+  subagents: [{ id: 't1', title: 'x', status: 'running' }, { id: 't2', title: 'y', status: 'queued' }, { id: 't3', title: 'z', status: 'running' }] };
+let pets = Office.buildPets(state, [{ id: 't3', title: 'z' }], false);
+assert.deepStrictEqual(pets.map((p) => p.id + ':' + p.state), ['L:t3:alert', 'T:t1:working', 'A:a:idle'], 'alerts first, no duplicate for a task awaiting approval, logged-out Claudes hidden');
+assert.strictEqual(Office.buildPets(null, [], true)[0].status, 'offline');
+const many = { agents: [], subagents: Array.from({ length: 20 }, (_, i) => ({ id: 's' + i, status: 'running' })) };
+assert.strictEqual(Office.buildPets(many, [], false).length, Office.MAX_PETS);
+assert.strictEqual(Office.freeSlot([60, 210], 150, 60), 360);
+assert.ok(['walk', 'coffee', 'sofa'].includes(Office.nextIdleMode('walk', () => 0.9)));
+console.log('ok');

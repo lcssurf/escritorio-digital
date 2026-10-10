@@ -228,6 +228,7 @@ class FarmUI:
         self.oauth = mcp.OAuthStore(mcp.oauth_path(cfg.workspace))
         self.browsers = browser.Browsers(cfg.workspace)  # the farm's Chromium profiles: BROWSER on the farm, /browser
         self.stopping = threading.Event()
+        self.overlay_token()  # make the desktop overlay's secret now, so the install can read it
         self._state_cache: tuple[float, dict] | None = None
         self._views: dict[str, tuple[float, bytes, str]] = {}  # per viewer kind: (at, JSON, ETag)
         self._tasks_cache: dict[str, tuple[float, bytes, str]] = {}
@@ -235,6 +236,59 @@ class FarmUI:
         self._inflight_lock = threading.Lock()
         self._tasks_lock = threading.Lock()
         self._lock = threading.Lock()
+
+    def overlay_token(self) -> str:
+        """Secret the desktop overlay sends as X-Overlay-Token (FARM_OVERLAY_TOKEN, or a file made on first use)."""
+        env = os.environ.get("FARM_OVERLAY_TOKEN", "").strip()
+        if env:
+            return env
+        path = os.path.join(self.cfg.workspace, ".farm", "overlay.token")
+        try:
+            with open(path, encoding="utf-8") as f:
+                return f.read().strip()
+        except OSError:
+            pass
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tok = secrets.token_urlsafe(24)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(tok)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+        return tok
+
+    def landings(self) -> list[dict]:
+        """Finished work waiting for a person's OK before it lands on main."""
+        out = []
+        for t in self.store.list_tasks("done", 200):
+            if t.get("landing") != "awaiting":
+                continue
+            out.append({"id": t["id"], "title": t.get("title"), "branch": t.get("landing_branch"),
+                        "commits": t.get("landing_ahead"), "at": t.get("landing_at"), "owner": t.get("owner"),
+                        "summary": (t.get("result") or "")[:1500],
+                        "files": gitops.changed_files(self.cfg.repo_dir, t.get("landing_branch") or "")})
+        return sorted(out, key=lambda x: float(x.get("at") or 0))
+
+    def decide_landing(self, tid: str, approve: bool, by: str, reason: str = "") -> str:
+        t = self.store.get_task(tid) or {}
+        if t.get("landing") != "awaiting":
+            raise ValueError("nothing waits for approval under that id (decided already?)")
+        branch, cwd = t.get("landing_branch") or "", t.get("landing_cwd") or ""
+        if approve:
+            try:
+                out = gitops.merge(self.cfg.repo_dir, cwd, branch, push=self.cfg.push)
+            except gitops.GitError as e:
+                self.store.event("landing.conflict", f"{tid}: {str(e)[:300]}", task=tid, by=by)
+                raise ValueError(f"could not land: {str(e)[:300]}") from e
+            gitops.remove_worktree(self.cfg.repo_dir, cwd, branch)
+            self.store.update_task(tid, landing="approved", landing_by=by)
+            self.store.event("landing.approved", f"{tid}: {out}", task=tid, by=by)
+            return out
+        gitops.remove_worktree(self.cfg.repo_dir, cwd, branch)
+        self.store.update_task(tid, landing="denied", landing_by=by, landing_reason=reason[:200])
+        self.store.event("landing.denied", f"{tid}: not approved" + (f" ({reason[:100]})" if reason else ""), task=tid, by=by)
+        return "discarded"
 
     def state(self) -> dict:
         with self._lock:
@@ -694,6 +748,11 @@ def make_handler(ui: FarmUI):
         def _who(self) -> Who:
             if getattr(self, "_who_cache", None) is not None:
                 return self._who_cache
+            tok = self.headers.get("X-Overlay-Token") or ""
+            if tok and ui.overlay_token() and hmac.compare_digest(tok, ui.overlay_token()):
+                # the desktop overlay (digital office): it runs on the same PC, with the token the install put aside
+                self._who_cache = Who(True, None, False, public=False)
+                return self._who_cache
             c = SimpleCookie(self.headers.get("Cookie") or "")
             owner = None
             got = ui.keys.read(c[OWNER_COOKIE].value if OWNER_COOKIE in c else None, "owner")
@@ -1085,6 +1144,10 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a Claude's person approves its missions")
                     return self._json(self._approvals(who))
+                if path == "/api/landings":  # finished work waiting for a person's OK
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm approves work")
+                    return self._json(ui.landings())
                 if path == "/api/tools":  # the groups a person can turn off, for the hatch and SETTINGS forms
                     return self._json(policy.groups_view())
                 if not (who.manager or who.owner):
@@ -1416,6 +1479,24 @@ def make_handler(ui: FarmUI):
                     raise
                 store.event("owner.account", f"{who.owner}'s person set a username to sign in with", by="ui")
                 return self._json({"username": acct[0]})
+            if path == "/api/tasks/new":  # the desktop overlay hands the office a job
+                if not who.manager:
+                    return self._err(403, "only the farm's person hands out jobs from here")
+                title = str(data.get("title") or "").strip()[:300]
+                if not title:
+                    raise ValueError("give the job a title")
+                t = store.add_task(title, str(data.get("prompt") or title)[:20000], created_by="overlay",
+                                   owner=ui.cfg.name)
+                return self._json({"id": t["id"]})
+            m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/(approve|deny)", path)
+            if m:
+                lid, action = m.groups()
+                owner_of = (store.get_task(lid) or {}).get("owner")
+                if not who.owns(owner_of):
+                    return self._err(403, "only its Claude's person decides")
+                by = f"owner:{who.owner}" if who.owner else "manager"
+                ui.decide_landing(lid, action == "approve", by, str(data.get("reason") or ""))
+                return self._json(ui.landings())
             m = re.fullmatch(r"/api/approvals/([A-Za-z0-9]{6,40})/(approve|deny)", path)
             if m:
                 pid, action = m.groups()

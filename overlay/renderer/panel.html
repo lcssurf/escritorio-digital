@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<title>Escritório Digital</title>
+<style>
+  :root { --bg: #1d1b26; --card: #2a2736; --line: #3b3750; --fg: #f1eefb; --dim: #a7a1bd; --ok: #37b24d; --bad: #e03131; --acc: #7048e8; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px Consolas, "Courier New", monospace; }
+  body { display: flex; flex-direction: column; border: 2px solid var(--line); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+  header b { letter-spacing: .5px; }
+  nav { display: flex; gap: 2px; padding: 6px 6px 0; border-bottom: 2px solid var(--line); }
+  nav button { flex: 1; background: transparent; color: var(--dim); border: 0; border-bottom: 3px solid transparent; padding: 6px 2px; cursor: pointer; font: inherit; }
+  nav button.on { color: var(--fg); border-color: var(--acc); }
+  nav .badge { background: var(--bad); color: #fff; border-radius: 8px; padding: 0 5px; margin-left: 4px; font-size: 11px; }
+  main { flex: 1; overflow: auto; padding: 10px; }
+  section { display: none; } section.on { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 9px; margin-bottom: 9px; }
+  .card h4 { margin: 0 0 4px; font-size: 13px; } .dim { color: var(--dim); } .small { font-size: 11px; }
+  .files { margin: 6px 0; padding: 6px; background: #17151f; border-radius: 3px; max-height: 90px; overflow: auto; font-size: 11px; white-space: pre-wrap; }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  button.btn { flex: 1; border: 0; border-radius: 3px; padding: 8px; cursor: pointer; font: inherit; font-weight: bold; color: #fff; }
+  .btn.ok { background: var(--ok); } .btn.bad { background: var(--bad); } .btn.acc { background: var(--acc); } .btn.ghost { background: #3b3750; }
+  button:disabled { opacity: .5; cursor: default; }
+  textarea, input, select { width: 100%; background: #17151f; color: var(--fg); border: 1px solid var(--line); border-radius: 3px; padding: 7px; font: inherit; }
+  textarea { height: 110px; resize: none; } label { display: block; margin: 8px 0 3px; color: var(--dim); }
+  .msg { margin-top: 8px; min-height: 16px; } .msg.err { color: #ff8787; } .msg.good { color: #8ce99a; }
+  .hint { padding: 8px; border-left: 3px solid var(--acc); background: #231f33; margin-bottom: 9px; }
+  pre { white-space: pre-wrap; word-break: break-word; margin: 0; font: inherit; }
+</style>
+</head>
+<body>
+<header><b id="title"></b><button class="btn ghost" id="close" style="flex:none;padding:3px 9px">×</button></header>
+<nav id="tabs"></nav>
+<main>
+  <section id="s-agent"></section>
+  <section id="s-approvals"></section>
+  <section id="s-job"></section>
+  <section id="s-settings"></section>
+</main>
+<script src="../i18n/index.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>

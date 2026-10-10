@@ -1,0 +1,14 @@
+{
+  "name": "escritorio-digital-overlay",
+  "version": "0.1.0",
+  "description": "Agentes do escritório digital andando sobre a barra de tarefas",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/i18n.test.js"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}

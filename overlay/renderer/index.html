@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<title>Escritório Digital</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; font-family: Consolas, "Courier New", monospace; }
+  #stage { position: absolute; inset: 0; }
+  .pet { position: absolute; bottom: 10px; cursor: pointer; }
+  .pet canvas { display: block; image-rendering: pixelated; width: 144px; height: 120px; }
+  .pet .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: -4px; white-space: nowrap;
+              background: rgba(20, 18, 28, .92); color: #fff; font-size: 12px; padding: 3px 7px; border-radius: 3px;
+              border: 1px solid #000; display: none; pointer-events: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .pet:hover .tag, .pet.dragging .tag { display: block; }
+  .pet.alert .tag { display: block; background: #e03131; }
+  .pet .dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #868e96; }
+  .pet .dot.working { background: #37b24d; } .pet .dot.alert { background: #e03131; } .pet .dot.idle { background: #f08c00; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="../i18n/index.js"></script>
+<script src="sprites.js"></script>
+<script src="office.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

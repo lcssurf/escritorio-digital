@@ -935,8 +935,8 @@ class Farm:
             store.set_paused(True, reason, by="farm")
             self.notify("paused by circuit breaker", reason + ". Look at `clodfarm events` and `clodfarm result "
                         f"{tid}`, fix the cause, then run `clodfarm resume`.")
-        if final == "done" and branch:
-            # a sub-agent's branch stays until its parent has merged it
+        if final == "done" and branch and (store.get_task(tid) or {}).get("landing") != "awaiting":
+            # a sub-agent's branch stays until its parent has merged it; work awaiting approval keeps both
             gitops.remove_worktree(cfg.repo_dir, cwd, None if task.get("parent") else branch)
 
     def notify(self, title: str, text: str):
@@ -983,6 +983,18 @@ class Farm:
                     return output, "verify_failed"
             if holder and not self.holds(tid, holder):  # cancelled while the check ran
                 return f"cancelled before landing: {branch} not merged", "stopped"
+            if cfg.approve_landing:
+                # digital office: the work waits on its branch until a person approves it (overlay / UI / API)
+                gitops.commit_leftovers(cwd, branch)
+                n = gitops.ahead_of(cfg.repo_dir, branch)
+                if n == 0:
+                    return "no commits", "landed"
+                store.update_task(tid, landing="awaiting", landing_branch=branch, landing_cwd=cwd, landing_ahead=n,
+                                  landing_at=now())
+                store.event("landing.awaiting", f"{tid}: {n} commit(s) on {branch} wait for a person's approval",
+                            task=tid)
+                self.notify("approval needed", f"{task['title'][:80]}: {n} commit(s) wait for you ({tid}).")
+                return f"{n} commit(s) on {branch} waiting for a person's approval; nothing landed yet", "kept"
             out = gitops.merge(cfg.repo_dir, cwd, branch, push=cfg.push)
             for d in self.descendants(task):  # their work is in main now, via this task
                 gitops.remove_worktree(cfg.repo_dir, os.path.join(os.path.dirname(cfg.repo_dir), ".worktrees", d),

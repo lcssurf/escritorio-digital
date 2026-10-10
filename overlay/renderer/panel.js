@@ -134,6 +134,7 @@
     const states = memberStates();
     if (members.length <= 1) s.append(h('div', { class: 'intro' }, tr('team.intro')));
     s.append(h('div', { class: 'addrow' }, h('button', { class: 'btn acc', onclick: () => startEdit(null) }, '+ ' + tr('team.new'))));
+    if (members.length <= 2 && cfg.lang === 'pt-BR') s.append(packCard());
     if (members.length <= 2) s.append(h('div', { class: 'label' }, tr('team.templates')),
       h('div', { class: 'opts', style: 'margin-bottom:12px' }, (window.Templates[cfg.lang] || window.Templates.en).map((t) =>
         h('button', { onclick: () => startEdit(null, t) }, t.name + ' · ' + t.title))));
@@ -162,6 +163,25 @@
       const t = titles.get(e.task) || String(e.msg || '').replace(/^[0-9a-f]{12,}\s*:?\s*/, '').slice(0, 80);
       return h('li', {}, h('time', {}, ago(e.at, farm && farm.now)), h('span', { class: 't' }, tr('ev.' + e.type, { t })));
     })));
+  }
+
+  function packCard() {
+    const pack = window.PackPrevidenciario;
+    const btn = h('button', { class: 'btn acc', onclick: async () => {
+      btn.disabled = true; btn.textContent = tr('team.pack.installing');
+      let n = 0;
+      const have = new Set(members.map((m) => (m.name + '|' + m.title).toLowerCase()));
+      const chief = memberOf('chief');
+      if (chief && !chief.instructions) await office.api('POST', '/api/team', { ...chief, instructions: pack.chief });
+      for (const m of pack.members) {
+        if (have.has((m.name + '|' + m.title).toLowerCase())) continue;
+        const r = await office.api('POST', '/api/team', m);
+        if (r.ok) n++; else { toast(tr('edit.err', { why: (r.data && r.data.error) || r.status }), true); break; }
+      }
+      toast(tr('team.pack.done', { n }));
+      await refresh(true);
+    } }, tr('team.pack.install'));
+    return h('div', { class: 'card' }, h('b', {}, tr('team.pack.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('team.pack.text')), btn);
   }
 
   // ------------------------------------------------------------------ team editor

@@ -7,7 +7,7 @@
   const mock = params.has('mock');
   let office = window.office, dicts = null, cfg = { lang: 'pt-BR', sound: true };
   const pets = new Map(); // id -> pet
-  let offline = false, through = true, lastAlertIds = new Set(), started = false;
+  let offline = false, through = true, lastAlertIds = new Set(), started = false, crowd = 5;
 
   if (!office && mock) office = mockOffice();
 
@@ -41,7 +41,7 @@
     el.append(cv, tag);
     stage.append(el);
     const taken = [...pets.values()].map((q) => q.x);
-    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, 170, 70),
+    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, Math.max(105, Math.min(170, Math.floor((innerWidth - 140) / Math.max(5, crowd)))), 70),
           facing: 1, state: 'walk', mode: 'walk', modeUntil: 0, drawn: '', tagKey: '' };
     bindPet(p);
     pets.set(spec.id, p);
@@ -51,6 +51,7 @@
 
   function applySpecs(specs) {
     const now = performance.now();
+    crowd = specs.length;   // a big team gets closer slots so everyone fits on the bar
     const ids = new Set(specs.map((s) => s.id));
     for (const [id, p] of pets) if (!ids.has(id) && !(p.cheerUntil > now)) { p.el.remove(); pets.delete(id); }
     for (const s of specs) {

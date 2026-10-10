@@ -1,6 +1,6 @@
 // Pure logic: turn the farm's JSON into the list of characters standing on the taskbar. No DOM, so it is testable.
 (function (root) {
-  const MAX_PETS = 10;
+  const MAX_PETS = 20;
   const NAMES = ['Ana', 'Bruno', 'Carla', 'Davi', 'Elisa', 'Fábio', 'Gabi', 'Hugo', 'Iara', 'João', 'Lia', 'Marcos'];
   const ROLES = ['agenda', 'docs', 'drafts', 'review', 'deadlines'];
 

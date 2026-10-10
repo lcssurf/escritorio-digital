@@ -47,4 +47,20 @@ assert.strictEqual(tp.find((p) => p.id === 'S:chief').taskId, 'l2');
 tp = Office.buildPets({ subagents: [] }, [], false, members);
 assert.deepStrictEqual(tp.map((p) => p.state), ['idle', 'idle', 'idle'], 'an idle team is still on the bar');
 assert.ok(Office.buildPets(state, [], false, []).some((p) => p.id === 'A:a'), 'without a team it falls back to the old characters');
+
+// the ready-made pack: 16 valid specialists, every rule the server enforces already holds
+const Pack = require('../renderer/pack-previdenciario.js'), Sprites = require('../renderer/sprites.js');
+assert.strictEqual(Pack.members.length, 16);
+assert.strictEqual(new Set(Pack.members.map((m) => m.name)).size, 16, 'names are unique');
+for (const m of Pack.members) {
+  assert.ok(m.name.length >= 1 && m.name.length <= 40 && m.title.length <= 60, 'name/title limits: ' + m.name);
+  assert.ok(m.instructions.length > 80 && m.instructions.length <= 6000, 'instructions size: ' + m.name);
+  assert.ok(['m', 'f'].includes(m.gender));
+  assert.ok((m.gender === 'f' ? Sprites.STYLE_F : Sprites.STYLE_M).includes(m.look.style), 'hair style fits the gender: ' + m.name);
+  assert.ok(m.look.prop >= 0 && m.look.prop <= 4);
+  for (const k of ['hair', 'skin', 'suit']) assert.ok(/^#[0-9a-fA-F]{6}$/.test(m.look[k]), k + ' colour: ' + m.name);
+  assert.ok(!/senha|login/i.test(m.instructions) || /nunca|não|nao/i.test(m.instructions), 'no specialist is told to log in: ' + m.name);
+}
+assert.ok(Pack.members.filter((m) => m.gender === 'f').length >= 6 && Pack.members.filter((m) => m.gender === 'm').length >= 6, 'a mixed team');
+assert.ok(Pack.chief.length <= 6000);
 console.log('ok');

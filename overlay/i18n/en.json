@@ -134,5 +134,10 @@
   "prop.3": "Magnifier",
   "prop.4": "Alarm clock",
   "job.who": "Who does it?",
-  "job.chief": "The chief decides (recommended)"
+  "job.chief": "The chief decides (recommended)",
+  "team.pack.title": "Ready-made pack: social-security law office",
+  "team.pack.text": "16 pre-configured specialists (benefits, deadlines, documents, drafting, review, schedule, finance and more) with the safety rules. You can edit each one afterwards.",
+  "team.pack.install": "Install the full team",
+  "team.pack.installing": "Installing...",
+  "team.pack.done": "{n} specialists added."
 }

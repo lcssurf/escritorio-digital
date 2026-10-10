@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face { font-family: PS; src: url(../../site/fonts/PressStart2P.ttf); } @font-face { font-family: VT; src: url(../../site/fonts/VT323.ttf); }
+html, body { margin: 0; background: transparent; }
+.row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; padding: 18px; border-radius: 14px;
+  background: repeating-conic-gradient(#577530 0 25%, #4f6b25 0 50%) 0 0 / 8px 8px; }
+.card { background: #f4f1e8; border: 4px solid #1f2a44; border-radius: 10px; padding: 16px 16px 18px; color: #1f2a44;
+  box-shadow: inset 0 0 0 3px #f4f1e8, inset 0 0 0 5px #e6e0cf, 0 4px 0 rgba(18,22,12,.35); }
+.top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.n { font: 12px PS; color: #b45a3c; }
+canvas { width: 40px; height: 40px; image-rendering: pixelated; }
+h3 { font: 12px/1.5 PS; margin: 0 0 8px; }
+p { font: 22px/1.1 VT; margin: 0; color: #3c4a6b; }
+</style></head><body><div class="row" id="row"></div><script>
+const ICONS = {
+  terminal: [["oooooooooo","osssssssso","osgsssssso","ossgssssso","osgsssssso","osssggggso","osssssssso","oooooooooo","...oooo...","..oooooo.."], { o:"#1b1f2a", s:"#22303c", g:"#7cfc9a" }],
+  egg: [["...oooo...","..occcco..",".occsccco.",".occcccco.","occccccsco","ocscccccco","occcccccco","oddcccccdo",".oddcccdo.","..oooooo.."], { o:"#6b5a3a", c:"#f6eed8", s:"#e2875f", d:"#d8c9a3" }],
+  chat: [["..........",".oooooooo.","owwwwwwwwo","owwwwwwwwo","owdwdwdwwo","owwwwwwwwo",".oooooooo.","..oow.....","..ow......","..o......."], { o:"#3c4a6b", w:"#fff8e8", d:"#d97757" }],
+  chart: [["o.........","o.......gg","o.......gg","o....bb.gg","o....bb.gg","o.rr.bb.gg","o.rr.bb.gg","o.rr.bb.gg","o.rr.bb.gg","oooooooooo"], { o:"#3c4a6b", b:"#1c9fd6", g:"#3cc36b", r:"#d97757" }],
+};
+const steps = [
+  ["terminal", "INSTALL", "One line on any box with Docker, or one command on AWS with no open ports."],
+  ["egg", "ADD YOUR CLAUDES", "Tap the egg in the farm UI and log in. Teammates add theirs the same way."],
+  ["chat", "TALK TO YOURS", "Claude app → Code → your farm. Ask for anything, from anywhere."],
+  ["chart", "WATCH IT GROW", "Sub-agents, messages, schedules and dashboards, all on the farm, paced on real usage."],
+];
+steps.forEach(([ic, t, d], i) => {
+  const c = document.createElement("canvas"); c.width = c.height = 10; const g = c.getContext("2d");
+  const [rows, pal] = ICONS[ic]; rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+  const card = document.createElement("div"); card.className = "card";
+  card.innerHTML = `<div class="top"><span class="n">0${i + 1}</span></div><h3>${t}</h3><p>${d}</p>`;
+  card.querySelector(".top").append(c); document.getElementById("row").append(card);
+});
+</script></body></html>

@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  clodfarm apps role (optional): lets the farm's Claudes create and change their own serverless apps on AWS. A deployer
+  role only the farm box may assume, a permissions boundary every role the farm creates must carry, a monthly budget
+  that locks the deployer at 100%, and optionally a Route 53 zone for the apps. Deploy it with
+  `deploy/aws/deploy.sh apps-role`, ideally in an AWS account of its own (docs/deploy-aws.md). The farm can't change this
+  stack or lift its limits.
+
+Parameters:
+  FarmRoleArn:
+    Type: String
+    Description: the farm box's instance role (deploy.sh reads it from the clodfarm stack); the only principal that may assume the deployer
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 50
+    MinValue: 1
+    Description: monthly AWS spend cap for this account in USD. At 100% of actual spend the deployer is locked (running apps keep serving)
+  AlertEmail:
+    Type: String
+    Description: gets the budget alerts (50%, 80%, forecast 100%) and the lock notice
+  RolePrefix:
+    Type: String
+    Default: farm-app
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9-]{1,30}$"
+    Description: roles and policies the farm creates must be named <RolePrefix>-*
+  AllowedRegions:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: "optional: the regions the farm may deploy to, e.g. us-east-1,eu-central-1 (empty = any)"
+  AppsDomain:
+    Type: String
+    Default: ""
+    Description: "optional: a domain (e.g. apps.example.com) whose Route 53 zone this stack creates; delegate it with the NS output"
+
+Conditions:
+  AnyRegion: !Equals [!Join [",", !Ref AllowedRegions], ""]
+  HasDomain: !Not [!Equals [!Ref AppsDomain, ""]]
+
+Resources:
+  # Every role the farm creates must carry this boundary: app roles can use app services, never IAM, billing or the account.
+  Boundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${AWS::StackName}-boundary
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AppRuntime
+            Effect: Allow
+            Action: [logs:*, dynamodb:*, s3:*, sqs:*, sns:Publish, sns:Subscribe, sns:Get*, sns:List*, lambda:InvokeFunction,
+                     lambda:Get*, states:*, events:PutEvents, scheduler:*, ssm:GetParameter*, secretsmanager:GetSecretValue,
+                     kms:Decrypt, kms:Encrypt, kms:GenerateDataKey*, xray:*, cloudwatch:PutMetricData, execute-api:*,
+                     cognito-idp:*, bedrock:InvokeModel*, iam:PassRole]
+            Resource: "*"
+          - Sid: NeverIamOrAccount
+            Effect: Deny
+            Action: [iam:Create*, iam:Delete*, iam:Put*, iam:Attach*, iam:Detach*, iam:Update*, iam:Add*, iam:Remove*,
+                     organizations:*, account:*, budgets:*, route53domains:*, aws-marketplace:*, savingsplans:*,
+                     ses:Send*, sts:AssumeRole]
+            Resource: "*"
+
+  # What the farm deploys with: broad on serverless app services, narrow on IAM, no email, domains or billing.
+  DeployPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${AWS::StackName}-deploy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AppServices
+            Effect: Allow
+            Action: [cloudformation:*, lambda:*, apigateway:*, execute-api:*, dynamodb:*, s3:*, cloudfront:*, acm:*,
+                     route53:*, logs:*, cloudwatch:*, events:*, scheduler:*, sqs:*, sns:*, states:*, ssm:*,
+                     secretsmanager:*, kms:*, xray:*, cognito-idp:*, cognito-identity:*, wafv2:*, bedrock:InvokeModel*,
+                     bedrock:List*, bedrock:Get*, tag:*, sts:GetCallerIdentity, iam:Get*, iam:List*,
+                     iam:CreateServiceLinkedRole, ce:Get*, budgets:ViewBudget, servicequotas:Get*, servicequotas:List*]
+            Resource: "*"
+          - Sid: CreateAppRolesOnlyWithTheBoundary
+            Effect: Allow
+            Action: [iam:CreateRole, iam:PutRolePermissionsBoundary]
+            Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${RolePrefix}-*
+            Condition: {StringEquals: {iam:PermissionsBoundary: !Ref Boundary}}
+          - Sid: ManageAppRoles
+            Effect: Allow
+            Action: [iam:PutRolePolicy, iam:DeleteRolePolicy, iam:AttachRolePolicy, iam:DetachRolePolicy, iam:DeleteRole,
+                     iam:TagRole, iam:UntagRole, iam:UpdateRole, iam:UpdateRoleDescription, iam:UpdateAssumeRolePolicy,
+                     iam:PassRole]
+            Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${RolePrefix}-*
+          - Sid: AppManagedPolicies
+            Effect: Allow
+            Action: [iam:CreatePolicy, iam:DeletePolicy, iam:CreatePolicyVersion, iam:DeletePolicyVersion, iam:TagPolicy]
+            Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${RolePrefix}-*
+          - Sid: HardLimits
+            Effect: Deny
+            Action: [iam:DeleteRolePermissionsBoundary, iam:CreateUser, iam:CreateAccessKey, iam:CreateLoginProfile,
+                     organizations:*, account:*, route53domains:*, aws-marketplace:*, savingsplans:*, ses:Send*,
+                     budgets:Modify*, budgets:Update*, budgets:Delete*, budgets:CreateBudgetAction, budgets:ExecuteBudgetAction]
+            Resource: "*"
+          - Sid: HandsOffThisStack
+            Effect: Deny
+            Action: [cloudformation:UpdateStack, cloudformation:DeleteStack, cloudformation:CreateChangeSet,
+                     cloudformation:ExecuteChangeSet, cloudformation:SetStackPolicy]
+            Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${AWS::StackName}/*
+          - !If
+            - AnyRegion
+            - !Ref AWS::NoValue
+            - Sid: OnlyTheseRegions
+              Effect: Deny
+              NotAction: [iam:*, sts:*, route53:*, cloudfront:*, budgets:*, ce:*, organizations:*, account:*, support:*,
+                          health:*, waf:*, wafv2:*, pricing:*, tag:*, s3:ListAllMyBuckets, s3:GetBucketLocation]
+              Resource: "*"
+              Condition: {StringNotEquals: {aws:RequestedRegion: !Ref AllowedRegions}}
+
+  Deployer:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-deployer
+      Description: assumed by a clodfarm box to create and change the farm's own apps
+      MaxSessionDuration: 14400
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: [{Effect: Allow, Principal: {AWS: !Ref FarmRoleArn}, Action: sts:AssumeRole}]
+      ManagedPolicyArns: [!Ref DeployPolicy]
+      Tags: [{Key: app, Value: clodfarm}]
+
+  # The budget lock: at 100% of actual monthly spend, AWS Budgets attaches this deny-all to the deployer by itself.
+  DenyAll:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${AWS::StackName}-deny-all
+      PolicyDocument: {Version: "2012-10-17", Statement: [{Effect: Deny, Action: "*", Resource: "*"}]}
+
+  BudgetsExec:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-budgets
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: [{Effect: Allow, Principal: {Service: budgets.amazonaws.com}, Action: sts:AssumeRole}]
+      Policies:
+        - PolicyName: lock-the-deployer
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [iam:AttachRolePolicy, iam:DetachRolePolicy]
+                Resource: !GetAtt Deployer.Arn
+                Condition: {ArnEquals: {iam:PolicyARN: !Ref DenyAll}}
+
+  Budget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub ${AWS::StackName}-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref MonthlyBudgetUsd, Unit: USD}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 50, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+
+  BudgetLock:
+    Type: AWS::Budgets::BudgetsAction
+    Properties:
+      BudgetName: !Ref Budget
+      ActionType: APPLY_IAM_POLICY
+      ActionThreshold: {Type: PERCENTAGE, Value: 100}
+      NotificationType: ACTUAL
+      ApprovalModel: AUTOMATIC
+      ExecutionRoleArn: !GetAtt BudgetsExec.Arn
+      Definition: {IamActionDefinition: {PolicyArn: !Ref DenyAll, Roles: [!Ref Deployer]}}
+      Subscribers: [{Type: EMAIL, Address: !Ref AlertEmail}]
+
+  AppsZone:
+    Type: AWS::Route53::HostedZone
+    Condition: HasDomain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Ref AppsDomain
+      HostedZoneConfig: {Comment: "clodfarm apps: <app>.<this domain>"}
+
+Outputs:
+  DeployerArn: {Value: !GetAtt Deployer.Arn}
+  BoundaryArn: {Value: !Ref Boundary}
+  RolePrefix: {Value: !Ref RolePrefix}
+  MonthlyBudgetUsd: {Value: !Ref MonthlyBudgetUsd}
+  AppsDomain: {Condition: HasDomain, Value: !Ref AppsDomain}
+  AppsZoneId: {Condition: HasDomain, Value: !Ref AppsZone}
+  AppsZoneNameServers:
+    Condition: HasDomain
+    Description: add these as an NS record for the domain at its parent (registrar or parent zone)
+    Value: !Join [",", !GetAtt AppsZone.NameServers]

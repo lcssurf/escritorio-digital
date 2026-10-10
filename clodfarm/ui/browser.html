@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#4f6b25">
+<meta name="robots" content="noindex, nofollow">
+<title>Browser · clodfarm</title>
+<link rel="icon" href="{{BASE}}/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="{{BASE}}/fonts/PressStart2P.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="{{BASE}}/dash.css">
+<link rel="stylesheet" href="{{BASE}}/browser.css">
+<script type="module" src="{{BASE}}/browser.js"></script>
+<link rel="stylesheet" href="{{BASE}}/farmselect.css">
+<script src="{{BASE}}/farmselect.js" defer></script>
+</head>
+<body data-base="{{BASE}}">
+<header class="top">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a class="logo" href="{{BASE}}/" title="Back to the farm"><img src="{{BASE}}/logo.svg" alt="" width="28" height="32"><span>CLOD</span><span>FARM</span></a>
+    <span class="sep" aria-hidden="true">/</span>
+    <span id="crumb-here" aria-current="page">Browser</span>
+  </nav>
+  <div class="top-actions">
+    <span class="chip off" id="state"><span class="dot" aria-hidden="true"></span><span id="state-text">…</span></span>
+  </div>
+</header>
+<main class="wrap wide" aria-live="polite">
+  <nav class="profiles" id="profiles" aria-label="Browser profiles" hidden>
+    <div class="profile-tabs" id="profile-tabs" role="tablist"></div>
+    <button type="button" class="btn small-btn" id="add-open" title="A new profile: its own Chromium with its own logins">+ ADD PROFILE</button>
+    <form class="add-form" id="add-form" autocomplete="off" hidden>
+      <label class="sr" for="add-name">New profile name</label>
+      <input id="add-name" maxlength="24" placeholder="linkedin-work" spellcheck="false" pattern="[a-z0-9][a-z0-9\-]{0,23}"
+        title="up to 24 lowercase letters, digits or -">
+      <label class="for-pick" id="add-owner-pick" hidden>FOR <select id="add-owner" title="The Claude it belongs to: only that Claude gets its browser tools"></select></label>
+      <button type="submit" class="btn small-btn primary">ADD</button>
+      <button type="button" class="btn small-btn" id="add-cancel">CANCEL</button>
+    </form>
+  </nav>
+  <p class="form-error bar-error" id="bar-error" role="alert"></p>
+
+  <section class="card panel intro" id="denied" hidden>
+    <h2>THE FARM'S BROWSER</h2>
+    <p class="lede">The farm's browser shows your own Claude's profiles. Hatch a Claude or sign in to yours (MY CLAUDE on
+      the farm) to use it.</p>
+    <p><a class="btn primary" href="{{BASE}}/">← BACK TO THE FARM</a></p>
+  </section>
+
+  <section class="conn" id="conn" aria-label="How this profile reaches the web" hidden>
+    <span class="conn-label">CONNECTION</span>
+    <div class="switch" role="group" aria-label="Direct, or through the farm's proxy">
+      <button type="button" class="seg" id="conn-direct" aria-pressed="true"
+        title="Sites see this box's own IP address">DIRECT</button>
+      <button type="button" class="seg" id="conn-proxy" aria-pressed="false"
+        title="Sites see the proxy's address (a running profile restarts, its tabs close)">VIA PROXY</button>
+    </div>
+    <label class="sr" for="conn-country">The country sites see</label>
+    <select id="conn-country" class="conn-country" hidden title="The country the proxy's address is in"></select>
+    <span class="conn-state" id="conn-state" aria-live="polite"></span>
+    <button type="button" class="btn small-btn" id="proxy-set" title="The farm's proxy: one address for every profile that uses it">SET PROXY</button>
+    <form class="add-form proxy-form" id="proxy-form" autocomplete="off" hidden>
+      <label class="sr" for="proxy-address">The farm's proxy: LOGIN:PASSWORD@HOST:PORT</label>
+      <input id="proxy-address" type="password" autocomplete="off" spellcheck="false"
+        placeholder="LOGIN:PASSWORD@gw.dataimpulse.com:10000">
+      <button type="submit" class="btn small-btn primary" id="proxy-save"
+        title="Log in to the proxy, keep it, and send this profile through it">CHECK &amp; TURN ON</button>
+      <button type="button" class="btn small-btn danger" id="proxy-forget" hidden>REMOVE PROXY</button>
+      <button type="button" class="btn small-btn" id="proxy-cancel">CANCEL</button>
+      <span class="small proxy-hint">DataImpulse: a port from 10000 to 20000 keeps one IP for about 30 minutes (823
+        changes it on every request). Pick the country after, here. HTTP only, not SOCKS5.</span>
+    </form>
+    <p class="bar-error proxy-error" id="proxy-error" role="alert"></p>
+  </section>
+
+  <section class="card panel intro" id="off" hidden>
+    <h2 id="off-h">THE FARM'S BROWSER</h2>
+    <p class="lede" id="off-text">Chromium on this box. Log in to a site here once (LinkedIn, a dashboard, an admin
+      panel) and every Claude on the farm works in that login with its browser tools, in the window you watch.</p>
+    <p class="muted small" id="off-note">Each profile has its own logins (two LinkedIn accounts: two profiles) and belongs
+      to one Claude: only that Claude gets its browser tools, and only its person (and the farm manager) sees it here.
+      Logins stay in the farm's workspace volume, so they survive a restart. The Claudes are told never to type
+      passwords: when a site needs a login, they ask you to do it here.</p>
+    <p><button type="button" class="btn primary" id="start">▶ START</button>
+      <button type="button" class="btn primary" id="first-add" hidden>+ ADD PROFILE</button></p>
+    <p class="form-error" id="off-error" role="alert"></p>
+  </section>
+
+  <section id="on" hidden>
+    <form class="bar" id="go" autocomplete="off">
+      <label class="sr" for="url">Open an address in a new tab</label>
+      <input id="url" name="url" type="text" inputmode="url" placeholder="open an address in a new tab: linkedin.com/login" spellcheck="false">
+      <button type="submit" class="btn">OPEN</button>
+    </form>
+    <div class="screen-frame card">
+      <div id="screen" class="screen" aria-label="The farm's browser: click to use it"></div>
+      <p class="screen-msg" id="screen-msg" hidden></p>
+    </div>
+    <form class="type-bar" id="type-bar" autocomplete="off">
+      <button type="button" class="btn small-btn" id="kbd-btn" title="Open your phone's keyboard and type into the farm's browser">⌨ KEYBOARD</button>
+      <input id="type-text" class="type-text" placeholder="type or paste text here, then SEND" spellcheck="false" autocapitalize="off" autocorrect="off"
+        aria-label="Text to type into the farm's browser">
+      <button type="submit" class="btn small-btn primary" id="type-send" title="Pastes it where the cursor is in the farm's browser">SEND ▸</button>
+      <textarea id="kbd-sink" class="kbd-sink" aria-hidden="true" tabindex="-1" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    </form>
+    <p class="muted small help">Click the screen to use it. Paste with ⌘V / Ctrl+V; what you copy there (⌘C / Ctrl+C) lands on your own clipboard.
+      On a phone, tap ⌨ KEYBOARD.
+      <span id="toast" class="toast" hidden></span></p>
+    <section class="card panel tabs-panel">
+      <div class="panel-head"><h2>OPEN TABS</h2><span class="note" id="tools-note"></span></div>
+      <ul id="tabs" class="tab-list"></ul>
+    </section>
+  </section>
+
+  <div class="profile-actions" id="profile-actions" hidden>
+    <label class="assign" id="assign" hidden>BELONGS TO
+      <select id="assign-owner" title="The Claude this profile belongs to: only it gets the profile's browser tools"></select></label>
+    <button type="button" class="btn small-btn" id="stop" title="Stop this profile's browser (its logins are kept)">■ STOP</button>
+    <button type="button" class="btn small-btn danger" id="remove" title="Remove this profile and delete its logins">REMOVE PROFILE</button>
+    <span class="confirm" id="confirm" hidden>Delete this profile and all its logins?
+      <button type="button" class="btn small-btn danger" id="remove-yes">YES, DELETE</button>
+      <button type="button" class="btn small-btn" id="remove-no">KEEP IT</button></span>
+  </div>
+</main>
+</body>
+</html>

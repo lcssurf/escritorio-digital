@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex, nofollow">
+<title>Whiteboard · clodfarm</title>
+<link rel="icon" href="{{BASE}}/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="{{BASE}}/fonts/Virgil.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{BASE}}/whiteboard.css">
+<script type="module" src="{{BASE}}/whiteboard.js"></script>
+</head>
+<body data-base="{{BASE}}">
+<main class="stage" id="stage">
+  <canvas id="board" aria-label="The whiteboard: draw with the tool you picked"></canvas>
+  <textarea id="editor" class="editor" hidden spellcheck="false" aria-label="Text on the board"></textarea>
+  <div class="welcome" id="welcome" hidden aria-hidden="true">
+    <div class="w-tools"><svg viewBox="0 0 60 80" class="w-arrow"><path d="M30 76 C 26 52, 40 30, 30 6 M22 16 L30 4 L38 15"/></svg>Pick a tool<br>&amp; start drawing!</div>
+    <div class="w-menu"><svg viewBox="0 0 80 60" class="w-arrow"><path d="M76 50 C 54 46, 26 40, 8 12 M6 24 L6 9 L19 12"/></svg>Export, clear,<br>and whose board</div>
+    <div class="w-center">
+      <div class="w-logo">clodfarm whiteboard</div>
+      <p>Draw here with your Claude.<br>Ask it: <i>“draw our architecture on my whiteboard”</i></p>
+      <p class="w-small">Everyone on the farm sees this board, and can draw on it too.</p>
+    </div>
+    <div class="w-help"><svg viewBox="0 0 80 60" class="w-arrow"><path d="M8 10 C 30 14, 58 24, 70 50 M58 46 L71 52 L74 38"/></svg>Shortcuts<br>&amp; how Claude draws</div>
+  </div>
+  <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+</main>
+
+<!-- top left: the menu and whose board -->
+<div class="island top-left">
+  <button type="button" class="ibtn" id="menu-btn" aria-haspopup="menu" aria-expanded="false" title="Menu" aria-label="Menu"></button>
+  <div class="board-pick">
+    <button type="button" class="pill" id="board-btn" aria-haspopup="listbox" aria-expanded="false" title="Whose board">
+      <span id="board-name">…</span><span class="caret" aria-hidden="true">▾</span></button>
+  </div>
+</div>
+<div class="popover menu" id="menu" role="menu" hidden></div>
+<div class="popover boards" id="boards" role="listbox" aria-label="Every Claude's board" hidden></div>
+
+<!-- top center: the tools -->
+<div class="island toolbar" role="toolbar" aria-label="Tools" id="toolbar"></div>
+<div class="popover shapes" id="shapes" role="menu" hidden></div>
+
+<!-- top right: live -->
+<div class="top-right">
+  <span class="live off" id="live"><span class="dot" aria-hidden="true"></span><span id="live-text">connecting…</span></span>
+</div>
+
+<!-- left: the properties of what you draw next, or what's selected -->
+<aside class="island props" id="props" aria-label="Style" hidden></aside>
+<div class="popover picker" id="picker" hidden></div>
+
+<!-- bottom left: zoom, undo -->
+<div class="bottom-left">
+  <div class="island row">
+    <button type="button" class="ibtn" id="zoom-out" title="Zoom out (−)" aria-label="Zoom out"></button>
+    <button type="button" class="ibtn zoom-val" id="zoom-reset" title="Reset the zoom (shift+0); FIT is 0" aria-label="Reset zoom">100%</button>
+    <button type="button" class="ibtn" id="zoom-in" title="Zoom in (+)" aria-label="Zoom in"></button>
+  </div>
+  <div class="island row">
+    <button type="button" class="ibtn" id="undo" title="Undo (⌘Z)" aria-label="Undo"></button>
+    <button type="button" class="ibtn" id="redo" title="Redo (⌘⇧Z)" aria-label="Redo"></button>
+  </div>
+</div>
+
+<!-- bottom right: help -->
+<button type="button" class="island ibtn help-btn" id="help-btn" title="Shortcuts and how Claude draws (?)" aria-label="Help">?</button>
+<dialog class="help" id="help" aria-labelledby="help-h">
+  <h2 id="help-h">Whiteboard</h2>
+  <div class="help-cols">
+    <section>
+      <h3>Tools</h3>
+      <dl class="keys">
+        <dt>Select</dt><dd><kbd>V</kbd> <kbd>1</kbd></dd><dt>Rectangle</dt><dd><kbd>R</kbd> <kbd>2</kbd></dd>
+        <dt>Diamond</dt><dd><kbd>D</kbd> <kbd>3</kbd></dd><dt>Ellipse</dt><dd><kbd>O</kbd> <kbd>4</kbd></dd>
+        <dt>Arrow</dt><dd><kbd>A</kbd> <kbd>5</kbd></dd><dt>Line</dt><dd><kbd>L</kbd> <kbd>6</kbd></dd>
+        <dt>Draw</dt><dd><kbd>P</kbd> <kbd>7</kbd></dd><dt>Text</dt><dd><kbd>T</kbd> <kbd>8</kbd></dd>
+        <dt>Image</dt><dd><kbd>9</kbd></dd><dt>Eraser</dt><dd><kbd>E</kbd> <kbd>0</kbd></dd>
+        <dt>Hand</dt><dd><kbd>H</kbd>, or hold <kbd>Space</kbd></dd><dt>Frame, sticky note</dt><dd><kbd>F</kbd> <kbd>N</kbd></dd>
+        <dt>Keep the tool</dt><dd><kbd>Q</kbd> (the lock)</dd>
+      </dl>
+    </section>
+    <section>
+      <h3>Editing</h3>
+      <dl class="keys">
+        <dt>Write in a shape</dt><dd>double-click, or <kbd>Enter</kbd></dd>
+        <dt>Duplicate</dt><dd><kbd>⌘D</kbd>, or <kbd>Alt</kbd>-drag</dd><dt>Copy, paste</dt><dd><kbd>⌘C</kbd> <kbd>⌘V</kbd></dd>
+        <dt>Select all</dt><dd><kbd>⌘A</kbd></dd><dt>Delete</dt><dd><kbd>⌫</kbd></dd>
+        <dt>To front, to back</dt><dd><kbd>⌘⇧]</kbd> <kbd>⌘⇧[</kbd></dd><dt>Undo, redo</dt><dd><kbd>⌘Z</kbd> <kbd>⌘⇧Z</kbd></dd>
+        <dt>Zoom to fit</dt><dd><kbd>⇧1</kbd></dd><dt>Zoom</dt><dd>pinch, <kbd>⌘</kbd>-scroll, <kbd>+</kbd> <kbd>−</kbd></dd>
+        <dt>Straight, square</dt><dd>hold <kbd>Shift</kbd></dd><dt>No snapping</dt><dd>hold <kbd>Alt</kbd></dd>
+      </dl>
+    </section>
+  </div>
+  <h3>Your Claude draws here too</h3>
+  <p>Ask it in the Claude app: <i>“draw how checkout works on my whiteboard”</i>. It lays out whole architectures from a
+    Mermaid flowchart (<code>clodfarm board diagram</code>), draws shapes, arrows, notes and pictures, and reads what you
+    drew (<code>clodfarm board show</code>). Everyone on the farm sees every board, and can draw on it.</p>
+  <form method="dialog"><button class="btn primary">Got it</button></form>
+</dialog>
+<input type="file" id="image-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+</body>
+</html>

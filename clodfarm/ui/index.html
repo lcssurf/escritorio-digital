@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#4f6b25">
+<meta name="robots" content="noindex, nofollow">
+<title>clodfarm</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/PressStart2P.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+<link rel="stylesheet" href="farmselect.css">
+<script src="farmselect.js" defer></script>
+</head>
+<body>
+<canvas id="world" aria-hidden="true"></canvas>
+<div id="labels" aria-hidden="true"></div>
+
+<!-- ============================== title screen ============================== -->
+<main id="title" class="screen" hidden>
+  <div class="title-card">
+    <h1 class="logo"><span>CLOD</span><span>FARM</span></h1>
+    <p class="tagline">a farm of Claude Code agents</p>
+    <div class="panel login" id="title-forms"></div>
+    <p class="hint blink">PRESS START</p>
+  </div>
+</main>
+
+<!-- ================================ the farm ================================ -->
+<div id="hud" hidden>
+  <div class="hud-top" id="hud-top">
+    <button type="button" class="tokens" id="tokens" aria-describedby="tokens-sign">
+      <span class="tok-big"><span class="fire" aria-hidden="true">🔥</span> <b id="tok-total">0</b> TOKENS</span>
+      <span class="tok-today" id="tok-today">today: 0</span>
+      <span class="sign tok-sign" id="tokens-sign" role="tooltip"></span>
+    </button>
+    <button type="button" class="mine-block" id="mine-block" hidden></button>
+    <button type="button" class="chip approve-chip" id="approve-chip" data-act="approvals" hidden></button>
+    <div class="chips" id="chips" aria-live="polite"></div>
+  </div>
+
+  <div class="cam-tools" role="toolbar" aria-label="Account and camera">
+    <button type="button" class="tool cam" data-act="menu" id="menu-tool" data-tip="Sign in and menu" data-key="M" aria-label="Sign in and menu (M)"><img alt="" data-icon="key"></button>
+    <button type="button" class="tool cam" data-act="zoomin" data-tip="Zoom in" data-key="+" aria-label="Zoom in (+)"><img alt="" data-icon="plus"></button>
+    <button type="button" class="tool cam" data-act="zoomout" data-tip="Zoom out" data-key="-" aria-label="Zoom out (-)"><img alt="" data-icon="minus"></button>
+    <button type="button" class="tool cam" data-act="fit" id="fit-tool" data-tip="See the whole farm" data-key="0" aria-label="See the whole farm (0)"><img alt="" data-icon="fit"></button>
+  </div>
+
+  <!-- the dock: what you can do, labelled and grouped (your Claude / the farm / running it), then + ADD AGENT -->
+  <nav class="dock" id="dock" aria-label="Farm actions">
+    <button type="button" class="tool help-tool" data-act="help" id="help-tool" data-tip="What's what" data-desc="Every button and everything on the farm, explained" data-key="?" aria-label="Help: what's what on the farm (?)"><span class="q" aria-hidden="true">?</span><span class="lbl">HELP</span></button>
+    <div class="dock-group" id="grp-mine" data-cap="YOUR CLAUDE">
+      <button type="button" class="tool" data-act="talk" id="talk-tool" data-tip="Talk to your Claude" data-desc="Open it in the Claude app and give it work" data-key="T" aria-label="Talk to your Claude (T)" hidden><img alt="" data-icon="chat"><span class="lbl">TALK</span></button>
+      <a class="tool" href="browser" id="browser-tool" data-tip="Your Claude's browser" data-desc="Watch and steer the web browser it uses" data-key="B" aria-label="Your Claude's browser (B)" hidden><img alt="" data-icon="globe"><span class="lbl" data-short="WEB">BROWSER</span></a>
+    </div>
+    <div class="dock-group" id="grp-farm" data-cap="THE FARM">
+      <button type="button" class="tool" data-act="roster" id="roster-tool" data-tip="Every Claude" data-desc="Find any Claude: who's busy, resting, and their usage" data-key="R" aria-label="Every Claude (R)"><img alt="" data-icon="roster"><span class="lbl" data-short="ALL">EVERYONE</span></button>
+      <a class="tool" href="tasks" id="tasks-tool" data-tip="Tasks and schedules" data-desc="Every sub-agent job, running or done, and what's scheduled" data-key="J" aria-label="Tasks and schedules (J)"><img alt="" data-icon="tasks"><span class="lbl">TASKS</span></a>
+      <a class="tool" href="whiteboard" id="board-tool" data-tip="Whiteboards" data-desc="Draw and write with your Claude; everyone sees every board" data-key="W" aria-label="Whiteboards (W)"><img alt="" data-icon="board"><span class="lbl" data-short="DRAW">BOARD</span></a>
+      <a class="tool" href="dashboards" id="dash-tool" data-tip="Dashboards and stats" data-desc="Charts your Claudes keep, and the farm's numbers" data-key="D" aria-label="Dashboards and stats (D)" hidden><img alt="" data-icon="chart"><span class="lbl">STATS</span></a>
+    </div>
+    <div class="dock-group" id="grp-run" data-cap="MANAGE">
+      <button type="button" class="tool conn-tool" data-act="connectors" id="conn-tool" data-tip="Connectors" data-desc="Plug the farm into Slack, Stripe, Blender and Google Ads" data-key="S" aria-label="Connectors: Slack, Stripe, Blender and Google Ads (S)" aria-haspopup="menu" aria-expanded="false" aria-controls="dlg-conn-menu" hidden><img alt="" data-icon="plug"><span class="lbl" data-short="APPS">CONNECTORS</span><span class="conn-badge" id="conn-badge" aria-hidden="true" hidden></span></button>
+      <button type="button" class="tool" data-act="manager" id="manager-tool" data-tip="Run the farm" data-desc="Planner, privacy, hatching, people, release" data-key="G" aria-label="Run the farm (G)" hidden><img alt="" data-icon="gear"><span class="lbl" data-short="ADMIN">MANAGE</span></button>
+    </div>
+    <button type="button" class="tool hatch-tool" data-act="hatch" id="hatch-tool" data-tip="Add an agent" data-desc="A Claude subscription, or an agent on an API key (GPT, Grok, Gemini...)" data-key="C" aria-label="Add an agent (C)"><img alt="" data-icon="egg" class="egg-ic" hidden><span class="prov-ic" aria-hidden="true"><img src="claude.svg" alt=""><img src="openai.svg" alt=""><img src="grok.svg" alt=""></span><span class="lbl"><span class="plus">+ </span>ADD<span class="long"> AGENT</span></span><span class="call-arrow" aria-hidden="true"><b>START HERE</b><i></i></span></button>
+  </nav>
+
+  <div id="textbox" class="textbox" role="status" aria-live="polite">
+    <p id="textbox-text"></p><span class="more" aria-hidden="true">▼</span>
+  </div>
+</div>
+
+<!-- ================================= dialogs ================================= -->
+<dialog id="dlg-summary" class="panel dlg" aria-labelledby="sum-name">
+  <div class="sum-head">
+    <canvas class="sum-sprite" id="sum-sprite" width="96" height="96" aria-hidden="true"></canvas>
+    <div>
+      <h2 id="sum-name">CLAUDE</h2>
+      <p class="muted" id="sum-sub"></p>
+      <div class="sum-top" id="sum-top"></div>
+    </div>
+  </div>
+  <div id="sum-body"></div>
+  <div class="dlg-actions save-bar" id="sum-actions"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-talk" class="panel dlg wide" aria-labelledby="talk-h">
+  <p class="kicker" id="talk-kicker"></p>
+  <h2 id="talk-h"></h2>
+  <div id="talk-body" class="talk"></div>
+  <div class="dlg-actions" id="talk-actions"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-hatch" class="panel dlg roomy" aria-labelledby="hatch-h">
+  <h2 id="hatch-h">ADD AN AGENT</h2>
+  <div id="hatch-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-claude" class="panel dlg" aria-labelledby="claude-h">
+  <h2 id="claude-h">TALK TO YOUR CLAUDE</h2>
+  <div id="claude-body"></div>
+  <div class="dlg-actions" id="claude-actions"></div>
+  <button class="x" type="button" data-close aria-label="Close" autofocus>✕</button>
+</dialog>
+
+<dialog id="dlg-slack" class="panel dlg" aria-labelledby="slack-h">
+  <h2 id="slack-h">SLACK</h2>
+  <div id="slack-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<!-- CONNECTORS: a wooden menu over its dock button (a sheet on a phone), one row per service -->
+<dialog id="dlg-conn-menu" class="conn-menu" aria-labelledby="connm-h">
+  <h2 class="conn-cap" id="connm-h">CONNECTORS</h2>
+  <div class="conn-list" id="connm-list" role="menu" aria-labelledby="connm-h"></div>
+  <p class="conn-foot" id="connm-foot"></p>
+</dialog>
+
+<dialog id="dlg-connector" class="panel dlg" aria-labelledby="connector-h">
+  <div class="conn-head">
+    <span class="conn-logo big"><img alt="" id="connector-logo" src="stripe.svg"></span>
+    <div><button type="button" class="kicker crumb" id="connector-back" aria-label="Back to all connectors">◀ CONNECTORS</button><h2 id="connector-h">STRIPE</h2></div>
+  </div>
+  <div id="connector-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-approvals" class="panel dlg sheet" aria-labelledby="appr-h">
+  <h2 id="appr-h">TO APPROVE</h2>
+  <p class="muted small" id="appr-sub"></p>
+  <div id="appr-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-roster" class="panel dlg wide sheet" aria-labelledby="roster-h">
+  <h2 id="roster-h">EVERY CLAUDE</h2>
+  <div class="roster-bar">
+    <input id="roster-q" type="search" placeholder="search names, tasks…" autocomplete="off" aria-label="Search Claudes">
+    <select id="roster-sort" aria-label="Sort by">
+      <option value="status">BUSY FIRST</option><option value="name">NAME</option><option value="tokens">TOKENS</option>
+      <option value="h5">5H USED</option><option value="d7">7D USED</option>
+    </select>
+  </div>
+  <p class="muted small" id="roster-count"></p>
+  <ul class="roster" id="roster-list"></ul>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-manager" class="panel dlg wide" aria-labelledby="mgr-h">
+  <h2 id="mgr-h">RUN THE FARM</h2>
+  <div id="mgr-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-planner" class="panel dlg" aria-labelledby="plan-h">
+  <div class="sum-head">
+    <canvas class="sum-sprite" id="plan-sprite" width="96" height="96" aria-hidden="true"></canvas>
+    <div><h2 id="plan-h">THE PLANNER</h2><p class="muted" id="plan-sub"></p></div>
+  </div>
+  <div id="plan-body"></div>
+  <div class="dlg-actions" id="plan-actions"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-settings" class="panel dlg roomy" aria-labelledby="set-h">
+  <h2 id="set-h">SETTINGS</h2>
+  <div id="set-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-help" class="panel dlg wide sheet" aria-labelledby="help-h">
+  <h2 id="help-h">WHAT'S WHAT</h2>
+  <div id="help-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+<dialog id="dlg-menu" class="panel dlg" aria-labelledby="menu-h">
+  <h2 id="menu-h">MENU</h2>
+  <div id="menu-body"></div>
+  <button class="x" type="button" data-close aria-label="Close">✕</button>
+</dialog>
+
+</body>
+</html>

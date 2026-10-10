@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#4f6b25">
+<meta name="robots" content="noindex, nofollow">
+<title>Dashboards · clodfarm</title>
+<link rel="icon" href="{{BASE}}/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="{{BASE}}/fonts/PressStart2P.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="{{BASE}}/dash.css">
+<script src="{{BASE}}/dash.js" defer></script>
+</head>
+<body data-base="{{BASE}}">
+<header class="top">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a class="logo" href="{{BASE}}/" title="Back to the farm"><img src="{{BASE}}/logo.svg" alt="" width="28" height="32"><span>CLOD</span><span>FARM</span></a>
+    <span class="sep" aria-hidden="true">/</span>
+    <a href="{{BASE}}/dashboards" id="crumb-all">Dashboards</a>
+    <span id="crumb-folders" class="crumb-folders"></span>
+    <span class="sep" id="crumb-sep" aria-hidden="true" hidden>/</span>
+    <span id="crumb-here" aria-current="page"></span>
+  </nav>
+  <div class="range" id="range" role="group" aria-label="Time range" hidden>
+    <button type="button" data-days="1">24h</button>
+    <button type="button" data-days="7">7d</button>
+    <button type="button" data-days="30">30d</button>
+    <button type="button" data-days="90">90d</button>
+  </div>
+</header>
+<main id="main" class="wrap" aria-live="polite">
+  <p class="muted">Loading…</p>
+</main>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+</body>
+</html>

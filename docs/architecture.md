@@ -1,0 +1,162 @@
+# Architecture
+
+clodfarm is a small Python daemon (`clodfarm run`; the standard library plus boto3) that supervises Claude
+Code processes and keeps its state in one store:
+- **SQLite**, one file in the workspace volume, for a single box (the default);
+- **a DynamoDB table** (`FARM_STORE=dynamodb`) when several boxes and accounts share one farm.
+
+Both backends implement six primitives (`backends.py`), and all logic is written once on top of them (`store.py`).
+Every update is an optimistic, versioned read-modify-write, so claims and counters are atomic on both.
+
+```
+container (user "farm", tini as PID 1)
+└── clodfarm run                       supervisor.py (boot.py first execs the current release, see upgrades.md)
+    ├── remote-control keeper          reads `claude remote-control ...` (detached, under the run shim), restarts it
+    ├── worker w0..wN-1                one thread each, never more than FARM_MAX_WORKERS; each reads one run's files
+    ├── mail                           watches this Claude's doorbell: flags new mail, interrupts for --urgent
+    ├── agents                         keeps each Claude added in the UI running (its own `clodfarm run`, detached)
+    ├── ui keeper                      keeps `clodfarm ui` running as its own process; rolls it with no downtime
+    └── housekeeping                   re-queues tasks whose lease expired, expires approvals, wakes someone for
+                                       unread --wake mail, drives the planner, prints a status line every 10 min
+
+detached (their parent is tini; the daemon finds them by their files and pid files):
+    run shim → claude -p --input-format stream-json --output-format stream-json --verbose ...   one per run
+    run shim → claude remote-control ...                                                       one per Claude
+    clodfarm run --tag agent-<id>                                                              one per added Claude
+    clodfarm ui --tag ui-<id>                                                                  the farm UI
+    Xvfb / x11vnc / Chromium                                                                   one set per profile
+```
+
+A run's files are in `/workspace/.farm/runs/<claude>@<host>/<run>/` (see `runshim.py`): what to start, its stdin
+spool, its output, its exit code, and the farm's bookkeeping (`meta.json`: task, worker, slot, worktree, prompt). So
+a daemon that execs a new release (SIGHUP, from `clodfarm upgrade`) or crashes and comes back adopts every run
+instead of losing it; see [upgrades.md](upgrades.md).
+
+## Modules
+
+| File | Responsibility |
+|---|---|
+| `governor.py` | Pure function `decide(snapshot, policy, now) -> Decision(workers, reason, pause_until)`. No I/O. |
+| `store.py` | Tasks, runs, per-seat budget, slots, control switches, heartbeats, events: every state change is a versioned conditional update. |
+| `backends.py` | The two stores behind it: SQLite (WAL, safe across threads and `docker exec` processes) and DynamoDB. |
+| `runner.py` | Starts one `claude -p` process, streams its JSON events, collects the result, usage and `rate_limit_event`s, and enforces a timeout. |
+| `supervisor.py` | The sub-agent runners, the usage keeper, schedules, resume logic, git integration, the Remote Control keeper. |
+| `gitops.py` | One worktree and branch per task; rebase onto main plus fast-forward; conflicts become tasks. |
+| `prompts.py` | The farm guide every Claude gets, and the resume prompts. |
+| `auth.py` | Login detection, the waiting banner, onboarding and trust flags, the guide in `CLAUDE.md`. |
+| `cli.py` | The `clodfarm` command, shared by humans and agents. |
+| `runshim.py` | The run shim: starts a process detached, owns its stdin, keeps its output and exit code in files. No clodfarm imports. |
+| `procs.py` | Detached processes, pid files and liveness (a pid counts only if its command line still matches). |
+| `boot.py` | Every `clodfarm` process runs the current release from the workspace volume; the crash guard. |
+| `upgrade.py` | `clodfarm upgrade`: install, check, switch, hand over, show the agents kept running. |
+| `uikeeper.py` | The UI as its own process, rolled with no downtime. |
+| `policy.py` | The tools a Claude's person turned off, and the PreToolUse decision. |
+| `mod/` | The farm's mod: a Claude Code plugin of function hooks every farm session loads. It wakes idle conversations for their mail, gates and logs `SendMessage`, and gives the model a `msg` tool (see [agents.md](agents.md#the-farms-mod)). |
+| `planner.py` | The planner's cycles. |
+| `web.py` | The farm UI: roles (public, viewer, owner, manager), hatching, approvals, the manager panel. |
+| `boards.py` | Every Claude's whiteboard: its elements, revisions and what a page asks for. |
+| `diagram.py` | Mermaid flowcharts (or nodes and edges) laid out in layers, as whiteboard elements. |
+
+## Data model (one table, same shape in SQLite and DynamoDB)
+
+| PK | SK | What |
+|---|---|---|
+| `TASK#<id>` | `META` | A task: title, prompt, status, priority, parent, children, depth, attempts, session id, worktree, result. `GSI1PK = STATUS#<status>` and `GSI1SK = <9-priority>#<created>` make "next queued task" one index query. |
+| `TASK#<id>` | `RUN#<ts>` | One agent run: duration, turns, output tokens, list-price cost, utilization before and after. |
+| `BUDGET` | `<seat>` | Newest `rate_limit_event` snapshot of that Claude account. The write is conditional on `observed_at` being newer. |
+| `SLOT` | `<seat>#000..` | Per-seat concurrency slots with leases, shared by every box on that seat. |
+| `SPEND` | `<seat>#<day>` | API-mode list-price spend per seat and day. |
+| `CONTROL` | `GLOBAL` / `HEALTH` | The pause switch; the circuit breaker's failure count. |
+| `MSG#<address>` | `<ts>#<rand>` | A message to a Claude (its name) or to one sub-agent (its task id): id, sender, reply address, hops, read by whom (TTL 30 days). |
+| `BELL` | `<claude>` | A counter every message for that Claude (or a sub-agent running on its boxes) bumps; its boxes' mail loop watches it. |
+| `WAKEQ` | `<due>#<rand>` | A `--wake` message; when due and still unread, one box starts someone to handle it. |
+| `WAKES` | `<address>#<hour>` | Wakes per recipient and hour (the loop cap). |
+| `SESSION` | `<session id>` | Every Claude Code session: its Claude, kind (conversation / sub-agent / usage), task, title, turn count, transcript offset. |
+| `TURN#<session id>` | `<n>` | One turn of that session's conversation, copied from its transcript by `clodfarm hook`. |
+| `SCHEDULE` | `<id>` | A scheduled task (cron + time zone, every N seconds, or once at a time) and its next run. |
+| `WORKER` | `<farm>/<worker>` | Heartbeats (TTL 1 day). |
+| `EVENT#<day>` | `<ts>#<rand>` | Event log (TTL 30 days). |
+| `CLAUDE` | `<id>` | A Claude's settings: skin, tools turned off, approve every mission, owner cookie version, ntfy topic. |
+| `HELD` | `<message id>` | A message waiting for its recipient's person to approve it. |
+| `CONTROL` | `SETTINGS` / `PLANNER` / `BOX#<host>` | The manager's switches (private farm, hatching); the planner; `clodfarm drain`. |
+| `STATS` | `TOKENS`, `TOKENS#<day>`, `TOKENS@<claude>`, `TOKENS#<day>@<claude>` | Tokens burned (input, output, cache write, cache read). |
+| `PAIR` | `<token hash>` | A one-time pairing link or code (10 minutes). |
+| `BOARD` | `<claude>` | A Claude's whiteboard: its revision, how many elements, who changed it last. |
+| `BOARDI#<claude>` | `<element id>` | One element on it (or, for an hour, the tombstone of a removed one). |
+
+A task can also be `pending` (waiting for its Claude's person to approve it; never claimed) and `denied`.
+
+Sub-agent IDs start with a timestamp, so they sort by creation time.
+
+## Sub-agent lifecycle
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued: clodfarm spawn
+  queued --> running: claim (conditional on status=queued) + lease
+  running --> done: success, no open children
+  running --> waiting: success, has open children
+  waiting --> queued: last child finished (resume=true)
+  running --> queued: success but children finished during the run (resume)
+  running --> queued: failure, attempts left / rate limited / lease expired
+  running --> failed: failure, no attempts left
+  queued --> cancelled
+  waiting --> cancelled
+  running --> cancelled: its run is stopped within seconds, nothing lands
+  failed --> queued: retry
+```
+
+**Resuming a parent:** a resumed parent runs `claude -p --resume <session_id>` in the same worktree, with a prompt
+that lists every child's status and result. It keeps its whole conversation. If the session file is gone (a new
+volume), it starts fresh with its original prompt plus the children's results.
+
+**Why the parent ends its run instead of waiting:** a waiting agent would hold a slot, and with it the budget, while
+doing nothing. Parents end their run and are re-queued when their children finish. Cycles are impossible because
+depth is bounded by `FARM_MAX_DEPTH` (3).
+
+## Git flow
+
+- Each sub-agent gets `/workspace/.worktrees/<id>` on branch `farm/<id>`, cut from `main`. If the repo has an
+  `origin`, `main` is pulled first.
+- On success, anything left uncommitted is committed for the agent. The branch is rebased onto `main`, and `main`
+  is fast-forwarded to it (under a lock, one merge at a time per box), then pushed if `origin` exists and
+  `FARM_PUSH=1`.
+- A rebase conflict aborts the rebase and starts a "resolve merge conflict" sub-agent.
+- Remote Control sessions spawned from the app use `--spawn worktree` too. The one Remote Control session
+  pre-created in `/workspace/repo` sits on the main checkout, so commit there with care: the farm fast-forwards
+  `main` underneath it.
+
+Without a git repo in `/workspace/repo`, sub-agents run in `/workspace` with no isolation. The farm creates an empty repo
+on first start, so that only happens if you remove it.
+
+## Failure handling
+
+| Failure | What happens |
+|---|---|
+| The agent process crashes | The attempt counts. The task is re-queued until `max_attempts` (3), then marked `failed` with the output. |
+| The agent run times out | The session is resumed ("you hit the time limit; commit what's good and finish or split") up to `FARM_TIMEOUT_RESUMES` (2) times, keeping the work and the attempt. |
+| `FARM_VERIFY_CMD` fails before landing | The branch is rebased onto main and the check runs in the worktree. On failure the agent is resumed with the output, up to `FARM_VERIFY_FIXES` (2) times. After that the task fails and main is untouched. |
+| Many failures in a row | After `FARM_STALL_THRESHOLD` (5) failed runs in a row on any box, the circuit breaker pauses the whole farm and notifies you. `clodfarm resume` resets it. |
+| The container or box dies mid-run | The lease (5 min, renewed every ~100 s) expires. Housekeeping on any box re-queues the task. The slot lease expires too. |
+| DynamoDB is briefly unreachable | Worker threads log and retry after 30 s. The event log never raises. |
+| Remote Control exits | Restarted after 10 s, with exponential back-off up to 30 min if it keeps failing fast. |
+| Usage limit | See [budget.md](budget.md): the attempt is handed back and the whole account pauses until the reset. |
+| Logged out (token revoked) | Runs fail with auth errors. `clodfarm doctor` shows it. Log in again with `clodfarm login`. |
+| A sub-agent is cancelled while it runs | Its box checks every running sub-agent's status every 3 s and stops the run (SIGTERM to its process group, SIGKILL after 5 s). Nothing it did lands, even when the cancel comes while its check runs; it isn't counted as a failure. Cancelling a sub-agent cancels the ones under it too. |
+
+## Scaling out
+
+Run the same image on more boxes with the same `FARM_TABLE` (real DynamoDB) and the same `FARM_REPO_URL`:
+- **Shared:** they are one farm, and sub-agent branches travel through origin.
+- **Per seat:** each box works out its seat from its login. The budget, slots and spend are per seat, and the
+  governor caps each seat's concurrency across all of that seat's boxes.
+- **Per box:** `FARM_MAX_WORKERS` is per box.
+- **Sessions:** a resumed task prefers the box holding its session for `FARM_RESUME_AFFINITY` seconds.
+
+See [multi-seat.md](multi-seat.md).
+
+## What clodfarm deliberately doesn't do
+
+- No multi-account pooling, no API-key fallback and no limit evasion.
+- No outbound messages, payments or posting. Claudes are told not to unless the person they work for asks, and nothing in
+  clodfarm itself does any of it.

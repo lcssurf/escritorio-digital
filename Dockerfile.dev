@@ -1,4 +1,4 @@
-﻿# Para quem desenvolve: sÃ³ o nosso cÃ³digo Python por cima da nossa imagem completa, em segundos (sem refazer o resto).
+# Para quem desenvolve: sÃ³ o nosso cÃ³digo Python por cima da nossa imagem completa, em segundos (sem refazer o resto).
 #   docker build -f Dockerfile.dev -t escritorio-digital:dev .
 # A base Ã© a nossa prÃ³pria imagem (a que a instalaÃ§Ã£o baixa). Para trocar: --build-arg BASE=...
 ARG BASE=ghcr.io/lcssurf/escritorio-digital:1.0.3

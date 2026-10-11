@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // EscritÃ³rio Digital: uma ferramenta sÃ³, igual no Windows, no Mac e no Linux (precisa sÃ³ do Node 18+).
@@ -279,6 +279,57 @@ async function instalar() {
   return true;
 }
 
+// ---------------------------------------------------------------- atualizar: baixa o que mudou e religa, sem perder login nem trabalhos
+// Dois tempos: o primeiro só baixa o código novo (git pull) e chama este mesmo script de novo, já na versão nova
+// (é ela que sabe qual imagem do Docker usar). O segundo atualiza a imagem, religa o escritório e os bonecos.
+function fecharBonecos() {
+  // só os processos do Electron que vêm DESTA pasta (nunca outros programas feitos em Electron)
+  const exe = path.join(OVERLAY, 'node_modules', 'electron', 'dist');
+  if (win) {
+    const ps = `Get-CimInstance Win32_Process -Filter "Name='electron.exe'" | Where-Object { $_.ExecutablePath -like '${exe.replace(/'/g, "''")}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
+    run('powershell', ['-NoProfile', '-Command', ps]);
+  } else {
+    run('pkill', ['-f', path.join(OVERLAY, 'node_modules', 'electron')]);
+  }
+}
+
+async function atualizar() {
+  if (!flag('depois-do-pull')) {
+    say('Atualizando o Escritório Digital (o login e os trabalhos ficam como estão).\n');
+    say('1/3  Código novo');
+    if (!fs.existsSync(path.join(ROOT, '.git'))) return bad('Esta pasta não veio do git, então não sei de onde atualizar', 'Baixe de novo: git clone https://github.com/lcssurf/escritorio-digital');
+    const st = run('git', ['status', '--porcelain'], { cwd: ROOT });
+    if ((st.stdout || '').trim()) return bad('Há arquivos alterados nesta pasta; não vou sobrescrever o seu trabalho', 'Guarde ou desfaça as alterações (git stash) e rode de novo.');
+    const pull = run('git', ['pull', '--ff-only'], { cwd: ROOT });
+    if (pull.status !== 0) return bad('Não consegui baixar o código novo: ' + ((pull.stderr || pull.stdout || '').trim().split('\n').slice(-2).join(' | ')), 'Confira a internet e rode de novo.');
+    ok((pull.stdout || '').includes('Already up to date') ? 'Já estava no código mais novo' : 'Código atualizado');
+    const again = spawnSync(process.execPath, [fileURLToPath(import.meta.url), 'atualizar', '--depois-do-pull', ...process.argv.slice(3)], { stdio: 'inherit', env: ENV });
+    return again.status === 0 ? true : again.status === NEEDS_PERSON ? NEEDS_PERSON : false;
+  }
+  say('\n2/3  Imagem do escritório');
+  if (!dockerUp()) return bad('O Docker não está rodando', 'Abra o Docker Desktop e rode de novo.');
+  const antes = (docker(['image', 'inspect', IMAGE, '--format', '{{.Id}}']).stdout || '').trim();
+  const b = construir(); if (b !== true) return b === NEEDS_PERSON ? NEEDS_PERSON : false;
+  const depois = (docker(['image', 'inspect', IMAGE, '--format', '{{.Id}}']).stdout || '').trim();
+  const emUso = (docker(['inspect', '-f', '{{.Image}}', NAME]).stdout || '').trim();
+  if (emUso && emUso === depois && !flag('recriar')) ok('O escritório já roda a versão mais nova');
+  else {
+    // não corta o trabalho de ninguém no meio
+    try { const s = await api('/api/state', { token: overlayToken() }); if ((s.subagents || []).length && !flag('forcar')) return bad(`Há ${(s.subagents || []).length} trabalho(s) em andamento`, 'Espere terminarem e rode de novo (ou use --forcar para religar mesmo assim).'); } catch (_) { /* desligado: pode religar */ }
+    if (antes && antes !== depois) say('  (versão nova da imagem baixada)');
+    if (!(await iniciar())) return false;
+  }
+  say('\n3/3  Bonecos');
+  if (fs.existsSync(path.join(OVERLAY, 'package.json'))) {
+    const r = run('npm install --no-audit --no-fund', [], { cwd: OVERLAY, stdio: 'inherit', shell: true });
+    if (r.status !== 0) return bad('npm install falhou', 'Confira a internet e rode de novo.');
+  }
+  fecharBonecos(); await sleep(1500);
+  if (!abrir()) return false;
+  say('\nAtualizado. A equipe que você editou não foi alterada. Para trazer especialistas novos que vierem em versões futuras: node scripts/escritorio.mjs equipe');
+  return true;
+}
+
 // ---------------------------------------------------------------- status / desinstalar
 async function status() {
   const st = dockerUp() ? containerState() || 'nÃ£o criado' : 'Docker parado';
@@ -298,9 +349,9 @@ function desinstalar() {
 }
 
 const cmd = process.argv[2];
-const table = { instalar, verificar, construir, iniciar, equipe, abrir, status, desinstalar, inicio: () => inicio(process.argv[3]) };
+const table = { instalar, atualizar, verificar, construir, iniciar, equipe, abrir, status, desinstalar, inicio: () => inicio(process.argv[3]) };
 if (!table[cmd]) {
-  say('Uso: node scripts/escritorio.mjs <instalar | verificar | construir | iniciar | equipe | abrir | inicio on|off | status | desinstalar>');
+  say('Uso: node scripts/escritorio.mjs <instalar | atualizar | verificar | construir | iniciar | equipe | abrir | inicio on|off | status | desinstalar>');
   process.exitCode = cmd ? 2 : 0;
 } else {
   Promise.resolve(table[cmd]()).then((r) => { process.exitCode = r === true || r === undefined ? 0 : r === NEEDS_PERSON ? NEEDS_PERSON : 1; })

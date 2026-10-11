@@ -73,7 +73,7 @@ Ele faz, nesta ordem (e mostra cada passo):
 2. **baixa a nossa imagem do escritório** (de 2 a 4 minutos na primeira vez);
 3. **liga o escritório** e cria a pasta de entregas (`Documentos/Escritório Digital`);
 4. confere a **conta Claude** (veja 🧍 abaixo);
-5. instala a **equipe** (a chefe, 5 coordenações e 16 especialistas) e **abre os bonecos** sobre a barra de tarefas (ou o Dock).
+5. monta a **equipe padrão** na primeira vez (a chefe, 5 coordenações e 16 especialistas; se a pessoa já tem equipe, ela é mantida) e **abre os bonecos** sobre a barra de tarefas (ou o Dock).
 
 **🧍 Conta Claude.** O escritório usa o **plano Claude da própria pessoa** (Pro ou Max). Se faltar o login, o comando para com o código **3** e mostra o que fazer: a pessoa roda `docker exec -it clodfarm clodfarm login`, abre o endereço que aparece, aprova e **cola o código de volta**. (Se o terminal for interativo, o comando já abre isso sozinho.) Depois **rode `instalar` de novo**: ele continua de onde parou. Avise que os agentes gastam o plano dela e que o sistema para em 80% do uso semanal e 85% das 5 horas.
 
@@ -125,7 +125,7 @@ Depois: `node scripts/escritorio.mjs iniciar --ca ~/ca-antivirus.pem` (e rode `i
 
 ## Atualizar (quando a pessoa pedir "atualize o Escritório Digital")
 
-Rode na pasta do projeto: `node scripts/escritorio.mjs atualizar`. Ele baixa o código novo (`git pull`, só se a pasta estiver sem alterações), atualiza a imagem do Docker, religa o escritório e reabre os bonecos. **Login, trabalhos e a equipe editada ficam.** Se houver trabalho em andamento ele para e avisa: espere terminar (ou use `--forcar` só se a pessoa mandar). Se avisar que há arquivos alterados, **não** desfaça nada sem perguntar. Especialistas novos de versões futuras entram com `node scripts/escritorio.mjs equipe` (isso redefine os especialistas do pacote padrão, então avise antes se a pessoa os editou).
+Rode na pasta do projeto: `node scripts/escritorio.mjs atualizar`. Ele baixa o código novo (`git pull`, só se a pasta estiver sem alterações), atualiza a imagem do Docker, religa o escritório e reabre os bonecos. **Login, trabalhos e a equipe editada ficam.** Se houver trabalho em andamento ele para e avisa: espere terminar (ou use `--forcar` só se a pessoa mandar). Se avisar que há arquivos alterados, **não** desfaça nada sem perguntar. **A equipe da pessoa nunca é alterada** (nem na atualização, nem se o `instalar` rodar de novo): o comando `equipe` só monta a equipe padrão quando ainda não existe ninguém além da chefe. Para trazer só os especialistas novos de versões futuras: `node scripts/escritorio.mjs equipe --completar` (só cria os que faltam). Sobrescrever é `equipe --redefinir --sim` e só se a pessoa pedir, avisando que as edições dela nesses nomes se perdem.
 
 ## Desinstalar
 

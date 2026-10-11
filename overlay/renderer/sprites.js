@@ -19,16 +19,16 @@
   const TEAM_COLORS = ['#2f6fa0', '#a83a3a', '#7a4fa8', '#2f8f6a', '#c98a1f', '#1f8f9a', '#4a5568', '#b0407f'];
   const CHIEF_SUIT = '#2f2f3a', RH_COLOR = '#d6407f';
   const KITS = ['none', 'headset', 'visor', 'pencil', 'roundglasses', 'bowtie', 'scarf', 'courier', 'heartpin', 'crown', 'monocle'];
-  const SPECIES = ['cat', 'dog', 'rabbit', 'fox', 'owl', 'bear', 'panda', 'raccoon'];
+  const SPECIES = ['cat', 'dog', 'rabbit', 'fox', 'panda', 'penguin', 'owl', 'raccoon'];
   // [fur, fur shade, muzzle/belly] per coat
   const COATS = {
     cat: [['#e39a4b', '#c8782f', '#f6d9b0'], ['#3b3b46', '#26262e', '#d9d9e2'], ['#9aa0ad', '#767c8a', '#e8eaf0'], ['#f4f1ea', '#d6d1c4', '#ffffff'], ['#8a6a4a', '#6a4e33', '#e5d3b5']],
     dog: [['#c9955c', '#a8743d', '#f1dcb8'], ['#7a5230', '#5a3a20', '#e6cfa8'], ['#3b3b46', '#26262e', '#c8c8d4'], ['#d9d2c3', '#b7ae9b', '#ffffff'], ['#8a8d96', '#6a6d76', '#e5e5ea']],
     rabbit: [['#f2efe9', '#d4cfc4', '#ffc1d0'], ['#b9a58a', '#9a8569', '#f2e7d3'], ['#8f8f98', '#6f6f78', '#f0f0f4']],
     fox: [['#e2742b', '#bf561a', '#fbe8d0'], ['#f2f2f6', '#d0d0da', '#ffffff']],
-    owl: [['#a07a52', '#7d5a38', '#f0e0c0'], ['#d9cdb5', '#b5a98f', '#fff4dc'], ['#6e6a78', '#504c5a', '#e0dce8']],
-    bear: [['#7a5230', '#5a3a20', '#d9b98a'], ['#3b3b46', '#26262e', '#c9c0b0'], ['#f1ede6', '#d3cdc0', '#ffffff']],
     panda: [['#f4f4f8', '#d7d7e0', '#2a2a32']],
+    penguin: [['#2a2a3a', '#1b1b26', '#ffffff']],
+    owl: [['#a07a52', '#7d5a38', '#f0e0c0'], ['#d9cdb5', '#b5a98f', '#fff4dc'], ['#6e6a78', '#504c5a', '#e0dce8']],
     raccoon: [['#8f929c', '#6e717b', '#e9e9ef']],
   };
   // 3x3 patterns for the chest badge of a team (1 = the team's dark colour on white)
@@ -120,7 +120,6 @@
   }
   function head(c, L, x, hy, o) {
     o = o || {};
-    if (L.species) return animalHead(c, L, x, hy, o);
     const f = L.gender === 'f';
     hairBack(c, L, x, hy);
     R(c, L.skinD, x - 1, hy - 10, 3, 2);                                   // neck
@@ -132,65 +131,6 @@
     R(c, f ? (o.open ? '#9a2f3f' : '#d0606a') : (o.open ? '#7a3535' : '#b86a6a'), x + 2, hy - 11, o.happy || o.open ? 3 : 2, 1);   // mouth
     R(c, '#f2a0a0', x, hy - 12, 1, 1);                                     // cheek
     headgear(c, L, x, hy, o);
-  }
-
-  // ---------------------------------------------------------------- animal head (the suit, badge and kit stay the same)
-  function animalHead(c, L, x, hy, o) {
-    const sp = L.species, F = L.fur, D = L.furD, M = L.muz, K = '#1b1824';
-    const ear = sp === 'rabbit' ? '#ffc1d0' : sp === 'panda' ? K : '#f2a0b0';
-    R(c, L.skinD, x - 1, hy - 10, 3, 2);                                   // neck
-    let ex = x + 1, ey = hy - 14, mouth = [x + 3, hy - 10, 3];
-    if (sp === 'cat') {
-      R(c, F, x - 4, hy - 21, 3, 4); R(c, F, x + 3, hy - 21, 3, 4); R(c, ear, x - 3, hy - 20, 1, 2); R(c, ear, x + 4, hy - 20, 1, 2);
-      R(c, F, x - 4, hy - 18, 10, 9); R(c, D, x - 1, hy - 18, 1, 2); R(c, D, x + 1, hy - 18, 1, 2); R(c, D, x + 3, hy - 18, 1, 2);
-      R(c, M, x + 1, hy - 13, 5, 4); R(c, '#e8808f', x + 5, hy - 13, 2, 1);
-    } else if (sp === 'dog') {
-      R(c, F, x - 4, hy - 18, 10, 9); R(c, D, x - 6, hy - 19, 3, 8); R(c, D, x + 5, hy - 19, 2, 6); R(c, D, x - 2, hy - 18, 3, 3);
-      R(c, M, x + 1, hy - 14, 6, 5); R(c, K, x + 6, hy - 14, 2, 2); mouth = [x + 3, hy - 10, 3];
-    } else if (sp === 'rabbit') {
-      R(c, F, x - 3, hy - 31, 3, 13); R(c, ear, x - 2, hy - 29, 1, 9); R(c, F, x + 2, hy - 32, 3, 14); R(c, ear, x + 3, hy - 30, 1, 10);
-      R(c, F, x - 4, hy - 18, 10, 9); R(c, M, x + 1, hy - 13, 5, 4); R(c, '#ff8fa6', x + 5, hy - 13, 2, 1); R(c, '#fff', x + 4, hy - 10, 1, 1);
-    } else if (sp === 'fox') {
-      R(c, F, x - 5, hy - 23, 3, 5); R(c, D, x - 5, hy - 23, 3, 1); R(c, F, x + 3, hy - 23, 3, 5); R(c, D, x + 3, hy - 23, 3, 1);
-      R(c, F, x - 4, hy - 18, 10, 9); R(c, M, x - 3, hy - 12, 10, 3); R(c, M, x + 2, hy - 14, 4, 3); R(c, K, x + 6, hy - 14, 2, 2);
-    } else if (sp === 'owl') {
-      R(c, D, x - 5, hy - 22, 2, 4); R(c, D, x + 5, hy - 22, 2, 4);
-      R(c, F, x - 5, hy - 19, 12, 10); R(c, D, x - 5, hy - 19, 12, 1);
-      R(c, M, x - 4, hy - 17, 5, 6); R(c, M, x + 2, hy - 17, 5, 6); R(c, '#f5a524', x + 1, hy - 13, 2, 3); R(c, '#c47d12', x + 1, hy - 11, 2, 1);
-      if (!o.closed && !o.blink && !o.happy) { R(c, '#fff', x - 3, hy - 16, 4, 4); R(c, '#fff', x + 3, hy - 16, 4, 4); R(c, K, x - 1, hy - 15, 2, 3); R(c, K, x + 5, hy - 15, 2, 3); }
-      else { R(c, K, x - 3, hy - 14, 4, 1); R(c, K, x + 3, hy - 14, 4, 1); }
-      mouth = null;
-    } else if (sp === 'bear') {
-      R(c, F, x - 5, hy - 21, 4, 4); R(c, F, x + 4, hy - 21, 4, 4); R(c, D, x - 4, hy - 20, 2, 2); R(c, D, x + 5, hy - 20, 2, 2);
-      R(c, F, x - 4, hy - 18, 11, 9); R(c, M, x + 1, hy - 13, 6, 4); R(c, K, x + 5, hy - 13, 3, 2);
-    } else if (sp === 'panda') {
-      R(c, K, x - 5, hy - 21, 4, 4); R(c, K, x + 4, hy - 21, 4, 4);
-      R(c, F, x - 4, hy - 18, 11, 9); R(c, K, x - 1, hy - 17, 4, 5); R(c, K, x + 4, hy - 17, 4, 5); R(c, K, x + 5, hy - 12, 3, 2);
-      if (!o.closed && !o.blink && !o.happy) { R(c, '#fff', x + 0, hy - 16, 2, 2); R(c, '#fff', x + 5, hy - 16, 2, 2); }
-      else { R(c, '#fff', x + 0, hy - 15, 2, 1); R(c, '#fff', x + 5, hy - 15, 2, 1); }
-      mouth = null;
-    } else {   // raccoon
-      R(c, F, x - 5, hy - 22, 3, 5); R(c, K, x - 5, hy - 22, 3, 1); R(c, F, x + 3, hy - 22, 3, 5); R(c, K, x + 3, hy - 22, 3, 1);
-      R(c, F, x - 4, hy - 18, 10, 9); R(c, K, x - 4, hy - 16, 10, 3); R(c, M, x + 2, hy - 13, 5, 4); R(c, K, x + 6, hy - 13, 2, 2);
-      if (!o.closed && !o.blink && !o.happy) { R(c, '#fff', x, hy - 16, 2, 2); R(c, '#fff', x + 4, hy - 16, 2, 2); R(c, K, x + 1, hy - 16, 1, 2); R(c, K, x + 5, hy - 16, 1, 2); }
-      else { R(c, '#fff', x, hy - 15, 2, 1); R(c, '#fff', x + 4, hy - 15, 2, 1); }
-      mouth = null;
-    }
-    if (['cat', 'dog', 'rabbit', 'fox', 'bear'].includes(sp)) eyes(c, L, x, hy, o, ex, ey);
-    if (mouth) { R(c, K, mouth[0], mouth[1], o.happy || o.open ? mouth[2] : Math.max(1, mouth[2] - 1), 1); if (o.open) R(c, '#c0505f', mouth[0], mouth[1] + 1, 2, 1); }
-    headgear(c, L, x, hy, o);
-  }
-  function tail(c, L, x, hy, beat) {
-    if (!L.species) return;
-    const sp = L.species, F = L.fur, D = L.furD, M = L.muz, w = (beat || 0) % 4 < 2 ? 0 : 1;
-    if (sp === 'cat') { R(c, F, x - 8 - w, hy - 1, 2, 9); R(c, F, x - 9 - w, hy - 5, 2, 5); R(c, D, x - 9 - w, hy - 7, 2, 2); }
-    else if (sp === 'dog') { R(c, F, x - 7 - w, hy - 3, 2, 5); R(c, D, x - 8 - w, hy - 5, 2, 3); }
-    else if (sp === 'rabbit') { R(c, '#fff', x - 7, hy + 1, 3, 3); }
-    else if (sp === 'fox') { R(c, F, x - 11 - w, hy - 1, 6, 9); R(c, M, x - 11 - w, hy + 5, 6, 3); R(c, D, x - 10 - w, hy - 2, 4, 1); }
-    else if (sp === 'owl') { R(c, D, x - 7, hy + 2, 3, 6); R(c, F, x - 6, hy + 3, 1, 4); }
-    else if (sp === 'bear') { R(c, F, x - 6, hy + 1, 2, 3); }
-    else if (sp === 'panda') { R(c, '#2a2a32', x - 6, hy + 1, 2, 3); }
-    else { R(c, F, x - 10 - w, hy - 1, 5, 9); for (let i = 0; i < 4; i++) R(c, '#1b1824', x - 10 - w, hy + i * 2, 5, 1); }
   }
 
   // ---------------------------------------------------------------- what the role wears on the head
@@ -264,7 +204,6 @@
   function standing(c, L, x, f, mode, beat) {
     const walk = mode === 'walk', ph = f % 4, bob = walk && ph % 2 ? -1 : 0, hy = FY - 8 + bob;
     const sw = walk ? [0, 2, 0, -2][ph] : 0;
-    tail(c, L, x, hy, beat);
     legsStand(c, L, x, hy, -sw, sw);
     torso(c, L, x, hy);
     arm(c, L, x, hy, -1, walk ? -[0, 1, 0, -1][ph] : 0, 0);
@@ -284,15 +223,7 @@
     else { R(c, '#e5484d', x, y - 6, 6, 6); R(c, '#fff', x + 1, y - 5, 4, 4); R(c, '#2a2230', x + 3, y - 5, 1, 2 + (f % 2)); R(c, '#2a2230', x + 3, y - 3, 2, 1); }      // alarm clock
   }
 
-  function working(c, L, x, f, beat) {
-    const hy = FY - 11;
-    tail(c, L, x, hy, beat);
-    // chair
-    R(c, '#5b5d78', x - 8, hy - 9, 2, 12); R(c, '#4a4c64', x - 7, hy + 3, 10, 2);
-    R(c, '#3c3e52', x - 3, hy + 5, 2, FY - hy - 6); R(c, '#3c3e52', x - 7, FY - 1, 10, 1);
-    // legs sitting
-    if (L.gender === 'f') { R(c, L.suitD, x - 4, hy, 9, 3); R(c, L.skin, x + 3, hy + 3, 2, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2); }
-    else { R(c, L.pants, x - 3, hy, 8, 3); R(c, L.pants, x + 3, hy + 3, 3, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2); }
+  function deskScene(c, x, hy, beat, role) {   // desk, monitor with its animated screen, keyboard, mug and the role's prop
     // desk
     R(c, '#a8723a', x + 7, hy - 2, 21, 3); R(c, '#7a4f25', x + 7, hy + 1, 21, 1);
     R(c, '#7a4f25', x + 8, hy + 2, 3, FY - hy - 2); R(c, '#7a4f25', x + 24, hy + 2, 3, FY - hy - 2);
@@ -307,7 +238,18 @@
     if (beat % 4 < 2) R(c, '#fff', x + 12 + 9, hy - 13 + 6, 1, 1);          // cursor
     R(c, '#d7dae8', x + 11, hy - 3, 7, 1);                                   // keyboard
     R(c, '#fff', x + 25, hy - 5, 3, 3); R(c, '#6b4a2b', x + 25, hy - 5, 3, 1); R(c, '#fff', x + 28, hy - 4, 1, 1);   // mug
-    propFor(c, L.role, x + 20, hy - 2, beat);
+    propFor(c, role, x + 20, hy - 2, beat);
+  }
+
+  function working(c, L, x, f, beat) {
+    const hy = FY - 11;
+    // chair
+    R(c, '#5b5d78', x - 8, hy - 9, 2, 12); R(c, '#4a4c64', x - 7, hy + 3, 10, 2);
+    R(c, '#3c3e52', x - 3, hy + 5, 2, FY - hy - 6); R(c, '#3c3e52', x - 7, FY - 1, 10, 1);
+    // legs sitting
+    if (L.gender === 'f') { R(c, L.suitD, x - 4, hy, 9, 3); R(c, L.skin, x + 3, hy + 3, 2, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2); }
+    else { R(c, L.pants, x - 3, hy, 8, 3); R(c, L.pants, x + 3, hy + 3, 3, FY - hy - 5); R(c, '#1b1824', x + 3, FY - 2, 5, 2); }
+    deskScene(c, x, hy, beat, L.role);
     // worker
     torso(c, L, x, hy);
     R(c, L.suitD, x - 6, hy - 8, 2, 5);
@@ -361,7 +303,6 @@
 
   function cheer(c, L, x, f, beat) {
     const ph = f % 4, j = [0, -3, -5, -3][ph], hy = FY - 8 + j;
-    tail(c, L, x, hy, beat);
     legsStand(c, L, x, hy, -1, 1);
     torso(c, L, x, hy);
     R(c, L.suitD, x - 7, hy - 16, 2, 8); R(c, L.skin, x - 7, hy - 18, 2, 2);
@@ -416,7 +357,10 @@
     ctx.save();
     if (facing < 0) { ctx.translate(W, 0); ctx.scale(-1, 1); }
     let info = {};
-    if (state === 'working') working(ctx, lk, CX, frame, beat);
+    if (lk.species) {
+      const A = root.AnimalSprites || (typeof require === 'function' ? require('./animals.js') : null);
+      info = A.draw(ctx, lk, state, frame, beat, { R, shade, deskScene, sofaBase, FY, PATTERNS }) || {};
+    } else if (state === 'working') working(ctx, lk, CX, frame, beat);
     else if (state === 'coffee') info = coffee(ctx, lk, CX, frame, beat);
     else if (state === 'sofa') info = { hy: sofaSleep(ctx, lk, CX, frame, beat) };
     else if (state === 'read') sofaRead(ctx, lk, CX, frame, beat);

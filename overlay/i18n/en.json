@@ -446,7 +446,6 @@
   "species.rabbit": "Rabbit",
   "species.fox": "Fox",
   "species.owl": "Owl",
-  "species.bear": "Bear",
   "species.panda": "Panda",
   "species.raccoon": "Raccoon",
   "style.buzz": "Buzz cut",
@@ -456,5 +455,6 @@
   "style.afro": "Afro",
   "style.bob": "Bob",
   "style.braid": "Braid",
-  "style.wavy": "Wavy"
+  "style.wavy": "Wavy",
+  "species.penguin": "Penguin"
 }

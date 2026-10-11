@@ -81,7 +81,7 @@
       if (lk !== p.lookKey) { p.lookKey = lk; p.look = S.look(s.id, s.member); p.drawn = ''; }   // the team member was edited (or the style changed)
       const nm = String((s.persona && s.persona.name) || '').trim().split(/\s+/)[0] || '';
       p.pill.textContent = nm; p.pill.style.display = nm ? '' : 'none';
-      p.el.style.setProperty('--team', p.look.team || '#4a5568');
+      p.el.style.setProperty('--team', p.look.team || '#4a5568'); p.el.classList.toggle('animal', !!p.look.species);
       p.el.classList.toggle('chief', s.memberId === 'chief'); p.el.classList.toggle('lead', !!(s.member && s.member.lead) && s.memberId !== 'chief');
       p.el.classList.toggle('alert', s.state === 'alert');
     }

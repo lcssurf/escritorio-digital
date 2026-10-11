@@ -110,7 +110,7 @@ def block_spec() -> str:
         "uma coordenação que está neste mesmo bloco (coloque a coordenação ANTES de quem responde a ela), `aparencia` com `style` "
         "(homens: short, side, beard, buzz, curly, bald, mustache, afro; mulheres: long, bun, pony, bob, braid, wavy, curly, afro), `kit` "
         "(0 a 10), `build` (0 ou 1), `prop` (0 a 4, o objeto na mesa), `skin` e `hair` (cores #rrggbb) e, só se pediram animais, "
-        "`species` (cat, dog, rabbit, fox, owl, bear, panda, raccoon); sem `suit`. `instrucoes` até 6000 letras, de preferência de 800 a 2000: "
+        "`species` (cat, dog, rabbit, fox, panda, penguin, owl, raccoon); sem `suit`. `instrucoes` até 6000 letras, de preferência de 800 a 2000: "
         "o bloco inteiro precisa caber em uns 25 mil caracteres. Em `alterar`, `instrucoes` é o texto novo COMPLETO (não um trecho). Use só ids "
         "que aparecem em 'Quem já está na equipe'. Antes do bloco, escreva em português simples quem você propõe e por quê, em poucas linhas. "
         "Sem proposta, sem bloco: só converse.")

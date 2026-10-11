@@ -24,7 +24,7 @@ ID_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 HEX = re.compile(r"#[0-9a-fA-F]{6}")
 STYLES = ("short", "side", "beard", "buzz", "curly", "bald", "mustache", "afro", "long", "bun", "pony", "bob", "braid", "wavy")
 KITS = 11     # 0 none, 1 headset, 2 visor, 3 pencil, 4 round glasses, 5 bow tie, 6 scarf, 7 cap, 8 heart pin, 9 crown, 10 monocle
-SPECIES = ("cat", "dog", "rabbit", "fox", "owl", "bear", "panda", "raccoon")
+SPECIES = ("cat", "dog", "rabbit", "fox", "panda", "penguin", "owl", "raccoon")
 LOOK_COLORS = ("skin", "hair", "suit")
 
 OFFICE_RULES = (

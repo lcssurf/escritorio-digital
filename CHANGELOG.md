@@ -6,7 +6,7 @@
 ## 1.3.0
 - **Quem é quem, num relance.** Cada equipe veste uma cor (todos de uma coordenação iguais) e leva um crachá com o desenho da equipe; cada cargo tem o seu acessório (fone, viseira verde, lápis na orelha, óculos redondos, gravata-borboleta, cachecol, boné, coração, coroa, monóculo); a chefe usa coroa e dragonas douradas, as coordenações dragonas prateadas. O nome de cada um aparece sempre numa plaquinha com a cor da equipe, e há um anel da cor da equipe no chão. A chefe e as coordenações são um pouco maiores.
 - **Muito mais variedade:** 8 penteados para cada gênero (raspado, cacheado, careca, bigode, black power, chanel, trança, ondulado), mais tons de pele e de cabelo, porte robusto e acessórios.
-- **Estilo Animais.** Em Ajustes, troque pessoas por gatos, cachorros, coelhos, raposas, corujas, ursos, pandas e guaxinins: o mesmo uniforme, crachá e acessório de cada cargo, em outra cabeça. Cada um pode ter o seu animal no editor.
+- **Estilo Animais.** Em Ajustes, troque pessoas por bichinhos de verdade, no estilo cartoon fofo: gatos, cachorros, coelhos, raposas, pandas, pinguins, corujas e guaxinins, de quatro patas (os pássaros em pé), com colete e bandana na cor da equipe e o acessório de cada cargo. Cada um pode ter o seu animal no editor.
 - **O RH ficou melhor.** O método (entrevista com limites e anti-objetivos, equipe pequena sem sobreposição, instruções com esqueleto, voz diferente para cada pessoa, passagem de bastão por nome, conferência antes de propor) agora vem junto de cada pedido, então melhora a cada versão sem mexer na equipe que você editou. Ele também escolhe a aparência certa para cada cargo.
 - Os modelos do catálogo passaram a usar as cores da equipe e os acessórios de cada cargo.
 

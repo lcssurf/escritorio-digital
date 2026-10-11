@@ -72,6 +72,11 @@ for (const mode of ['people', 'animals']) {
   }
 }
 S.setMode('animals');
+// real animals, not people with an animal head: the four-legged ones are longer than they are tall, the birds stand upright
+const box = (lk, st) => { let x0 = 99, y0 = 99, x1 = 0, y1 = 0; for (const [, x, y, w, h] of draws(lk, st, 2)) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h); } return { w: x1 - x0, h: y1 - y0 }; };
+for (const sp of ['cat', 'dog', 'fox', 'raccoon', 'panda']) { const b = box(look('q', { look: { species: sp } }), 'idle'); assert.ok(b.w > b.h * 1.1, sp + ' walks on four legs: wider than tall ' + JSON.stringify(b)); }
+for (const sp of ['penguin', 'owl']) { const b = box(look('q', { look: { species: sp } }), 'idle'); assert.ok(b.h > b.w * 1.2, sp + ' stands upright ' + JSON.stringify(b)); }
+{ S.setMode('people'); const b = box(look('q', {}), 'idle'); assert.ok(b.h > b.w, 'a person is taller than wide'); S.setMode('animals'); }
 const species = new Set();
 for (let i = 0; i < 200; i++) species.add(look('seed' + i, {}).species);
 assert.strictEqual(species.size, 8, 'all eight animals appear');

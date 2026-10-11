@@ -17,7 +17,7 @@
 | **Andamento claro** | Veja quem chamou quem, o que cada um está fazendo e por que alguém está esperando. |
 | **Aprovação antes de tudo** | O trabalho pronto chega como rascunho. Você lê, edita ali mesmo ou pede ao autor um ajuste, e só então aprova. |
 | **Quem é quem, num relance** | Cada equipe veste uma cor e leva um crachá com o seu desenho; cada cargo tem o seu acessório (fone, viseira, lápis na orelha, óculos redondos, gravata-borboleta, cachecol, boné, coração, coroa, monóculo); o nome e a cor da equipe ficam sempre visíveis. |
-| **Pessoas ou animais** | O mesmo escritório em dois estilos: pessoas ou gatos, cachorros, coelhos, raposas, corujas, ursos, pandas e guaxinins, com o mesmo uniforme, crachá e acessório. Troque em Ajustes. |
+| **Pessoas ou animais** | O mesmo escritório em dois estilos: pessoas ou gatos, cachorros, coelhos, raposas, pandas, pinguins, corujas e guaxinins, bichinhos de verdade e fofos (não pessoas com cabeça de bicho): a equipe veste um colete e uma bandana na cor da equipe, e cada cargo usa o seu acessório. Troque em Ajustes. |
 | **Janela sua** | O painel se redimensiona, se move e abre mais largo para ler documentos. |
 | **Word, PDF e mais** | Salve qualquer documento em Word (.docx), PDF, página web, RTF ou texto, e escolha formatos extras para vir junto a cada aprovação. |
 | **Cópia de segurança** | Guarde a sua equipe num arquivo e restaure quando precisar. |

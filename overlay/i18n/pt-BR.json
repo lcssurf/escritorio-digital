@@ -446,7 +446,6 @@
   "species.rabbit": "Coelho",
   "species.fox": "Raposa",
   "species.owl": "Coruja",
-  "species.bear": "Urso",
   "species.panda": "Panda",
   "species.raccoon": "Guaxinim",
   "style.buzz": "Raspado",
@@ -456,5 +455,6 @@
   "style.afro": "Black power",
   "style.bob": "Chanel",
   "style.braid": "Trança",
-  "style.wavy": "Ondulado"
+  "style.wavy": "Ondulado",
+  "species.penguin": "Pinguim"
 }

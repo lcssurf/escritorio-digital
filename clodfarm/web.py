@@ -41,6 +41,7 @@ import os
 import re
 import secrets
 import socket
+import subprocess
 import threading
 import time
 from http import HTTPStatus
@@ -259,6 +260,47 @@ class FarmUI:
         except OSError:
             pass
         return tok
+
+    CONNECTORS_URL = "https://claude.ai/settings/connectors"
+
+    def _mcp_list_text(self) -> str:
+        env = {**os.environ, "CLAUDE_CONFIG_DIR": self.manager.get(self.cfg.name)["config_dir"]}
+        try:
+            p = subprocess.run([self.cfg.claude_bin, "mcp", "list"], capture_output=True, text=True, timeout=60, env=env)
+            return p.stdout or ""
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+
+    def claude_connectors(self, refresh: bool = False) -> dict:
+        """The connectors of the person's Claude account that the office could use, and which ones are let in."""
+        import re as _re
+        now_ = time.time()
+        cached = getattr(self, "_conn_cache", None)
+        if cached and not refresh and now_ - cached[0] < 90:
+            found = cached[1]
+        else:
+            found = []
+            for line in self._mcp_list_text().splitlines():
+                m = _re.match(r"^claude\.ai (.+?): \S+ - (.+)$", line.strip())
+                if m:
+                    name, st = m.group(1), m.group(2)
+                    found.append({"id": "claude_ai_" + _re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_"), "name": name,
+                                  "connected": "connected" in st.lower() and "not" not in st.lower()})
+            self._conn_cache = (now_, found)
+        allow = set(policy.clean(self.store.claude(self.cfg.name).get("tools")).get("allow", []))
+        return {"connectors": [{**c, "allowed": c["id"] in allow} for c in found], "url": self.CONNECTORS_URL}
+
+    def set_connectors(self, allow: list) -> dict:
+        known = {c["id"] for c in self.claude_connectors()["connectors"]}
+        wanted = sorted({str(a) for a in (allow or []) if str(a) in known})
+        tools = policy.clean(self.store.claude(self.cfg.name).get("tools"))
+        tools = {"deny": sorted(set(tools["deny"]) | {"claude_ai"}), **({"allow": wanted} if wanted else {})}
+        self.store.put_claude(self.cfg.name, tools=tools, connectors_default=True)
+        a = self.manager.get(self.cfg.name)
+        policy.save(a["config_dir"], tools, claude=self.cfg.name)
+        self.store.event("connectors.changed", "connectors let in for the office: " + (", ".join(wanted) or "none"), by="ui")
+        self._views.clear()
+        return self.claude_connectors()
 
     def office_guide(self):
         """The chief's conversation guide in the CLAUDE.md every session reads: rewritten when the team changes."""
@@ -1276,6 +1318,11 @@ def make_handler(ui: FarmUI):
                             if msg["role"] == "assistant" and msg["at"] > since and msg.get("ok", True):
                                 out.append({"member": mm["id"], "text": msg["text"][:600], "at": msg["at"], "waiting": msg.get("waiting", False)})
                     return self._json(sorted(out, key=lambda x: x["at"])[-10:])
+                if path == "/api/claude-connectors":  # Gmail, Drive, Calendar... of the person's Claude account
+                    if not who.manager:
+                        return self._err(403, "only the farm's person manages connectors")
+                    q = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
+                    return self._json(ui.claude_connectors(refresh=q.get("refresh") == "1"))
                 if path == "/api/team":  # the office's team: the chief and the specialists
                     if not (who.manager or who.owner):
                         return self._err(403, "only a person of this farm sees the team")
@@ -1640,6 +1687,13 @@ def make_handler(ui: FarmUI):
                     raise ValueError(str(e)) from e
                 ui.office_guide()
                 return self._json(ui.team.all())
+            if path == "/api/claude-connectors":
+                if not who.manager:
+                    return self._err(403, "only the farm's person manages connectors")
+                allow = data.get("allow")
+                if not isinstance(allow, list):
+                    raise ValueError("allow must be a list")
+                return self._json(ui.set_connectors(allow))
             if path == "/api/tasks/new":  # the desktop overlay hands the office a job
                 if not who.manager:
                     return self._err(403, "only the farm's person hands out jobs from here")

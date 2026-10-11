@@ -209,5 +209,21 @@
   "help.idle": "Café, livro ou sofá: disponível",
   "help.badge": "Crachá dourado: a chefe. Azul: coordenação",
   "help.click": "Clique em qualquer boneco para conversar com ele. Se não souber com quem falar, fale com a chefe.",
-  "help.close": "Entendi"
+  "help.close": "Entendi",
+  "conn.title": "Google Drive, Gmail e outros conectores",
+  "conn.text": "Se você já conectou serviços à sua conta Claude, a equipe pode consultá-los. Por segurança, tudo começa desligado e, quando liberado, é somente leitura.",
+  "conn.open": "Abrir conectores do Claude",
+  "conn.refresh": "Atualizar lista",
+  "conn.how": "Como conectar (passo a passo)",
+  "conn.s1": "Toque em “Abrir conectores do Claude”. O site do Claude abre no navegador: entre com a mesma conta usada no escritório.",
+  "conn.s2": "Escolha o serviço (por exemplo, Google Drive) e clique em Conectar. Autorize o acesso na janela do Google.",
+  "conn.s3": "Volte aqui e toque em “Atualizar lista”. Ligue a chave “Liberar para a equipe” do conector. A equipe só poderá ler, nunca alterar nem enviar.",
+  "conn.s4": "Para desligar, desmarque a chave aqui. Para remover o acesso de vez, desconecte o serviço no site do Claude.",
+  "conn.empty": "Nenhum conector encontrado na sua conta ainda. Siga o passo a passo abaixo para conectar o primeiro.",
+  "conn.connected": "Conectado",
+  "conn.needauth": "Autorize no site do Claude",
+  "conn.allow": "Liberar para a equipe (só leitura)",
+  "conn.privacy": "O que a equipe ler será processado pelo Claude. Com dados reais de clientes, use com cuidado e com o consentimento deles.",
+  "conn.error": "Não consegui consultar os conectores agora. Tente de novo em instantes.",
+  "settings.advanced": "Avançado"
 }

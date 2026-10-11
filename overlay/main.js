@@ -174,6 +174,7 @@ ipcMain.on('click-through', (_e, through) => {
 ipcMain.on('broadcast', (_e, evt) => { if (overlay && !overlay.isDestroyed()) overlay.webContents.send('event', evt); });
 ipcMain.on('open-panel', (_e, opts) => openPanel(opts || {}));
 ipcMain.on('quit', () => app.quit());
+ipcMain.on('open-connectors', () => shell.openExternal('https://claude.ai/settings/connectors'));   // fixed address: the renderer cannot choose where to go
 ipcMain.on('open-exports', () => { const d = exportDir(); try { fs.mkdirSync(d, { recursive: true }); } catch (_) { /* opening reports it */ } shell.openPath(d); });
 ipcMain.on('notify', (_e, n) => {   // a Windows notification: the lawyer does not have to watch the bar
   if (!cfg.notify || !Notification.isSupported() || !n || typeof n.title !== 'string') return;

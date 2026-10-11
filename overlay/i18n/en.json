@@ -209,5 +209,21 @@
   "help.idle": "Coffee, book or sofa: available",
   "help.badge": "Gold badge: the chief. Blue: team lead",
   "help.click": "Click any character to chat with them. If you don't know who to talk to, talk to the chief.",
-  "help.close": "Got it"
+  "help.close": "Got it",
+  "conn.title": "Google Drive, Gmail and other connectors",
+  "conn.text": "If you already connected services to your Claude account, the team can look things up in them. For safety everything starts off and, once let in, it is read-only.",
+  "conn.open": "Open Claude connectors",
+  "conn.refresh": "Refresh list",
+  "conn.how": "How to connect (step by step)",
+  "conn.s1": "Tap “Open Claude connectors”. The Claude site opens in your browser: sign in with the same account the office uses.",
+  "conn.s2": "Pick the service (for example, Google Drive) and click Connect. Authorize access in the Google window.",
+  "conn.s3": "Come back here and tap “Refresh list”. Turn on the “Let the team use it” switch for that connector. The team can only read, never change or send.",
+  "conn.s4": "To turn it off, untick the switch here. To remove access for good, disconnect the service on the Claude site.",
+  "conn.empty": "No connectors found on your account yet. Follow the steps below to connect the first one.",
+  "conn.connected": "Connected",
+  "conn.needauth": "Authorize on the Claude site",
+  "conn.allow": "Let the team use it (read-only)",
+  "conn.privacy": "What the team reads is processed by Claude. With real client data, use with care and with their consent.",
+  "conn.error": "I couldn't check the connectors right now. Try again in a moment.",
+  "settings.advanced": "Advanced"
 }

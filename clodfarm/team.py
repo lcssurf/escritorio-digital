@@ -28,6 +28,8 @@ OFFICE_RULES = (
     "3. Onde houver dúvida, escreva [CONFERIR], cite a fonte ou diga que não sabe. Não invente fatos, leis ou prazos.\n"
     "4. Não dê parecer jurídico definitivo e não prometa resultado.\n"
     "5. Trabalhe só no seu diretório de trabalho e faça commit do que produzir: o advogado aprova antes de entrar no projeto.\n"
+    "6. Conectores da conta do advogado (Google Drive, Gmail, Agenda) só existem para você se ele os liberou, e são somente leitura: "
+    "consulte, nunca envie, apague, compartilhe ou altere nada.\n"
 )
 
 

@@ -28,10 +28,10 @@
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
-      api: async (m, p, b) => /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      api: async (m, p, b) => p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => ({ ...cfg, onboarded: !q.has('tour') }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
-      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, notify() {}, quit() {}, togglePets() {}, broadcast() {},
+      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, quit() {}, togglePets() {}, broadcast() {},
     };
   }
 
@@ -526,6 +526,36 @@
     await refresh(true);
   }
 
+  // ------------------------------------------------------------------ connectors of the person's Claude account
+  function connectorsCard() {
+    const list = h('div', {}, h('div', { class: 'dim small' }, tr('review.loading')));
+    let current = [];
+    const post = async (allow) => {
+      const r = await office.api('POST', '/api/claude-connectors', { allow });
+      if (r.ok && r.data) { current = r.data.connectors; paint(); } else toast(tr('conn.error'), true);
+    };
+    const paint = () => {
+      clear(list);
+      if (!current.length) { list.append(h('div', { class: 'note' }, tr('conn.empty'))); return; }
+      for (const c of current) {
+        const box = h('input', { type: 'checkbox', disabled: !c.connected, onchange: () => post(current.map((x) => (x.id === c.id ? (box.checked ? x.id : null) : (x.allowed ? x.id : null))).filter(Boolean)) });
+        box.checked = !!c.allowed;
+        list.append(h('div', { class: 'connrow' },
+          h('div', { class: 'cn' }, h('b', {}, c.name), h('span', { class: 'chip ' + (c.connected ? 'working' : 'idle') }, tr(c.connected ? 'conn.connected' : 'conn.needauth'))),
+          h('label', { class: 'switch' }, box, tr('conn.allow'))));
+      }
+    };
+    const load = async (refresh) => {
+      const r = await office.api('GET', '/api/claude-connectors' + (refresh ? '?refresh=1' : ''));
+      if (r.ok && r.data) { current = r.data.connectors; paint(); } else { clear(list); list.append(h('div', { class: 'note' }, tr('conn.error'))); }
+    };
+    load(false);
+    const steps = h('ol', { class: 'steps' }, [1, 2, 3, 4].map((n) => h('li', {}, tr('conn.s' + n))));
+    return h('div', { class: 'card' }, h('b', {}, tr('conn.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('conn.text')), list,
+      h('div', { class: 'actions' }, h('button', { class: 'btn acc', onclick: () => office.openConnectors() }, tr('conn.open')), h('button', { class: 'btn ghost', onclick: () => load(true) }, tr('conn.refresh'))),
+      h('details', { class: 'how' }, h('summary', {}, tr('conn.how')), steps), h('div', { class: 'note' }, tr('conn.privacy')));
+  }
+
   // ------------------------------------------------------------------ settings
   function renderSettings() {
     const s = $('s-settings'); clear(s);
@@ -544,20 +574,23 @@
       h('button', { class: 'btn ghost', 'aria-label': '+', onclick: nudge(-1) }, '▲'),
       h('button', { class: 'btn ghost', onclick: nudge(0) }, tr('settings.auto')));
     s.append(h('h2', {}, tr('nav.settings')),
+      connectorsCard(),
+      h('div', { class: 'card' }, h('b', {}, tr('settings.exports')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('settings.exportshint')),
+        h('div', { class: 'actions', style: 'margin-top:0' }, h('button', { class: 'btn ghost', onclick: () => office.openExports() }, tr('settings.openexports')))),
       h('div', { class: 'field' }, h('label', {}, tr('settings.language')), seg),
-      h('div', { class: 'field' }, h('label', { class: 'switch' }, sound, tr('settings.sound'))),
-      h('div', { class: 'field' }, h('label', {}, tr('settings.key')), h('div', { class: 'keyrow' }, keyPill, fetchKey)),
-      h('div', { class: 'field' }, h('label', {}, tr('settings.url')), url),
-      h('div', { class: 'field' }, h('label', {}, tr('settings.height')), heightRow, h('div', { class: 'note' }, tr('settings.heightHint'))),
-      h('div', { class: 'field' }, h('label', {}, tr('settings.exports')), h('div', { class: 'keyrow' }, h('button', { class: 'btn ghost', onclick: () => office.openExports() }, tr('settings.openexports'))), h('div', { class: 'note' }, tr('settings.exportshint'))),
       h('div', { class: 'field' }, h('label', { class: 'switch' }, notifyBox, tr('settings.notify'))),
+      h('div', { class: 'field' }, h('label', { class: 'switch' }, sound, tr('settings.sound'))),
       h('div', { class: 'note' }, tr('settings.hotkey')),
-      h('div', { class: 'stack' },
-        h('button', { class: 'btn ghost', onclick: () => showTour(0) }, tr('onb.again')),
-        h('button', { class: 'btn ghost', onclick: () => office.openFarm() }, tr('settings.openfarm')),
-        h('button', { class: 'btn ghost', onclick: () => office.togglePets() }, tr(cfg.hidden ? 'settings.show' : 'settings.hide')),
-        h('button', { class: 'btn danger', onclick: () => office.quit() }, tr('settings.exit')),
-        h('div', { class: 'note' }, tr('settings.trayhint'))));
+      h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => showTour(0) }, tr('onb.again')),
+        h('button', { class: 'btn ghost', onclick: () => office.togglePets() }, tr(cfg.hidden ? 'settings.show' : 'settings.hide'))),
+      h('details', { class: 'how adv' }, h('summary', {}, tr('settings.advanced')),
+        h('div', { class: 'field', style: 'margin-top:10px' }, h('label', {}, tr('settings.key')), h('div', { class: 'keyrow' }, keyPill, fetchKey)),
+        h('div', { class: 'field' }, h('label', {}, tr('settings.url')), url),
+        h('div', { class: 'field' }, h('label', {}, tr('settings.height')), heightRow, h('div', { class: 'note' }, tr('settings.heightHint'))),
+        h('div', { class: 'stack' },
+          h('button', { class: 'btn ghost', onclick: () => office.openFarm() }, tr('settings.openfarm')),
+          h('button', { class: 'btn danger', onclick: () => office.quit() }, tr('settings.exit')),
+          h('div', { class: 'note' }, tr('settings.trayhint')))));
   }
 
   function render() {

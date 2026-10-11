@@ -39,6 +39,16 @@ Prefere fazer sozinho? Com Node, Git e Docker instalados: `git clone` o projeto 
 | Windows 10/11 | Testado |
 | macOS | **Ainda não testado num Mac.** Se for testar, abra uma *issue* com o que travou. |
 
+## Atualizar
+
+Quando sair versão nova, peça ao Claude: *"Atualize o Escritório Digital"* (ele roda o comando abaixo), ou rode você mesmo na pasta do projeto:
+
+```bash
+node scripts/escritorio.mjs atualizar
+```
+
+Baixa o código novo, atualiza a imagem do Docker e religa o escritório e os bonecos. **O login, os trabalhos e a sua equipe editada ficam como estão.** Se houver trabalho em andamento, ele avisa e espera (use `--forcar` para religar mesmo assim). Se você mexeu em arquivos da pasta do projeto, ele não sobrescreve: guarde as mudanças primeiro.
+
 ## Como funciona
 - **Conversa:** clique em qualquer boneco (ou no ícone perto do relógio). Se não souber com quem falar, fale com a chefe.
 - **Plano antes de agir:** a chefe propõe quem faz o quê e espera o seu "Começar".

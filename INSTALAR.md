@@ -123,6 +123,10 @@ Alguns antivírus (Kaspersky, ESET, Avast, Bitdefender...) e proxies de empresa 
 
 Depois: `node scripts/escritorio.mjs iniciar --ca ~/ca-antivirus.pem` (e rode `instalar` de novo). Se for **montar do zero** (`construir --completo`), use `--ca ~/ca-antivirus.pem` também: o certificado vale só durante a montagem e não fica na imagem. Se o **download da imagem** falhar por isso, a pessoa pode pausar temporariamente a verificação de conexões criptografadas do antivírus: **a decisão é dela, você não faz**.
 
+## Atualizar (quando a pessoa pedir "atualize o Escritório Digital")
+
+Rode na pasta do projeto: `node scripts/escritorio.mjs atualizar`. Ele baixa o código novo (`git pull`, só se a pasta estiver sem alterações), atualiza a imagem do Docker, religa o escritório e reabre os bonecos. **Login, trabalhos e a equipe editada ficam.** Se houver trabalho em andamento ele para e avisa: espere terminar (ou use `--forcar` só se a pessoa mandar). Se avisar que há arquivos alterados, **não** desfaça nada sem perguntar. Especialistas novos de versões futuras entram com `node scripts/escritorio.mjs equipe` (isso redefine os especialistas do pacote padrão, então avise antes se a pessoa os editou).
+
 ## Desinstalar
 
 `node scripts/escritorio.mjs desinstalar --sim` remove o escritório do Docker e **mantém** o login e os trabalhos (nos volumes). Só use `--apagar-dados` se a pessoa pedir, avisando que apaga o login e os trabalhos ainda não aprovados. A pasta de entregas no computador nunca é apagada.

@@ -28,7 +28,7 @@ import threading
 import time
 
 from . import awsapps, boot, dashboards, feed, gitops, notify, planner, procs, prompts, team
-from .auth import (accept_remote_control, auth_status, banner, claude_name, install_browser_mcp, install_commands,
+from .auth import (accept_remote_control, auth_status, banner, claude_name, install_browser_mcp, install_commands, install_office_guide,
                    install_guide,
                    install_hooks, install_messaging, install_mod, install_model, seat_id, trust_directory)
 from .config import primary_name_file
@@ -110,6 +110,7 @@ class Farm:
             if self.cfg.remote_control:
                 accept_remote_control()
             install_guide()
+            install_office_guide(team.Team(os.path.join(self.cfg.workspace, ".farm", "team.json")).chat_guide())
             try:  # the optional apps role (deploy/aws/apps-role.yaml): `aws --profile apps` for the Claudes
                 if awsapps.install_profile():
                     apps = awsapps.settings()

@@ -48,7 +48,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, boards, boot, bots, browser, connectors, dashboards, gitops, planner, policy, scrub, sso, team
+from . import __version__, boards, boot, bots, browser, chat, connectors, dashboards, gitops, planner, policy, scrub, sso, team
 from . import mcp
 from .agents import AgentManager, room_note
 from .slack import SlackBridge
@@ -229,6 +229,7 @@ class FarmUI:
         self.browsers = browser.Browsers(cfg.workspace)  # the farm's Chromium profiles: BROWSER on the farm, /browser
         self.stopping = threading.Event()
         self.team = team.Team(os.path.join(cfg.workspace, ".farm", "team.json"))
+        self.chat = chat.Chat(os.path.join(cfg.workspace, ".farm", "chat.json"))
         self.overlay_token()  # make the desktop overlay's secret now, so the install can read it
         self._state_cache: tuple[float, dict] | None = None
         self._views: dict[str, tuple[float, bytes, str]] = {}  # per viewer kind: (at, JSON, ETag)
@@ -258,6 +259,47 @@ class FarmUI:
         except OSError:
             pass
         return tok
+
+    def office_guide(self):
+        """The chief's conversation guide in the CLAUDE.md every session reads: rewritten when the team changes."""
+        from .auth import install_office_guide
+        try:
+            install_office_guide(self.team.chat_guide())
+        except OSError:
+            pass
+
+    def chat_settle(self, member: str):
+        """Turn finished jobs into replies in the conversation with ``member``."""
+        for m in self.chat.pending(member):
+            t = self.store.get_task(m.get("task") or "") or {}
+            status = t.get("status")
+            if status == "done":
+                waiting = t.get("landing") == "awaiting"
+                text = chat.clean_reply(t.get("result")) or "(sem resposta)"
+                self.chat.add_reply(member, m["id"], text, ok=True, waiting=waiting)
+            elif status in ("failed", "cancelled", "denied") or (m.get("task") and not t):
+                self.chat.add_reply(member, m["id"], chat.clean_reply(t.get("result")) or "(não consegui responder)", ok=False)
+
+    def chat_view(self, member: str) -> dict:
+        self.chat_settle(member)
+        return {"messages": self.chat.history(member), "pending": bool(self.chat.pending(member))}
+
+    def chat_send(self, member: str, text: str) -> dict:
+        m = self.team.get(member)
+        if not m:
+            raise ValueError("no such team member")
+        text = str(text or "").strip()
+        if not text:
+            raise ValueError("write something")
+        if len(self.chat.pending(member)) >= chat.MAX_PENDING:
+            raise ValueError("wait for the earlier answers before sending more")
+        t = self.store.add_task("Conversa: " + text.replace("\n", " ")[:60], self.chat.prompt(m, text), created_by="overlay",
+                                owner=self.cfg.name, specialist=member)
+        try:
+            self.chat.add_user(member, text, t["id"])
+        except chat.ChatError as e:
+            raise ValueError(str(e)) from e
+        return self.chat_view(member)
 
     def landings(self) -> list[dict]:
         """Finished work waiting for a person's OK before it lands on main."""
@@ -1146,6 +1188,29 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a Claude's person approves its missions")
                     return self._json(self._approvals(who))
+                m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})", path)
+                if m:  # the conversation with one member of the team
+                    if not who.manager:
+                        return self._err(403, "only the farm's person talks to the team from here")
+                    if not ui.team.get(m.group(1)):
+                        return self._err(404, "no such team member")
+                    return self._json(ui.chat_view(m.group(1)))
+                if path == "/api/chat-latest":  # the newest answers, for the speech bubbles on the bar
+                    if not who.manager:
+                        return self._err(403, "only the farm's person talks to the team from here")
+                    for mid in ui.chat.members_waiting():
+                        ui.chat_settle(mid)
+                    q = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
+                    try:
+                        since = float(q.get("since") or 0)
+                    except ValueError:
+                        since = 0.0
+                    out = []
+                    for mm in ui.team.all():
+                        for msg in ui.chat.history(mm["id"]):
+                            if msg["role"] == "assistant" and msg["at"] > since and msg.get("ok", True):
+                                out.append({"member": mm["id"], "text": msg["text"][:600], "at": msg["at"], "waiting": msg.get("waiting", False)})
+                    return self._json(sorted(out, key=lambda x: x["at"])[-10:])
                 if path == "/api/team":  # the office's team: the chief and the specialists
                     if not (who.manager or who.owner):
                         return self._err(403, "only a person of this farm sees the team")
@@ -1485,6 +1550,11 @@ def make_handler(ui: FarmUI):
                     raise
                 store.event("owner.account", f"{who.owner}'s person set a username to sign in with", by="ui")
                 return self._json({"username": acct[0]})
+            m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})", path)
+            if m:
+                if not who.manager:
+                    return self._err(403, "only the farm's person talks to the team from here")
+                return self._json(ui.chat_send(m.group(1), data.get("text")))
             if path == "/api/team" or re.fullmatch(r"/api/team/[a-z0-9-]{1,31}(/delete)?", path):
                 if not who.manager:
                     return self._err(403, "only the farm's person manages the team")
@@ -1498,6 +1568,7 @@ def make_handler(ui: FarmUI):
                         ui.team.upsert(data, parts[3])
                 except team.TeamError as e:
                     raise ValueError(str(e)) from e
+                ui.office_guide()
                 return self._json(ui.team.all())
             if path == "/api/tasks/new":  # the desktop overlay hands the office a job
                 if not who.manager:

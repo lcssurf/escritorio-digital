@@ -112,6 +112,29 @@ Checking again every few seconds...
 """
 
 
+OFFICE_START = "<!-- clodfarm:office:start -->"
+OFFICE_END = "<!-- clodfarm:office:end -->"
+
+
+def install_office_guide(text: str, config_dir: str | None = None):
+    """Put the office's team section (team.Team.chat_guide) in the user-level CLAUDE.md, next to the farm guide, so a
+    conversation opened from the Claude app is with the chief. Rewritten whenever the team changes."""
+    path = os.path.join(config_dir or claude_home(), "CLAUDE.md")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        cur = open(path, encoding="utf-8").read()
+    except OSError:
+        cur = ""
+    block = f"{OFFICE_START}\n{text}\n{OFFICE_END}"
+    if OFFICE_START in cur and OFFICE_END in cur:
+        pre, rest = cur.split(OFFICE_START, 1)
+        new = pre + block + rest.split(OFFICE_END, 1)[1]
+    else:
+        new = (cur.rstrip() + "\n\n" if cur.strip() else "") + block + "\n"
+    if new != cur:
+        _atomic_write(path, new)
+
+
 def install_guide(config_dir: str | None = None):
     """Put the farm guide in the user-level CLAUDE.md so every session, including the
     ones you open through Remote Control, knows how the farm works (``config_dir``: another Claude's)."""

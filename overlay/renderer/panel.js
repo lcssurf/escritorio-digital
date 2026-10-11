@@ -5,6 +5,7 @@
   const mock = q.has('mock');
   let office = window.office, dicts = null, cfg = { lang: q.get('lang') || 'pt-BR', sound: true, url: 'http://localhost:8080', hasToken: true };
   let tab = q.get('tab') || '', focusId = q.get('id') || '';
+  let chatOpen = null; const chatDraft = {};
   let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
@@ -24,8 +25,9 @@
       { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', instructions: 'Organize documentos por tipo e caso.', look: { style: 'long', prop: 1 } },
       { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', instructions: 'Vigie prazos.', look: { style: 'beard', prop: 4 } }];
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
+    const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
-      api: async (m, p, b) => ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      api: async (m, p, b) => p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => cfg,
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, quit() {}, togglePets() {}, broadcast() {},
@@ -73,7 +75,7 @@
     if (!force && sig === lastSig) return;
     lastSig = sig;
     if (!tab) tab = landings.length ? 'approvals' : 'team';
-    if (tab === 'new' || tab === 'settings' || editing) { renderChrome(); return; } // never wipe what is being typed
+    if (tab === 'new' || tab === 'settings' || editing || chatOpen) { renderChrome(); return; } // never wipe what is being typed
     render();
   }
   const tasksById = () => {
@@ -130,6 +132,8 @@
   function renderTeam() {
     const s = $('s-team'); clear(s);
     if (editing) return renderEditor(s);
+    if (chatOpen) return renderChat(s);
+    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
     const b = banner(); if (b) s.append(b);
     s.append(h('h2', {}, tr('team.title')));
     const states = memberStates();
@@ -152,7 +156,7 @@
           h('div', { class: 'task' }, p.label || tr(p.status === 'working' ? 'state.working' : p.status === 'alert' ? 'state.alert' : 'state.idle'))),
         h('span', { class: 'chip ' + p.status }, tr('state.' + p.status))));
       if (open) {
-        const acts = [h('button', { class: 'btn ghost', onclick: () => startEdit(m) }, tr('team.edit'))];
+        const acts = [h('button', { class: 'btn acc', onclick: () => openChat(m.id) }, tr('team.chat')), h('button', { class: 'btn ghost', onclick: () => startEdit(m) }, tr('team.edit'))];
         if (m.lead) acts.unshift(h('button', { class: 'btn ghost', onclick: () => startEdit(null, null, { parent: m.id }) }, '+ ' + tr('team.addto')));
         card.append(h('div', { class: 'detail' }, m.instructions || ''), h('div', { class: 'actions' }, acts));
       }
@@ -209,6 +213,60 @@
       await refresh(true);
     } }, tr('team.pack.install'));
     return h('div', { class: 'card' }, h('b', {}, tr('team.pack.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('team.pack.text')), btn);
+  }
+
+  // ------------------------------------------------------------------ chat with a team member
+  let chatTimer = null, chatSig = '';
+  function closeChat() { chatOpen = null; chatSig = ''; if (chatTimer) { clearInterval(chatTimer); chatTimer = null; } render(); }
+  function openChat(id) { chatOpen = id; chatSig = ''; tab = 'team'; render(); }
+  function renderChat(s) {
+    const m = memberOf(chatOpen);
+    if (!m) { chatOpen = null; return renderTeam(); }
+    const st = memberStates().get(m.id) || { status: 'idle' };
+    const list = h('div', { class: 'chat' });
+    const typing = h('div', { class: 'bubble them typing', style: 'display:none' }, h('span'), h('span'), h('span'));
+    const ta = h('textarea', { class: 'chatin', rows: '2', placeholder: tr('chat.placeholder', { name: m.name }), 'aria-label': tr('chat.placeholder', { name: m.name }) });
+    ta.value = chatDraft[m.id] || '';
+    ta.addEventListener('input', () => { chatDraft[m.id] = ta.value; });
+    const send = h('button', { class: 'btn acc', style: 'flex:none;padding:10px 16px' }, tr('chat.send'));
+    const doSend = async () => {
+      const text = ta.value.trim(); if (!text) return;
+      send.disabled = true;
+      const r = await office.api('POST', '/api/chat/' + encodeURIComponent(m.id), { text });
+      send.disabled = false;
+      if (r.ok) { ta.value = ''; chatDraft[m.id] = ''; paint(r.data); } else toast(tr('chat.error', { why: (r.data && r.data.error) || r.error || r.status }), true);
+      ta.focus();
+    };
+    send.addEventListener('click', doSend);
+    ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); doSend(); } });
+    const paint = (view) => {
+      const sig = JSON.stringify([view.messages.map((x) => x.id), view.pending]);
+      if (sig === chatSig) return;
+      chatSig = sig; clear(list);
+      if (!view.messages.length) list.append(h('div', { class: 'empty' }, tr('chat.empty')));
+      for (const msg of view.messages) {
+        if (msg.role === 'user') list.append(h('div', { class: 'bubble me' }, msg.text));
+        else {
+          const b = h('div', { class: 'bubble them' + (msg.ok === false ? ' bad' : '') }, msg.text);
+          if (msg.waiting) b.append(h('div', { class: 'waitrow' }, tr('chat.waiting'), ' ', h('button', { class: 'link', onclick: () => { tab = 'approvals'; chatOpen = null; render(); } }, tr('chat.review'))));
+          list.append(b);
+        }
+      }
+      typing.style.display = view.pending ? 'flex' : 'none';
+      list.append(typing);
+      list.scrollTop = list.scrollHeight;
+    };
+    const poll = async () => { const r = await office.api('GET', '/api/chat/' + encodeURIComponent(m.id)); if (r.ok && r.data) paint(r.data); };
+    if (chatTimer) clearInterval(chatTimer);
+    chatTimer = setInterval(poll, 1500);
+    poll();
+    s.append(
+      h('div', { class: 'backrow' }, h('button', { onclick: closeChat }, '‹ ' + tr('nav.team'))),
+      h('div', { class: 'agent', style: 'margin-bottom:10px;cursor:default' }, avatar(m, st.status === 'working' ? 'working' : 'idle'),
+        h('div', { class: 'who' }, h('div', { class: 'name' }, m.name, m.id === 'chief' ? h('span', { class: 'badge-chief' }, tr('team.chief')) : m.lead ? h('span', { class: 'badge-lead' }, tr('team.lead')) : null),
+          h('div', { class: 'task' }, roleOf(m) || '')), h('span', { class: 'chip ' + st.status }, tr('state.' + st.status))),
+      list, h('div', { class: 'chatbar' }, ta, send));
+    setTimeout(() => ta.focus(), 50);
   }
 
   // ------------------------------------------------------------------ team editor
@@ -399,8 +457,10 @@
     dicts = await office.dicts();
     document.documentElement.lang = cfg.lang;
     office.on('config', (c) => { cfg = { ...cfg, ...c }; document.documentElement.lang = cfg.lang; render(); });
-    office.on('focus', (o) => { tab = o.tab || tab; focusId = o.id || ''; refresh(true); });
+    office.on('focus', (o) => { tab = o.tab || tab; focusId = o.id || ''; if (o.kind === 'member' && o.id && o.tab !== 'approvals') { chatOpen = o.id; tab = 'team'; } refresh(true); render(); });
+    if (q.get('kind') === 'member' && focusId && tab !== 'approvals') { chatOpen = focusId; tab = 'team'; }
     await refresh(true);
+    render();
     setInterval(() => refresh(false), 3000);
   }
   init();

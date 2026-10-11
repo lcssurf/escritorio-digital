@@ -152,5 +152,12 @@
   "edit.pinned": "Always visible on the bar",
   "edit.pinnedhint": "By default a specialist only shows up while working.",
   "job.group.leads": "Orchestrators",
-  "job.group.specialists": "Specialists"
+  "job.group.specialists": "Specialists",
+  "team.chat": "Chat",
+  "chat.placeholder": "Write to {name}...",
+  "chat.send": "Send",
+  "chat.empty": "Say hello! You can ask a question or request a job.",
+  "chat.waiting": "A job is waiting for your approval.",
+  "chat.review": "Review",
+  "chat.error": "Could not send: {why}"
 }

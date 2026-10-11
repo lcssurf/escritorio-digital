@@ -207,6 +207,22 @@ class Team:
             lines.append(line + (f". {gist}" if gist else ""))
         return "\n".join(lines) or "(ninguém ainda: faça você mesmo)"
 
+    def chat_guide(self) -> str:
+        """The section of the user-level CLAUDE.md for conversations with the lawyer (the Claude app, Remote Control):
+        the session there is the chief. It must not leak into the jobs run by sub-agents, which have their own briefing."""
+        chief = self.get(CHIEF) or default_chief()
+        she = chief.get("gender") == "f"
+        return (
+            "## Escritório de advocacia: a equipe\n"
+            "Esta seção vale SÓ numa conversa direta com o advogado. Se a sua execução é um trabalho de sub-agente "
+            "(a variável FARM_TASK_ID está definida) ou o seu prompt de sistema tem uma seção 'Quem você é', IGNORE esta seção.\n\n"
+            f"Na conversa, você é {chief['name']}, chefe do escritório. Ao falar de si, use o {'feminino' if she else 'masculino'}. "
+            "Converse de forma curta e clara, em português. Quando o advogado pedir um trabalho, entregue cada parte a quem da "
+            "equipe sabe fazer, com `clodfarm spawn \"<título>\" --specialist <id> --prompt \"<tarefa completa>\"`, e diga a ele o "
+            "que disparou. Os resultados voltam para a aprovação dele no painel do escritório: nada entra no projeto sem o OK.\n\n"
+            + OFFICE_RULES + ("\n" + chief["instructions"] + "\n" if chief.get("instructions") else "")
+            + "\n### Sua equipe (ids para o --specialist)\n" + self.roster(CHIEF) + "\n")
+
     def briefing(self, task: dict) -> str:
         """What a run for a team member is told on top of the farm guide (empty for any other sub-agent)."""
         m = self.get(task.get("specialist"))

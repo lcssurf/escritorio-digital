@@ -9,7 +9,9 @@
   const pets = new Map(); // id -> pet
   let offline = false, through = true, lastAlertIds = new Set(), started = false, crowd = 5;
   const lastActive = new Map();   // member id -> when it last worked or waited for approval
-  const LINGER = 15000;
+  const LINGER = 15000, SAY_MS = 14000;
+  let sinceChat = Date.now() / 1000;   // only answers that arrive from now on
+  const sayLater = new Map();          // member id -> answer waiting for that character to appear on the bar
 
   if (!office && mock) office = mockOffice();
 
@@ -40,10 +42,12 @@
     cv.width = S.W; cv.height = S.H;
     const tag = document.createElement('div');
     tag.className = 'tag';
-    el.append(cv, tag);
+    const say = document.createElement('div');
+    say.className = 'say';
+    el.append(cv, tag, say);
     stage.append(el);
     const taken = [...pets.values()].map((q) => q.x);
-    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, Math.max(105, Math.min(170, Math.floor((innerWidth - 140) / Math.max(5, crowd)))), 70),
+    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, say, sayUntil: 0, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, Math.max(105, Math.min(170, Math.floor((innerWidth - 140) / Math.max(5, crowd)))), 70),
           facing: 1, state: 'walk', mode: 'walk', modeUntil: 0, drawn: '', tagKey: '' };
     bindPet(p);
     pets.set(spec.id, p);
@@ -143,19 +147,33 @@
       const key = st + '|' + fr + '|' + p.facing;
       if (key !== p.drawn) { S.draw(p.ctx, p.look, st, fr, p.facing, beat); p.drawn = key; }
       renderTag(p);
+      const saying = p.sayUntil > nowMs;
+      p.el.classList.toggle('saying', saying);
+      if (!saying && p.say.textContent) p.say.textContent = '';
     }
     requestAnimationFrame(frame);
   }
 
   async function poll() {
-    const [st, ld, tm] = await Promise.all([office.api('GET', '/api/state'), office.api('GET', '/api/landings'), office.api('GET', '/api/team')]);
+    const [st, ld, tm, cl] = await Promise.all([office.api('GET', '/api/state'), office.api('GET', '/api/landings'), office.api('GET', '/api/team'), office.api('GET', '/api/chat-latest?since=' + sinceChat)]);
     offline = !st.ok && st.status === 0;
     const landings = ld.ok && Array.isArray(ld.data) ? ld.data : [];
     const members = tm.ok && Array.isArray(tm.data) ? tm.data : null;
-    const now = performance.now(), keep = new Set([...lastActive].filter(([, t]) => now - t < LINGER).map(([id]) => id));
+    const now = performance.now();
+    for (const r of (cl.ok && Array.isArray(cl.data) ? cl.data : [])) {   // a team member answered: a speech bubble over them
+      sinceChat = Math.max(sinceChat, r.at);
+      sayLater.set(r.member, r.text); lastActive.set(r.member, now);
+    }
+    const keep = new Set([...lastActive].filter(([, t]) => now - t < LINGER).map(([id]) => id));
     const list = O.buildPets(st.ok ? st.data : null, landings, offline, members, keep);
     for (const p of list) if (p.memberId && (p.state === 'working' || p.state === 'alert')) lastActive.set(p.memberId, now);
     applySpecs(list);
+    for (const [id, text] of [...sayLater]) {
+      const p = pets.get('S:' + id);
+      if (!p) continue;   // not on the bar yet: shown as soon as they appear
+      p.say.textContent = text.length > 180 ? text.slice(0, 177) + '...' : text;
+      p.sayUntil = performance.now() + SAY_MS; sayLater.delete(id);
+    }
   }
 
   async function init() {

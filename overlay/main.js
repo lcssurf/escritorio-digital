@@ -122,7 +122,7 @@ function openPanel(opts = {}) {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
   });
   panel.setAlwaysOnTop(true, 'screen-saver');
-  panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { id: opts.id || '', tab: opts.tab === 'agent' ? 'team' : (opts.tab || '') } });
+  panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { id: opts.id || '', kind: opts.kind || '', tab: opts.tab === 'agent' ? 'team' : (opts.tab || '') } });
   panel.once('ready-to-show', () => panel.show());
   panel.on('blur', () => { if (panel && !panel.isDestroyed() && !panel.webContents.isDevToolsOpened()) panel.hide(); });
   panel.on('closed', () => { panel = null; });

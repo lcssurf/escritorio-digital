@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
 // Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
-// The "animals" set: real, cute, cartoon animals (not people with an animal head). Chunky 2-pixel "units", a big round head,
-// big shiny eyes, four stubby legs (or upright for the birds), a tail that wags. They are told apart the way a real pet is: a
-// bandana in the team's colour, a collar medal for the chief and the coordinators, and the role's accessory on the head
-// (headset, visor, pencil, round glasses, bow tie, scarf, cap, heart, crown, monocle).
-// Drawn on the same canvas as the people and in the same states: walk, idle, coffee, sofa, read, working, alert, cheer.
+// The "animals" set: real, cute, cartoon animals (not people with an animal head), small and clean at the same one-pixel detail
+// as the people: a round head with big shiny eyes, four stubby legs (the penguin and the owl stand upright), a tail that wags.
+// They are told apart the way a pet is: a vest and a bandana in the team's colour (gold for the chief, with a silver medal on
+// the coordinators) and the role's accessory on the head (headset, visor, pencil, round glasses, bow tie, scarf, cap, heart,
+// crown, monocle). Their life is a pet's: they eat from a bowl, play with a ball, curl up in a pet bed, sit on a stool at the
+// computer, and jump when something is approved. Same states as the people: walk, idle, coffee, read, sofa, working, alert, cheer.
 (function (root) {
   const K = '#1b1824', PINK = '#f2a0b0';
 
@@ -23,223 +24,198 @@
   }
   const isBird = (sp) => sp === 'penguin' || sp === 'owl';
 
-  // ---------------------------------------------------------------- one drawing context: units of 2 pixels
   function ctxFor(c, L, k) {
     const g = { c, L, k, p: palette(L), sh: k.shade };
-    g.u = (col, x, y, w, h) => k.R(c, col, Math.round(x * 2), Math.round(y * 2), Math.round(w * 2), Math.round(h * 2));
-    g.px = (col, x, y, w, h) => k.R(c, col, x, y, w, h);
+    g.r = (col, x, y, w, h) => k.R(c, col, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
     return g;
   }
 
-  function eye(g, x, y, o, patch) {
-    const { u, px } = g;
-    if (o.closed || o.blink) { px(K, x * 2, y * 2 + 2, 4, 1); px(K, x * 2, y * 2 + 1, 1, 1); px(K, x * 2 + 3, y * 2 + 1, 1, 1); return; }
-    if (o.happy) { px(K, x * 2, y * 2 + 3, 1, 1); px(K, x * 2 + 1, y * 2 + 1, 2, 1); px(K, x * 2 + 3, y * 2 + 3, 1, 1); px(K, x * 2 + 1, y * 2 + 2, 1, 1); px(K, x * 2 + 2, y * 2 + 2, 1, 1); return; }
-    u(K, x, y, 2, 2);                                       // a big dark eye...
-    px('#fff', x * 2, y * 2, 2, 2); px('#fff', x * 2 + 3, y * 2 + 3, 1, 1);   // ...with a shine: that is what makes it cute
-    if (patch) { px(K, x * 2 + 2, y * 2 + 1, 2, 3); }
+  // ---------------------------------------------------------------- the face
+  function eye(g, x, y, o) {
+    const r = g.r;
+    if (o.closed || o.blink) { r(K, x, y + 2, 2, 1); return; }
+    if (o.happy) { r(K, x, y + 2, 1, 1); r(K, x + 1, y + 1, 1, 1); r(K, x + 2, y + 2, 1, 1); return; }
+    r(K, x, y, 2, 3); r('#fff', x, y, 1, 1);          // a tall dark eye with a shine: that is what makes it cute
   }
-
-  // ---------------------------------------------------------------- the head (10 x 9 units at hx, hy)
+  // the head: 11 x 9 at (hx, hy); ears above (and beside)
   function head(g, hx, hy, o) {
-    const { u, px, L, p } = g, sp = L.species, F = sp === 'penguin' ? p.body : L.fur;
-    // ears behind the face
-    if (sp === 'cat') { u(F, hx + 1, hy - 1, 3, 2); u(F, hx + 2, hy - 2, 1, 1); u(F, hx + 6, hy - 1, 3, 2); u(F, hx + 7, hy - 2, 1, 1); u(p.earIn, hx + 2, hy - 1, 1, 1); u(p.earIn, hx + 7, hy - 1, 1, 1); }
-    if (sp === 'dog') { u(p.ear, hx - 1, hy + 1, 2, 6); u(p.ear, hx - 1, hy, 2, 1); u(p.ear, hx + 8, hy + 1, 2, 5); }
-    if (sp === 'rabbit') { u(F, hx + 1, hy - 6, 2, 7); u(p.earIn, hx + 2, hy - 5, 1, 5); u(F, hx + 5, hy - 7, 2, 8); u(p.earIn, hx + 6, hy - 6, 1, 6); }
-    if (sp === 'fox') { u(F, hx + 1, hy - 2, 3, 3); u(F, hx + 6, hy - 2, 3, 3); u('#2a2a32', hx + 1, hy - 2, 3, 1); u('#2a2a32', hx + 6, hy - 2, 3, 1); u(p.earIn, hx + 2, hy - 1, 1, 1); u(p.earIn, hx + 7, hy - 1, 1, 1); }
-    if (sp === 'panda') { u(p.ear, hx, hy - 1, 3, 3); u(p.ear, hx + 7, hy - 1, 3, 3); }
-    if (sp === 'raccoon') { u(F, hx + 1, hy - 1, 3, 2); u(p.mark, hx + 1, hy - 1, 3, 1); u(F, hx + 6, hy - 1, 3, 2); u(p.mark, hx + 6, hy - 1, 3, 1); }
-    if (sp === 'owl') { u(p.ear, hx + 1, hy - 2, 2, 3); u(p.ear, hx + 7, hy - 2, 2, 3); }
-    // face
-    u(F, hx + 1, hy, 8, 9); u(F, hx, hy + 1, 10, 7);
+    const { r, L, p } = g, sp = L.species, F = sp === 'penguin' ? p.body : L.fur, D = L.furD;
     const light = sp === 'panda' ? '#f4f4f8' : sp === 'penguin' ? '#fff' : L.muz;
-    if (sp === 'cat') { u(L.furD, hx + 3, hy, 1, 2); u(L.furD, hx + 5, hy, 1, 2); u(light, hx + 6, hy + 5, 4, 3); }
-    if (sp === 'dog') { u(p.mark, hx + 5, hy + 2, 4, 3); u(light, hx + 6, hy + 5, 5, 3); }
-    if (sp === 'rabbit') { u(light, hx + 5, hy + 5, 6, 3); }
-    if (sp === 'fox') { u(light, hx + 4, hy + 5, 7, 4); u(light, hx, hy + 5, 4, 3); }
-    if (sp === 'raccoon') { u(p.mark, hx, hy + 3, 10, 3); u(light, hx + 6, hy + 6, 5, 2); }
-    if (sp === 'panda') { u(p.mark, hx + 1, hy + 2, 3, 4); u(p.mark, hx + 6, hy + 2, 3, 4); u(p.mark, hx + 8, hy + 5, 3, 2); }
-    if (sp === 'penguin') { u('#fff', hx + 2, hy + 3, 7, 5); u('#fff', hx + 1, hy + 4, 9, 3); }
-    if (sp === 'owl') { u(L.muz, hx + 1, hy + 2, 4, 4); u(L.muz, hx + 5, hy + 2, 4, 4); u(L.furD, hx + 1, hy, 8, 1); }
-    // eyes
-    const ey = hy + 3, e1 = hx + 2, e2 = hx + 6;
-    if (sp === 'owl') {
-      if (o.closed || o.blink) { px(K, (hx + 2) * 2, (hy + 4) * 2, 6, 1); px(K, (hx + 6) * 2, (hy + 4) * 2, 6, 1); }
-      else { u('#fff', hx + 1.5, hy + 2.5, 3, 3); u('#fff', hx + 5.5, hy + 2.5, 3, 3); u(K, hx + 3, hy + 3, 1.5, 2); u(K, hx + 6.5, hy + 3, 1.5, 2); px('#fff', (hx + 3) * 2, (hy + 3) * 2, 1, 1); px('#fff', (hx + 6.5) * 2, (hy + 3) * 2, 1, 1); }
-    } else if (sp === 'panda') { eye(g, e1 + 0.5, ey + 0.5, o, false); eye(g, e2 + 0.5, ey + 0.5, o, false); }
-    else { eye(g, e1, ey, o, false); eye(g, e2, ey, o, false); }
-    // nose and mouth
-    const nx = sp === 'owl' ? hx + 4 : hx + 8;
-    if (sp === 'owl') { u(p.nose, hx + 4, hy + 5, 2, 2); u('#c47d12', hx + 4, hy + 6, 2, 1); }
-    else if (sp === 'penguin') { u(p.nose, hx + 7, hy + 5, 4, 2); u('#c47d12', hx + 7, hy + 6, 4, 1); }
-    else {
-      u(p.nose, nx, hy + 5, 2, 1.5);
-      px('#3a2a2a', (nx) * 2 + 1, (hy + 6.5) * 2, 1, 2);
-      if (o.happy || o.open) { px('#3a2a2a', nx * 2 - 1, (hy + 7) * 2 + 1, 5, 1); u('#e8808f', nx - 0.5, hy + 7.5, 2, 1); }
-      else px('#3a2a2a', nx * 2 - 1, (hy + 7) * 2 + 1, 4, 1);
+    // ears behind the face
+    if (sp === 'cat' || sp === 'fox') {
+      for (const x of [hx + 1, hx + 7]) { r(F, x, hy - 1, 3, 2); r(F, x + (x === hx + 1 ? 0 : 1), hy - 2, 2, 1); r(F, x + (x === hx + 1 ? 0 : 2), hy - 3, 1, 1); }
+      if (sp === 'fox') { r('#2a2a32', hx + 1, hy - 3, 1, 1); r('#2a2a32', hx + 9, hy - 3, 1, 1); }
+      r(sp === 'cat' ? PINK : '#4a3228', hx + 2, hy - 1, 1, 1); r(sp === 'cat' ? PINK : '#4a3228', hx + 8, hy - 1, 1, 1);
     }
-    if (sp === 'rabbit' && !(o.happy || o.open)) px('#fff', nx * 2, (hy + 7) * 2 + 2, 2, 2);   // little front teeth
-    if (sp === 'cat') { px('#e9e9ef', (hx + 10) * 2, (hy + 5) * 2, 5, 1); px('#e9e9ef', (hx + 10) * 2, (hy + 7) * 2, 5, 1); }   // whiskers
-    // cheeks
-    if (sp !== 'panda' && sp !== 'raccoon' && sp !== 'owl') px('#f79ab0', (hx + 4) * 2, (hy + 6) * 2, 3, 2);
-    return { hx, hy, e1, e2, ey, nx };
+    if (sp === 'dog') { r(p.ear, hx - 1, hy + 1, 3, 6); r(p.ear, hx + 9, hy + 1, 3, 5); r(p.ear, hx, hy, 2, 1); }
+    if (sp === 'rabbit') { r(F, hx + 2, hy - 8, 2, 8); r(p.earIn, hx + 3, hy - 7, 1, 5); r(F, hx + 6, hy - 9, 2, 9); r(p.earIn, hx + 7, hy - 8, 1, 6); }
+    if (sp === 'panda') { r(p.ear, hx, hy - 2, 3, 3); r(p.ear, hx + 8, hy - 2, 3, 3); }
+    if (sp === 'raccoon') { r(F, hx + 1, hy - 2, 3, 3); r(p.mark, hx + 1, hy - 2, 3, 1); r(F, hx + 7, hy - 2, 3, 3); r(p.mark, hx + 7, hy - 2, 3, 1); }
+    if (sp === 'owl') { r(p.ear, hx + 1, hy - 3, 2, 4); r(p.ear, hx + 8, hy - 3, 2, 4); }
+    // face
+    r(F, hx + 1, hy, 9, 9); r(F, hx, hy + 1, 11, 7);
+    if (sp === 'cat') { r(D, hx + 3, hy, 1, 2); r(D, hx + 5, hy, 1, 2); r(D, hx + 7, hy, 1, 2); r(light, hx + 6, hy + 5, 5, 3); }
+    if (sp === 'dog') { r(p.mark, hx + 6, hy + 1, 4, 4); r(light, hx + 6, hy + 5, 5, 3); }
+    if (sp === 'rabbit') { r(light, hx + 5, hy + 5, 6, 3); }
+    if (sp === 'fox') { r(light, hx + 3, hy + 5, 8, 4); r(light, hx, hy + 5, 3, 3); }
+    if (sp === 'raccoon') { r(p.mark, hx, hy + 2, 11, 4); r(light, hx + 6, hy + 6, 5, 2); }
+    if (sp === 'panda') { r(p.mark, hx + 1, hy + 2, 3, 4); r(p.mark, hx + 6, hy + 2, 3, 4); r(p.mark, hx + 9, hy + 5, 2, 2); }
+    if (sp === 'penguin') { r('#fff', hx + 2, hy + 3, 8, 5); r('#fff', hx + 1, hy + 4, 10, 3); }
+    if (sp === 'owl') { r(L.muz, hx + 1, hy + 2, 4, 5); r(L.muz, hx + 6, hy + 2, 4, 5); r(D, hx + 1, hy, 9, 1); }
+    // eyes
+    const ey = hy + 3, e1 = { x: hx + 2, y: ey }, e2 = { x: hx + 7, y: ey };
+    if (sp === 'owl') {
+      if (o.closed || o.blink) { r(K, hx + 2, hy + 4, 3, 1); r(K, hx + 7, hy + 4, 3, 1); }
+      else { r('#fff', hx + 1, hy + 3, 4, 4); r('#fff', hx + 6, hy + 3, 4, 4); r(K, hx + 3, hy + 4, 2, 2); r(K, hx + 8, hy + 4, 2, 2); r('#fff', hx + 3, hy + 4, 1, 1); r('#fff', hx + 8, hy + 4, 1, 1); }
+    } else if (sp === 'panda' || sp === 'raccoon') {
+      if (o.closed || o.blink) { r('#fff', e1.x, ey + 1, 2, 1); r('#fff', e2.x, ey + 1, 2, 1); }
+      else { r('#fff', e1.x, ey, 2, 3); r('#fff', e2.x, ey, 2, 3); r(K, e1.x + 1, ey + 1, 1, 2); r(K, e2.x + 1, ey + 1, 1, 2); }
+    } else { eye(g, e1.x, e1.y, o); eye(g, e2.x, e2.y, o); }
+    // nose and mouth
+    if (sp === 'owl') { r(p.nose, hx + 4, hy + 5, 3, 3); r('#c47d12', hx + 5, hy + 7, 1, 1); }
+    else if (sp === 'penguin') { r(p.nose, hx + 8, hy + 5, 4, 2); r('#c47d12', hx + 8, hy + 6, 4, 1); }
+    else {
+      r(p.nose, hx + 9, hy + 5, 2, 1);
+      if (o.happy || o.open) { r('#8a2a3a', hx + 8, hy + 7, 3, 2); r('#e8808f', hx + 9, hy + 8, 2, 1); }
+      else { r('#3a2a2a', hx + 9, hy + 6, 1, 1); r('#3a2a2a', hx + 8, hy + 7, 3, 1); }
+      if (sp === 'rabbit' && !(o.happy || o.open)) r('#fff', hx + 9, hy + 8, 1, 1);
+      if (sp === 'cat') { r('#e9e9ef', hx + 11, hy + 5, 3, 1); r('#e9e9ef', hx + 11, hy + 7, 3, 1); }
+      if (sp !== 'panda' && sp !== 'raccoon') r('#f79ab0', hx + 5, hy + 6, 2, 1);
+    }
+    return { hx, hy, e1, e2 };
   }
 
-  // ---------------------------------------------------------------- what the role wears (anchored on the head and the neck)
-  function bandana(g, nx, ny) {
-    const { u, L, sh } = g, t = L.team, d = sh(t, 0.75), l = sh(t, 1.25);
-    u(t, nx - 1, ny, 8, 1.5); u(d, nx - 1, ny, 8, 0.5); u(t, nx, ny + 1.5, 6, 1.5); u(t, nx + 1, ny + 3, 4, 1); u(t, nx + 2, ny + 4, 2, 1); u(l, nx + 2, ny + 3, 1, 1);
-    if (L.chief) { u('#f5c542', nx + 2, ny + 5, 2, 1.5); u('#fff3b0', nx + 2, ny + 5, 1, 0.5); }
-    else if (L.lead) { u('#cfd6e6', nx + 2, ny + 5, 2, 1.5); }
-  }
+  // ---------------------------------------------------------------- identity: vest, bandana, medals and the role's accessory
   function vest(g, x, y, w, h) {
-    const { u, L, sh } = g, t = L.team;
-    u(t, x, y, w, h); u(sh(t, 1.2), x, y, w, 0.5); u(sh(t, 0.72), x, y + h - 0.5, w, 0.5);
-    if (L.chief) u('#f5c542', x, y, w, 0.5);
-    else if (L.lead) u('#cfd6e6', x, y, w, 0.5);
-    if (L.icon >= 0 && w > 6) { const pat = g.k.PATTERNS ? g.k.PATTERNS[L.icon % g.k.PATTERNS.length] : null; if (pat) for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) if (pat[r][q] === '1') g.px('#ffffffd9', Math.round((x + w / 2) * 2) - 2 + q, Math.round(y * 2) + 2 + r, 1, 1); }
+    const { r, L, sh } = g, t = L.team;
+    r(t, x, y, w, h); r(sh(t, 1.25), x, y, w, 1); r(sh(t, 0.7), x, y + h - 1, w, 1);
+    if (L.chief) r('#f5c542', x, y, w, 1); else if (L.lead) r('#cfd6e6', x, y, w, 1);
+  }
+  function bandana(g, nx, ny) {
+    const { r, L, sh } = g, t = L.team;
+    r(t, nx, ny, 8, 1); r(sh(t, 0.7), nx, ny, 8, 1); r(t, nx, ny + 1, 8, 1); r(t, nx + 1, ny + 2, 6, 1); r(t, nx + 2, ny + 3, 4, 1); r(sh(t, 1.25), nx + 3, ny + 4, 2, 1);
+    if (L.chief) { r('#f5c542', nx + 3, ny + 5, 2, 2); r('#fff3b0', nx + 3, ny + 5, 1, 1); }
+    else if (L.lead) { r('#cfd6e6', nx + 3, ny + 5, 2, 2); }
   }
   function neckKit(g, nx, ny) {
-    const { u, L, sh } = g;
-    if (L.kit === 5) { const b = L.team; u(b, nx - 1, ny, 3, 2); u(b, nx + 3, ny, 3, 2); u(sh(b, 0.6), nx + 2, ny, 1, 2); u(sh(b, 1.3), nx - 1, ny, 3, 0.5); }   // bow tie
-    if (L.kit === 6) { const s = '#f08a24'; u(s, nx - 1, ny, 8, 2); u(sh(s, 1.25), nx - 1, ny, 8, 0.5); u(s, nx + 4, ny + 2, 2, 3); u(sh(s, 0.7), nx + 4, ny + 4, 2, 1); }   // scarf
+    const { r, L, sh } = g;
+    if (L.kit === 5) { const b = L.team; r(b, nx, ny + 1, 3, 3); r(b, nx + 5, ny + 1, 3, 3); r(sh(b, 0.6), nx + 3, ny + 1, 2, 3); r(sh(b, 1.3), nx, ny + 1, 3, 1); }   // bow tie
+    if (L.kit === 6) { const s = '#f08a24'; r(s, nx - 1, ny, 10, 3); r(sh(s, 1.25), nx - 1, ny, 10, 1); r(s, nx + 6, ny + 3, 3, 5); r(sh(s, 0.7), nx + 6, ny + 7, 3, 1); }   // scarf
   }
-  function headgear(g, h, o) {
-    const { u, px, L, sh } = g, T = L.team;
+  function headgear(g, h) {
+    const { r, L } = g, T = L.team, hx = h.hx, hy = h.hy, D = '#2a2a38';
     switch (L.kit) {
-      case 1: u('#2a2a38', h.hx + 1, h.hy - 1, 9, 1); u(T, h.hx - 1, h.hy + 3, 2, 3); u('#2a2a38', h.hx + 9, h.hy + 6, 1, 1); px('#2a2a38', (h.hx + 8) * 2, (h.hy + 8) * 2 + 1, 6, 1); u('#e5484d', h.hx + 7, h.hy + 8, 1, 1); break;
-      case 2: u('#2fae5a', h.hx + 1, h.hy + 1, 10, 1.5); u('#1f7a3d', h.hx + 1, h.hy + 2.5, 10, 0.5); u('#2a2a38', h.hx, h.hy + 0.5, 10, 0.5); break;
-      case 3: px('#f5c542', (h.hx + 1) * 2, (h.hy - 1) * 2, 2, 7); px('#e5484d', (h.hx + 1) * 2, (h.hy - 1) * 2 - 1, 2, 1); px(K, (h.hx + 1) * 2, (h.hy + 2) * 2 + 1, 2, 1); break;
-      case 4: { for (const x of [h.e1, h.e2]) { px('#2a2230', x * 2 - 2, h.ey * 2 - 2, 8, 1); px('#2a2230', x * 2 - 2, h.ey * 2 + 5, 8, 1); px('#2a2230', x * 2 - 2, h.ey * 2 - 2, 1, 8); px('#2a2230', x * 2 + 5, h.ey * 2 - 2, 1, 8); } break; }
-      case 7: u('#2f6fa0', h.hx + 2, h.hy - 2, 6, 2); u('#244f73', h.hx + 2, h.hy - 0.5, 6, 0.5); u('#2a2a38', h.hx + 7, h.hy - 0.5, 4, 0.5); u('#f5c542', h.hx + 4, h.hy - 2, 1, 0.5); break;
-      case 8: u('#ff5d8f', h.hx + 6, h.hy - 2, 3, 2); u('#ffd1e0', h.hx + 7, h.hy - 1.5, 1, 0.5); u('#ff5d8f', h.hx + 7, h.hy - 3, 1, 1); u('#ff5d8f', h.hx + 6, h.hy - 2, 1, 1); break;
-      case 9: u('#f5c542', h.hx + 2, h.hy - 3, 6, 1.5); u('#f5c542', h.hx + 2, h.hy - 5, 1.5, 2.5); u('#f5c542', h.hx + 4.2, h.hy - 6, 1.5, 3.5); u('#f5c542', h.hx + 6.5, h.hy - 5, 1.5, 2.5); u('#e5484d', h.hx + 4.5, h.hy - 3, 1, 1); break;
-      case 10: px('#f5c542', h.e2 * 2 - 2, h.ey * 2 - 2, 8, 1); px('#f5c542', h.e2 * 2 - 2, h.ey * 2 + 5, 8, 1); px('#f5c542', h.e2 * 2 - 2, h.ey * 2 - 2, 1, 8); px('#f5c542', h.e2 * 2 + 5, h.ey * 2 - 2, 1, 8); px('#f5c542', h.e2 * 2 + 6, h.ey * 2 + 6, 1, 10); break;
+      case 1: r(D, hx + 1, hy - 1, 9, 1); r(D, hx, hy, 1, 4); r(T, hx - 1, hy + 3, 2, 3); r(D, hx + 9, hy + 6, 1, 3); r(D, hx + 7, hy + 9, 4, 1); r('#e5484d', hx + 7, hy + 8, 2, 2); break;   // headset
+      case 2: r('#2fae5a', hx + 1, hy + 1, 10, 2); r('#1f7a3d', hx + 1, hy + 3, 10, 1); r(D, hx, hy, 11, 1); break;                                                                      // green visor
+      case 3: r('#f5c542', hx + 3, hy - 4, 1, 6); r('#e5484d', hx + 3, hy - 5, 1, 1); r(K, hx + 3, hy + 2, 1, 1); break;                                                                  // pencil behind the ear
+      case 4: for (const e of [h.e1, h.e2]) { r('#2a2230', e.x - 1, e.y - 1, 4, 1); r('#2a2230', e.x - 1, e.y + 3, 4, 1); r('#2a2230', e.x - 1, e.y, 1, 3); r('#2a2230', e.x + 2, e.y, 1, 3); } break;   // round glasses
+      case 7: r('#2f6fa0', hx + 2, hy - 3, 7, 3); r('#244f73', hx + 2, hy - 1, 7, 1); r(D, hx + 8, hy - 1, 4, 1); r('#f5c542', hx + 5, hy - 3, 1, 1); break;                                  // courier cap
+      case 8: r('#ff5d8f', hx + 7, hy - 3, 3, 2); r('#ffd1e0', hx + 8, hy - 3, 1, 1); r('#ff5d8f', hx + 8, hy - 4, 1, 1); r('#ff5d8f', hx + 7, hy - 4, 1, 1); r('#ff5d8f', hx + 9, hy - 4, 1, 1); break;   // heart
+      case 9: r('#f5c542', hx + 2, hy - 4, 7, 2); r('#f5c542', hx + 2, hy - 6, 2, 2); r('#f5c542', hx + 5, hy - 7, 2, 3); r('#f5c542', hx + 8, hy - 6, 2, 2); r('#e5484d', hx + 5, hy - 4, 1, 1); break;   // crown
+      case 10: { const e = h.e2; r('#f5c542', e.x - 1, e.y - 1, 4, 1); r('#f5c542', e.x - 1, e.y + 3, 4, 1); r('#f5c542', e.x - 1, e.y, 1, 3); r('#f5c542', e.x + 2, e.y, 1, 3); r('#f5c542', e.x + 3, e.y + 4, 1, 6); break; }   // monocle
       default: break;
     }
   }
+  function identity(g, h) {
+    bandana(g, h.hx + 1, h.hy + 9); neckKit(g, h.hx + 1, h.hy + 9); headgear(g, h);
+  }
 
   // ---------------------------------------------------------------- tails
-  function tailAt(g, x, y, beat, big) {
-    const { u, L, p } = g, sp = L.species, w = (beat % 4 < 2) ? 0 : 1;
-    if (sp === 'cat') { u(p.tail, x - 1 - w, y + 2, 2, 5); u(p.tail, x - 2 - w, y - 1, 2, 4); u(p.tailTip, x - 2 - w, y - 2, 2, 1); }
-    else if (sp === 'dog') { u(p.tail, x - 1 - w, y + 2, 2, 3); u(p.tail, x - 2 - w, y, 2, 3); }
-    else if (sp === 'rabbit') { u('#fff', x - 1, y + 4, 3, 3); }
-    else if (sp === 'fox') { u(p.tail, x - 4 - w, y + 1, 5, 5); u(p.tail, x - 5 - w, y + 3, 3, 3); u('#fff', x - 5 - w, y + 4, 3, 2); }
-    else if (sp === 'raccoon') { u(p.tail, x - 3 - w, y - 1, 4, 7); u(p.tailTip, x - 3 - w, y + 1, 4, 1); u(p.tailTip, x - 3 - w, y + 3, 4, 1); u(p.tailTip, x - 3 - w, y - 1, 4, 1); }
-    else if (sp === 'panda') { u('#fff', x - 1, y + 4, 2, 2); }
-    else if (sp === 'owl') { u(p.tail, x - 1, y + 4, 3, 4); }
-    else { u(p.tail, x - 1, y + 5, 2, 3); }
+  function tail(g, x, y, beat) {
+    const { r, L, p } = g, sp = L.species, w = (beat % 4 < 2) ? 0 : 1;
+    if (sp === 'cat') { r(p.tail, x - 3 - w, y - 2, 2, 7); r(p.tail, x - 2, y + 3, 3, 2); r(p.tailTip, x - 3 - w, y - 3, 2, 2); }
+    else if (sp === 'dog') { r(p.tail, x - 3 - w, y, 2, 5); r(p.tail, x - 2, y + 3, 3, 2); }
+    else if (sp === 'rabbit') { r('#fff', x - 3, y + 2, 4, 4); }
+    else if (sp === 'fox') { r(p.tail, x - 8 - w, y + 1, 8, 5); r(p.tail, x - 6 - w, y, 5, 7); r('#fff', x - 8 - w, y + 2, 3, 3); }
+    else if (sp === 'raccoon') { r(p.tail, x - 6 - w, y - 2, 6, 8); r(p.tailTip, x - 6 - w, y, 6, 1); r(p.tailTip, x - 6 - w, y + 2, 6, 1); r(p.tailTip, x - 6 - w, y + 4, 6, 1); }
+    else if (sp === 'panda') { r('#fff', x - 3, y + 2, 4, 3); }
+    else if (sp === 'owl') { r(p.tail, x - 2, y + 5, 3, 5); }
+    else { r(p.tail, x - 3, y + 6, 3, 3); }
   }
 
   // ---------------------------------------------------------------- bodies
-  // four legs, on the ground row 22; (bx, by) = top-left of the body. mode: idle | walk | wave | jump
-  function walker(g, f, beat, mode) {
-    const { u, L, p, sh } = g, ph = f % 4, walk = mode === 'walk';
-    const j = mode === 'jump' ? [0, 2, 3, 2][ph] : 0, b = L.build === 1 ? 1 : 0;
-    const by = 11 - j, bx = 5 - b;
-    const off = walk ? [0, 1, 0, -1][ph] : 0;
-    tailAt(g, bx, by - 1, beat);
-    // far legs (darker), then the body, then near legs
-    u(sh(p.limb, 0.85), bx + 2 + off, by + 6, 2, 4 + j); u(sh(p.limb, 0.85), bx + 10 - off, by + 6, 2, 4 + j);
-    u(p.paw, bx + 2 + off, by + 9 + j, 2, 1); u(p.paw, bx + 10 - off, by + 9 + j, 2, 1);
-    u(p.body, bx + 1, by, 14 + 2 * b, 7); u(p.body, bx, by + 1, 16 + 2 * b, 5);
-    if (L.species === 'fox' || L.species === 'cat' || L.species === 'dog' || L.species === 'rabbit' || L.species === 'raccoon') u(p.belly, bx + 2, by + 5, 12 + 2 * b, 2);
-    if (L.species === 'cat') { u(sh(L.fur, 0.85), bx + 4, by, 1, 2); u(sh(L.fur, 0.85), bx + 7, by, 1, 2); u(sh(L.fur, 0.85), bx + 10, by, 1, 2); }
-    if (L.species === 'dog') u(p.mark, bx + 6, by + 1, 4, 3);
-    if (L.species === 'panda') { u('#2a2a32', bx + 9, by, 5, 3); u('#2a2a32', bx + 2, by + 4, 3, 3); }
-    if (L.species === 'raccoon') u(p.mark, bx + 3, by + 1, 1, 2);
-    vest(g, bx + 3, by - 0.5, 11 + 2 * b, 3.5);
-    u(p.limb, bx + 5 + off, by + 6, 2, 4 + j); u(p.limb, bx + 13 - off, by + 6, 2, 4 + j);   // near legs
-    u(p.paw, bx + 5 + off, by + 9 + j, 2, 1); u(p.paw, bx + 13 - off, by + 9 + j, 2, 1);
-    let wave = null;
-    if (mode === 'wave') { const up = f % 2; u(p.limb, bx + 13, by + 1 - up, 2, 6); u(p.paw, bx + 13, by - up, 2, 1.5); wave = true; }
-    const h = head(g, bx + 10 + 0, by - 6 + (walk && ph % 2 ? 0.5 : 0), g.o);
-    return { h, nx: bx + 11, ny: by + 3, wave };
+  // four legs: gx = left of the body, by = top of the body
+  function walker(g, f, beat, mode, opt) {
+    const { r, L, p, sh } = g, ph = f % 4, walk = mode === 'walk', b = L.build === 1 ? 1 : 0;
+    const dy = mode === 'jump' ? [0, 3, 5, 3][ph] : 0, off = walk ? [0, 1, 0, -1][ph] : 0;
+    const gx = 10 - b, by = 31 - dy, bw = 18 + 2 * b;
+    tail(g, gx, by, beat);
+    const leg = 5, ly = by + 8;
+    r(sh(p.limb, 0.85), gx + 2 + off, ly, 2, leg); r(sh(p.limb, 0.85), gx + bw - 6 - off, ly, 2, leg);
+    r(p.paw, gx + 2 + off, ly + leg - 1, 2, 1); r(p.paw, gx + bw - 6 - off, ly + leg - 1, 2, 1);
+    r(p.body, gx + 1, by, bw - 2, 9); r(p.body, gx, by + 1, bw, 7);
+    r(p.belly, gx + 2, by + 6, bw - 4, 3);
+    if (L.species === 'cat') { r(sh(L.fur, 0.82), gx + 5, by, 1, 3); r(sh(L.fur, 0.82), gx + 8, by, 1, 3); r(sh(L.fur, 0.82), gx + 11, by, 1, 3); }
+    if (L.species === 'dog') r(p.mark, gx + 8, by + 1, 5, 4);
+    if (L.species === 'panda') { r('#2a2a32', gx + bw - 7, by, 6, 4); r('#2a2a32', gx + 1, by + 5, 4, 4); }
+    if (L.species === 'raccoon') r(p.mark, gx + 3, by + 1, 1, 3);
+    vest(g, gx + 4, by, bw - 8, 4);
+    r(p.limb, gx + 5 + off, ly, 2, leg); r(p.limb, gx + bw - 3 - off, ly, 2, leg);
+    r(p.paw, gx + 5 + off, ly + leg - 1, 2, 1); r(p.paw, gx + bw - 3 - off, ly + leg - 1, 2, 1);
+    if (mode === 'wave') { const up = f % 2; r(p.limb, gx + bw - 3, by - 2 - up, 2, 8); r(p.paw, gx + bw - 3, by - 3 - up, 2, 2); }
+    const hdx = (opt && opt.hdx) || 0, hdy = (opt && opt.hdy) || 0;
+    const h = head(g, gx + bw - 4 + hdx, by - 7 + hdy + (walk && ph % 2 ? 1 : 0), g.o);
+    return h;
   }
-  // upright: the sitting mammals and the two birds (penguin and owl stand like this)
-  function sitter(g, f, beat, mode, o) {
-    const { u, L, p, sh } = g, bird = isBird(L.species), ph = f % 4, walk = mode === 'walk';
-    const b = L.build === 1 ? 1 : 0, bob = walk && ph % 2 ? 0 : 0;
-    const by = bird ? 9 : 10, bx = 8 - b;
-    if (!bird) tailAt(g, bx - 1, by + 7, beat);
-    if (bird && L.species === 'penguin') { u('#2a2a3a', bx - 1, by + 2, 2, 6); u('#2a2a3a', bx + 9 + b, by + 2, 2, 6); }   // flippers
-    if (bird && L.species === 'owl') { u(L.furD, bx - 1, by + 2, 2, 6); u(L.furD, bx + 9 + b, by + 2, 2, 6); }           // wings
-    u(p.body, bx + 1, by, 8 + 2 * b, 11); u(p.body, bx, by + 2, 10 + 2 * b, 8);
-    u(p.belly, bx + 2, by + 3, 6 + 2 * b, 7);
-    if (L.species === 'owl') for (const [x, y] of [[3, 4], [5, 4], [4, 6], [6, 6], [3, 8], [5, 8]]) u(L.furD, bx + x, by + y, 1, 0.5);
-    if (L.species === 'panda') { u('#2a2a32', bx, by + 2, 10 + 2 * b, 2); }
-    vest(g, bx + 1, by + 3, 8 + 2 * b, 5);
-    // feet
+  // upright: the sitting mammals, and the birds standing
+  function sitter(g, f, beat, mode, opt) {
+    const { r, L, p, sh } = g, bird = isBird(L.species), ph = f % 4, walk = mode === 'walk', b = L.build === 1 ? 1 : 0;
+    const lift = (opt && opt.lift) || 0, bx = 19 - b, by = 34 - lift, w = 9 + 2 * b;
+    if (!bird) tail(g, bx, by + 2, beat);
+    if (bird) { r(L.species === 'penguin' ? '#2a2a3a' : L.furD, bx - 2, by + 2, 2, 6); r(L.species === 'penguin' ? '#2a2a3a' : L.furD, bx + w, by + 2, 2, 6); }   // flippers / wings
+    r(p.body, bx + 1, by, w - 2, 8); r(p.body, bx, by + 1, w, 7);
+    r(p.belly, bx + 2, by + 3, w - 4, 5);
+    if (L.species === 'owl') for (const [x, y] of [[3, 4], [5, 4], [4, 6], [6, 6]]) r(L.furD, bx + x, by + y, 1, 1);
+    if (L.species === 'panda') r('#2a2a32', bx, by + 1, w, 2);
+    vest(g, bx + 1, by + 2, w - 2, 5);
     const fo = walk ? [0, 1, 0, -1][ph] : 0;
-    u(p.paw, bx + 1 + fo, by + 10, 3, 1.5); u(p.paw, bx + 6 + b * 2 - fo, by + 10, 3, 1.5);
-    // front paws: down, or forward when working / holding a mug
-    const reach = o && o.reach;
-    if (!bird) { u(p.limb, bx + 7 + b, by + 3, 2, 5); u(p.paw, bx + 7 + b, by + 7, 2, 1); }
-    if (reach) { u(p.limb, bx + 8 + b, by + 3, 6, 2); u(p.paw, bx + 13 + b, by + 3, 2, 2); }
-    const h = head(g, bx - 1, by - 8 + (walk && ph % 2 ? 0.5 : 0), g.o);
-    return { h, nx: bx + 1, ny: by - 0, bx, by };
+    r(p.paw, bx + fo, by + 8, 4, 2); r(p.paw, bx + w - 4 - fo, by + 8, 4, 2);
+    if (!bird) { r(p.limb, bx + w - 2, by + 2, 2, 5); r(p.paw, bx + w - 2, by + 6, 2, 1); }
+    if (opt && opt.reach) { r(p.limb, bx + w - 2, by + 3, 7, 2); r(p.paw, bx + w + 4, by + 3, 2, 2); }
+    return head(g, bx - 2, by - 9 + ((opt && opt.hdy) || 0) + (walk && ph % 2 ? 1 : 0), g.o);
   }
 
-  // ---------------------------------------------------------------- scenes (what the people's poses do, done for animals)
+  // ---------------------------------------------------------------- scenes
   function draw(ctx, L, state, f, beat, k) {
-    const g = ctxFor(ctx, L, k);
+    const g = ctxFor(ctx, L, k), FY = k.FY, bird = isBird(L.species), r = g.r;
     g.o = { blink: beat % 23 === 0 };
-    const bird = isBird(L.species);
-    let info = {};
-    const FY = k.FY;
-    const finish = (r, extra) => {   // the identity: bandana, accessories, then the head gear
-      if (!extra || extra.bandana !== false) bandana(g, r.nx, r.ny);
-      neckKit(g, r.nx, r.ny);
-      headgear(g, r.h, g.o);
-    };
+    let info = { mx: -20, my: -20, sip: true };
     if (state === 'working') {
-      const hy = FY - 11;
-      k.deskScene(ctx, 24, hy, beat, L.role);
-      g.u('#6a4a8a', 3, 19, 11, 1.5); g.u('#4e3568', 3, 20.5, 11, 1);   // a cushion to sit on
-      const r = sitter(g, f, beat, 'idle', { reach: true });
-      finish(r);
-    } else if (state === 'coffee') {
-      const sip = beat % 10 >= 7;
-      const o = { ...g.o }; if (sip) { o.happy = true; g.o = o; }
-      const r = sitter(g, f, beat, 'idle', {});
-      finish(r);
-      const mx = sip ? 30 : 36, my = sip ? 24 : 30;
-      k.R(ctx, '#fff', mx, my, 6, 7); k.R(ctx, '#e3e5f0', mx, my + 6, 6, 1); k.R(ctx, '#fff', mx + 6, my + 2, 2, 3); k.R(ctx, '#6b4a2b', mx, my, 6, 1);
-      g.u(L.fur, mx / 2 - 1, my / 2 + 2, 2, 2);
-      info = { hy: 34, mx, my, sip };
-    } else if (state === 'sofa' || state === 'read') {
-      const hy = FY - 11;
-      k.sofaBase(ctx, L, 24, hy, true);
-      const reading = state === 'read';
-      const { u, p } = g;
-      const bx = 5, by = 14;
-      u(p.body, bx + 1, by, 14, 5); u(p.body, bx, by + 1, 16, 4); u(p.belly, bx + 3, by + 3, 10, 2);
-      if (L.species === 'panda') { u('#2a2a32', bx + 3, by, 5, 2); }
-      tailAt(g, bx, by + 1, 0);
-      u(p.limb, bx + 11, by + 3, 4, 2); u(p.paw, bx + 14, by + 3, 2, 2);   // front paws, tucked
-      g.o = reading ? { blink: beat % 23 === 0 } : { closed: true };
-      const h = head(g, bx + 11, by - 5, g.o);
-      const r = { h, nx: bx + 12, ny: by - 0 };
-      bandana(g, r.nx, r.ny + 0.5); headgear(g, h, g.o);
-      k.sofaBase(ctx, L, 24, hy, false);
-      if (reading) {
-        const flip = beat % 14 >= 12;
-        k.R(ctx, '#f4f0e0', 38, 24, 12, 11); k.R(ctx, '#4a6fd0', 38, 24, 2, 11); k.R(ctx, '#c9c4b0', 42, 27, 6, 1); k.R(ctx, '#c9c4b0', 42, 30, 6, 1);
-        if (flip) k.R(ctx, '#fff', 46, 22, 3, 12);
-      } else info = { hy: FY - 11 };
+      const lift = 6;
+      k.deskScene(ctx, 24, FY - 11, beat, L.role);
+      r('#6a4a8a', 14, FY - lift, 14, 3); r('#4e3568', 14, FY - lift + 3, 14, 3); r('#8a6aaa', 14, FY - lift, 14, 1);   // a stool with a cushion
+      const h = sitter(g, f, beat, 'idle', { lift, reach: true });
+      identity(g, h);
+    } else if (state === 'coffee') {   // eating from a bowl
+      const nib = beat % 2 ? 1 : 0;
+      r('#e5e5ee', 36, FY - 4, 9, 4); r('#c9c9d6', 37, FY - 1, 7, 1); r('#a5632a', 37, FY - 4, 7, 1); r('#8a5a2b', 38 + (beat % 3), FY - 5, 2, 1);
+      const h = bird ? sitter(g, f, beat, 'idle', { hdy: 2 + nib }) : walker(g, f, beat, 'idle', { hdx: 5, hdy: 6 + nib });
+      identity(g, h);
+    } else if (state === 'read') {     // playing with a ball
+      const bounce = [0, 3, 5, 3][beat % 4], bx = 38 + [0, 1, 2, 1][beat % 4];
+      r('#e5484d', bx, FY - 5 - bounce, 5, 5); r('#ff8a8d', bx, FY - 5 - bounce, 2, 2); r('#b3262b', bx + 1, FY - 2 - bounce, 4, 2); r('#fff', bx + 1, FY - 4 - bounce, 3, 1);
+      const h = bird ? sitter(g, f, beat, 'idle', { hdy: 1 }) : walker(g, f, beat, 'idle', { hdx: 3, hdy: 3 });
+      identity(g, h);
+    } else if (state === 'sofa') {     // curled up in a pet bed
+      r('#8a3f5a', 9, FY - 6, 30, 6); r('#a85a75', 10, FY - 7, 28, 2); r('#6a2f45', 9, FY - 1, 30, 1); r('#8a3f5a', 11, FY - 8, 26, 1);
+      const p = g.p, bx = 13, by = FY - 13;
+      tail(g, bx + 4, by + 9, 0);
+      r(p.body, bx + 1, by + 2, 20, 8); r(p.body, bx, by + 3, 22, 6); r(p.belly, bx + 4, by + 8, 14, 2);
+      vest(g, bx + 6, by + 2, 9, 3);
+      r(p.limb, bx + 14, by + 7, 8, 3); r(p.paw, bx + 20, by + 7, 3, 3);
+      g.o = { closed: true };
+      const h = head(g, bx + 14, by - 1, g.o);
+      identity(g, h);
+      r('#8a3f5a', 9, FY - 4, 30, 4); r('#a85a75', 10, FY - 5, 28, 1); r('#6a2f45', 9, FY - 1, 30, 1);   // the front of the bed
+      info = { hy: FY - 13, mx: -20, my: -20, sip: true };
     } else if (state === 'cheer') {
-      const r = walker(g, f, beat, 'jump');
       g.o = { happy: true, open: true };
-      finish(r);
+      identity(g, bird ? sitter(g, f, beat, 'idle', { hdy: -[0, 3, 5, 3][f % 4] }) : walker(g, f, beat, 'jump'));
     } else if (state === 'alert') {
-      const r = bird ? sitter(g, f, beat, 'idle', {}) : walker(g, f, beat, 'wave');
-      finish(r);
+      identity(g, bird ? sitter(g, f, beat, 'idle', {}) : walker(g, f, beat, 'wave'));
     } else {
       const walk = state === 'walk';
-      const r = bird ? sitter(g, f, beat, walk ? 'walk' : 'idle', {}) : walker(g, f, beat, walk ? 'walk' : 'idle');
-      finish(r);
+      identity(g, bird ? sitter(g, f, beat, walk ? 'walk' : 'idle', {}) : walker(g, f, beat, walk ? 'walk' : 'idle'));
     }
     return info;
   }

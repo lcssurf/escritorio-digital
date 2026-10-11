@@ -15,7 +15,9 @@
                background: radial-gradient(ellipse at center, color-mix(in srgb, var(--team, #4a5568) 85%, transparent) 0 52%, transparent 74%); }
   .pet .pill { position: absolute; left: 50%; top: -9px; transform: translateX(-50%); max-width: 112px; padding: 0 8px; border-radius: 9px; font: 700 11px/15px "Segoe UI", system-ui, sans-serif; color: #fff;
                background: var(--team, #4a5568); box-shadow: 0 1px 0 rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.28); text-shadow: 0 1px 0 rgba(0,0,0,.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-  .pet.animal .pill { top: -4px; }   /* the animals sit taller than they walk: the plate stays clear of the head either way */
+  /* the animals are small and drawn low: bigger pixels (4 px instead of 3, exactly), the chief bigger still, the plate over the head */
+  .pet.animal canvas { transform: scale(1.3333); transform-origin: 50% 100%; } .pet.animal.chief canvas, .pet.animal.lead canvas { transform: scale(1.3333); }
+  .pet.animal .pill { top: auto; bottom: 120px; }
   .pet.alert .pill, .pet.saying .pill { display: none; }
   .pet.chief canvas { transform: scale(1.14); transform-origin: 50% 100%; } .pet.lead canvas { transform: scale(1.07); transform-origin: 50% 100%; }
   .pet:hover canvas { filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 2px 0 rgba(0,0,0,.2)); }

@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.4.1
+- **Animais menores e mais claros.** Os bichinhos foram redesenhados no mesmo nível de detalhe das pessoas: menores, de silhueta clara, com olhos grandes e brilhantes. Ganharam uma vida de bicho: comem de uma tigela (no lugar do café), brincam com uma bolinha (no lugar da leitura), dormem enrolados numa caminha de pet (no lugar do sofá) e sentam num banquinho para usar o computador.
+
 ## 1.4.0
 - **Animais de verdade.** O estilo Animais foi refeito: agora são bichinhos cartoon fofos (gato, cachorro, coelho, raposa, panda, pinguim, coruja e guaxinim), de quatro patas (pinguim e coruja em pé), com cabeça grande e olhos brilhantes, e não mais pessoas com cabeça de bicho. A equipe veste um **colete e uma bandana** na cor da equipe (dourado para a chefe, com medalha prateada nas coordenações), e cada cargo usa o seu acessório na cabeça. Sentam-se na almofada para trabalhar, enrolam-se no sofá para dormir e pulam quando uma entrega é aprovada.
 

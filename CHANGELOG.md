@@ -1,5 +1,9 @@
 # Novidades
 
+## 1.5.0
+- **Tamanho dos funcionários.** Em Ajustes, escolha Pequeno, Médio, Grande ou Gigante. O tamanho muda de forma exata (cada pixel do desenho vira 2, 3, 4 ou 5 pixels da tela), então eles continuam nítidos, e a janela da barra acompanha.
+- O atualizador agora explica quando a versão nova ainda está sendo publicada, em vez de pedir um login que não existe.
+
 ## 1.4.2
 - A bolinha vermelha que os bichos usavam para brincar deu lugar a um brinquedo que se reconhece: novelo (gato), osso (cachorro), cenoura (coelho), bambu (panda), peixe (pinguim), ratinho (coruja), biscoito (guaxinim) e bolinha de tênis (raposa).
 

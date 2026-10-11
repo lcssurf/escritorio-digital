@@ -456,5 +456,11 @@
   "style.bob": "Bob",
   "style.braid": "Braid",
   "style.wavy": "Wavy",
-  "species.penguin": "Penguin"
+  "species.penguin": "Penguin",
+  "settings.size": "Employee size",
+  "size.small": "Small",
+  "size.medium": "Medium",
+  "size.large": "Large",
+  "size.huge": "Huge",
+  "size.hint": "Changes their size on the taskbar and keeps them sharp. On a small screen or a big team the larger sizes can get crowded."
 }

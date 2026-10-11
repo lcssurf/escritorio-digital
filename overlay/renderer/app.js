@@ -3,7 +3,9 @@
 ﻿// Overlay renderer: characters on the taskbar. Polls the farm through the main process (the key never touches this page).
 (function () {
   const S = window.Sprites, O = window.Office;
-  const SCALE = 3, PW = S.W * SCALE, SPEED = 28; // px per second when walking
+  let SCALE = 3, PW = S.W * SCALE;
+  const SPEED = 28; // px per second when walking
+  const applyScale = () => { SCALE = [2, 3, 4, 5].includes(cfg.petScale) ? cfg.petScale : 3; PW = S.W * SCALE; document.documentElement.style.setProperty('--s', SCALE / 3); };
   const stage = document.getElementById('stage');
   const params = new URLSearchParams(location.search);
   const mock = params.has('mock');
@@ -36,7 +38,7 @@
     const landings = [{ id: 'l1', title: 'Petição inicial (rascunho)', commits: 2, at: Date.now() / 1000, specialist: 'davi', files: ['A	peticao.md'] }];
     return {
       api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/state') ? state : p.startsWith('/api/landings') ? landings : p.startsWith('/api/team') ? members : {} }),
-      getConfig: async () => ({ lang: params.get('lang') || 'pt-BR', sound: false, characters: params.get('characters') || 'people' }),
+      getConfig: async () => ({ lang: params.get('lang') || 'pt-BR', sound: false, characters: params.get('characters') || 'people', petScale: Number(params.get('scale')) || 3 }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       clickThrough() {}, openPanel(o) { console.log('openPanel', JSON.stringify(o)); }, on() {},
     };
@@ -199,9 +201,9 @@
 
   async function init() {
     cfg = await office.getConfig();
-    S.setMode(cfg.characters);
+    S.setMode(cfg.characters); applyScale();
     dicts = await office.dicts();
-    office.on('config', (c) => { cfg = c; S.setMode(c.characters); });
+    office.on('config', (c) => { cfg = c; S.setMode(c.characters); applyScale(); });
     office.on('event', (e) => { // the panel tells us what the person decided: celebrate an approval
       const p = e && e.type === 'approved' && (pets.get('L:' + e.id) || pets.get('S:' + (e.specialist || 'chief')));
       if (p) { p.cheerUntil = performance.now() + 3600; p.el.classList.remove('alert'); p.status = 'working'; }

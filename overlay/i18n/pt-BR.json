@@ -456,5 +456,11 @@
   "style.bob": "Chanel",
   "style.braid": "Trança",
   "style.wavy": "Ondulado",
-  "species.penguin": "Pinguim"
+  "species.penguin": "Pinguim",
+  "settings.size": "Tamanho dos funcionários",
+  "size.small": "Pequeno",
+  "size.medium": "Médio",
+  "size.large": "Grande",
+  "size.huge": "Gigante",
+  "size.hint": "Muda o tamanho na barra de tarefas, sem perder a nitidez. Se a sua tela for grande ou tiver muita gente na equipe, o maior pode ficar apertado."
 }

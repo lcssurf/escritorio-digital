@@ -10,10 +10,12 @@ const I18N = require('./i18n');
 const EXPORT = require('./exporter');
 
 const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.json') };
-const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 64; // pets plus room for the name tag
+// the characters are drawn 46 pixels tall; each pixel is shown 2 to 5 screen pixels wide (always a whole number, so they stay sharp)
+const petScale = () => ([2, 3, 4, 5].includes(cfg.petScale) ? cfg.petScale : 3);
+const petH = () => 46 * petScale(), winH = () => petH() + 64;   // pets plus room for the name tag
 const FEET_PAD = 6;       // transparent canvas pixels under the soles (2 sprite rows x 3)
 const AUTOHIDE_BAR = 48;  // assumed taskbar height when it hides itself (Windows 11 default, in DIP)
-const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {}, panelPos: {}, exportFormats: [], updateCheck: true, updateSkipped: '', legalAccepted: false, characters: 'people' };
+const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {}, panelPos: {}, exportFormats: [], updateCheck: true, updateSkipped: '', legalAccepted: false, characters: 'people', petScale: 3 };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -32,7 +34,7 @@ function saveCfg(patch) {
 const exportDir = () => path.join(app.getPath('documents'), 'Escrit\u00f3rio Digital');   // where approved work is copied (the start script mounts it into the container)
 const appVersion = () => { try { return fs.readFileSync(path.join(__dirname, '..', 'VERSION'), 'utf8').trim(); } catch (_) { return ''; } };
 let updateInfo = null;   // { version, url, notes } when a newer release exists and the person has not skipped it
-const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, onboarded: cfg.onboarded, notify: cfg.notify, exportDir: exportDir(), exportFormats: cfg.exportFormats, updateCheck: cfg.updateCheck !== false, version: appVersion(), update: updateInfo, legalAccepted: !!cfg.legalAccepted, characters: cfg.characters === 'animals' ? 'animals' : 'people', floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
+const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, onboarded: cfg.onboarded, notify: cfg.notify, exportDir: exportDir(), exportFormats: cfg.exportFormats, updateCheck: cfg.updateCheck !== false, version: appVersion(), update: updateInfo, legalAccepted: !!cfg.legalAccepted, characters: cfg.characters === 'animals' ? 'animals' : 'people', petScale: petScale(), floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
 const t = (k, v) => I18N.make(DICTS, cfg.lang)(k, v);
 
 // The farm's secret for this PC: the container wrote it into its volume. It never leaves this machine.
@@ -88,10 +90,10 @@ function computePlace() {
 }
 function placeOverlay() {
   if (!overlay || overlay.isDestroyed()) return;
-  const p = computePlace(), y = Math.round(p.floor + FEET_PAD - 1 + (cfg.yoffset || 0) - WIN_H);
-  const sig = [p.x, p.width, p.floor, cfg.yoffset, p.scale].join(',');
+  const p = computePlace(), y = Math.round(p.floor + FEET_PAD - 1 + (cfg.yoffset || 0) - winH());
+  const sig = [p.x, p.width, p.floor, cfg.yoffset, p.scale, petScale()].join(',');
   if (!lastPlace || lastPlace.sig !== sig) {
-    overlay.setBounds({ x: p.x, y, width: p.width, height: WIN_H });
+    overlay.setBounds({ x: p.x, y, width: p.width, height: winH() });
     lastPlace = { ...p, sig };
     for (const w of [panel]) if (w && !w.isDestroyed()) w.webContents.send('config', publicCfg());
   }
@@ -102,7 +104,7 @@ async function refreshTaskbar() { tbState = await taskbarState(); placeOverlay()
 
 function createOverlay() {
   overlay = new BrowserWindow({
-    width: 800, height: WIN_H, transparent: true, frame: false, resizable: false, hasShadow: false,
+    width: 800, height: winH(), transparent: true, frame: false, resizable: false, hasShadow: false,
     skipTaskbar: true, focusable: false, alwaysOnTop: true, show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
   });
@@ -140,7 +142,7 @@ function openPanel(opts = {}) {
       const { w, h } = sizeFor('normal', d);
       const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
       const spot = savedSpot('normal', w, h);
-      panel.setBounds({ x: spot ? spot.x : x, y: spot ? spot.y : Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0)), width: w, height: h });
+      panel.setBounds({ x: spot ? spot.x : x, y: spot ? spot.y : Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - petH() - h - 16 + (cfg.yoffset || 0)), width: w, height: h });
     }
     panel.show(); panel.focus();
     panel.webContents.send('focus', opts);
@@ -149,7 +151,7 @@ function openPanel(opts = {}) {
   panelMode = 'normal';
   const { w, h } = sizeFor('normal', d);
   const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
-  const y0 = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0));
+  const y0 = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - petH() - h - 16 + (cfg.yoffset || 0));
   const spot0 = savedSpot('normal', w, h);
   panel = new BrowserWindow({
     x: spot0 ? spot0.x : x, y: spot0 ? spot0.y : y0, width: w, height: h, minWidth: 380, minHeight: 480, frame: false, resizable: true, maximizable: false, fullscreenable: false, alwaysOnTop: true,
@@ -215,11 +217,12 @@ ipcMain.handle('api', (_e, method, p, body) => {
 ipcMain.handle('config:get', () => publicCfg());
 ipcMain.handle('config:set', (_e, patch) => {
   const allowed = {};
-  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset', 'onboarded', 'notify', 'updateCheck', 'updateSkipped', 'legalAccepted', 'characters']) if (k in patch) allowed[k] = patch[k];
+  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset', 'onboarded', 'notify', 'updateCheck', 'updateSkipped', 'legalAccepted', 'characters', 'petScale']) if (k in patch) allowed[k] = patch[k];
   if ('exportFormats' in patch) allowed.exportFormats = [...new Set((Array.isArray(patch.exportFormats) ? patch.exportFormats : []).filter((f) => ['docx', 'pdf', 'html', 'rtf', 'txt'].includes(f)))];
   if ('updateCheck' in allowed) allowed.updateCheck = !!allowed.updateCheck;
   if ('legalAccepted' in allowed) allowed.legalAccepted = !!allowed.legalAccepted;
   if ('characters' in allowed) allowed.characters = allowed.characters === 'animals' ? 'animals' : 'people';
+  if ('petScale' in allowed) allowed.petScale = [2, 3, 4, 5].includes(Number(allowed.petScale)) ? Number(allowed.petScale) : 3;
   if ('updateSkipped' in allowed) allowed.updateSkipped = String(allowed.updateSkipped || '').slice(0, 40);
   if ('yoffset' in allowed) allowed.yoffset = Math.max(-60, Math.min(60, Math.round(Number(allowed.yoffset) || 0)));
   // the key only ever goes to this PC: refuse any address that is not local

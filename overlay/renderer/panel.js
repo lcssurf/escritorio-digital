@@ -59,7 +59,7 @@
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
       api: async (m, p, b) => p.startsWith('/api/hiring/import') ? { ok: true, status: 200, data: { id: 'x' } } : p.startsWith('/api/hiring') ? { ok: true, status: 200, data: { recent: [], pending: q.has('hiring') ? [HIRE] : [] } } : /\/api\/landings\/[^/]+\/(revise|save)$/.test(p) ? mockReview(m, p, b) : p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
-      getConfig: async () => ({ ...cfg, characters: q.get('characters') || 'people', onboarded: !q.has('tour'), legalAccepted: !q.has('legal'), version: '1.0.3', exportFormats: ['docx'], update: q.has('update') ? { version: '1.1.0', notes: 'Novidades de teste', url: 'https://github.com/lcssurf/escritorio-digital/releases/latest' } : null }),
+      getConfig: async () => ({ ...cfg, characters: q.get('characters') || 'people', petScale: Number(q.get('scale')) || 3, onboarded: !q.has('tour'), legalAccepted: !q.has('legal'), version: '1.0.3', exportFormats: ['docx'], update: q.has('update') ? { version: '1.1.0', notes: 'Novidades de teste', url: 'https://github.com/lcssurf/escritorio-digital/releases/latest' } : null }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, setWide(w) { document.body.classList.toggle('wide', !!w); },
       exportDoc: async (r) => ({ ok: true, path: 'C:\\Documentos\\Escritório Digital\\' + r.title + '.' + r.format }), exportApproved: async () => ({ ok: true, made: 2 }), saveBackup: async () => ({ ok: true, people: 3 }), restoreBackup: async () => ({ ok: true, restored: 3 }), checkUpdate: async () => ({ ok: true, current: '1.0.3', latest: '1.0.3', update: null }), runUpdate: async () => ({ ok: true }), openRelease() {}, quit() {}, togglePets() {}, broadcast() {},
@@ -992,6 +992,11 @@
       } }, tr('update.check'))),
       h('div', { class: 'field', style: 'margin-top:8px' }, h('label', { class: 'switch' }, auto, tr('update.auto'))), h('div', { class: 'note' }, tr('update.privacy')));
   }
+  function sizeCard() {
+    const cur = [2, 3, 4, 5].includes(cfg.petScale) ? cfg.petScale : 3;
+    const seg = h('div', { class: 'seg' }, [[2, 'size.small'], [3, 'size.medium'], [4, 'size.large'], [5, 'size.huge']].map(([v, k]) => h('button', { class: cur === v ? 'on' : '', onclick: async () => { cfg = { ...cfg, ...(await office.setConfig({ petScale: v })) }; render(); } }, tr(k))));
+    return h('div', { class: 'card' }, h('b', {}, tr('settings.size')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('size.hint')), seg);
+  }
   function charactersCard() {
     const seg = h('div', { class: 'seg' }, ['people', 'animals'].map((v) => h('button', { class: (cfg.characters || 'people') === v ? 'on' : '', onclick: async () => { cfg = { ...cfg, ...(await office.setConfig({ characters: v })) }; S.setMode(cfg.characters); render(); } }, tr('characters.' + v))));
     return h('div', { class: 'card' }, h('b', {}, tr('settings.characters')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('characters.hint')), seg);
@@ -1020,6 +1025,7 @@
     s.append(h('h2', {}, tr('nav.settings')),
       speedPicker(prog && prog.pace),
       charactersCard(),
+      sizeCard(),
       connectorsCard(),
       h('div', { class: 'card' }, h('b', {}, tr('settings.exports')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('settings.exportshint')),
         h('div', { class: 'note', style: 'margin:0 0 6px' }, h('b', {}, tr('export.set.title')), ' ', tr('export.set.text')),

@@ -30,7 +30,7 @@ const OVERLAY = path.join(ROOT, 'overlay');
 // A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
 // Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
 // A versão do projeto (arquivo VERSION) é também a etiqueta da imagem: código e imagem andam sempre juntos.
-const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.4.2'; } })();
+const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.5.0'; } })();
 const IMAGE = process.env.ESCRITORIO_IMAGE || `ghcr.io/lcssurf/escritorio-digital:${VERSION}`;
 const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';
@@ -133,7 +133,10 @@ function construir() {
   const pull = run('docker', ['pull', IMAGE], { encoding: 'utf8' });
   if (pull.status !== 0) {
     const out = ((pull.stderr || '') + (pull.stdout || '')).trim().split('\n').slice(-3).join(' | ');
-    if (/unauthorized|denied|authentication required|not found|manifest unknown/i.test(out)) {
+    if (/not found|manifest unknown/i.test(out) && !/unauthorized|denied|authentication required/i.test(out)) {
+      return bad(`A imagem ${IMAGE} ainda não foi publicada`, 'A versão nova leva uns 20 minutos para ficar pronta depois de lançada. Tente de novo daqui a pouco (o projeto e a imagem são públicos: não precisa de login).');
+    }
+    if (/unauthorized|denied|authentication required/i.test(out)) {
       say('\n🧍 O pacote do escritório é privado: o Docker precisa entrar no GitHub (só você pode fazer, eu não vejo o token):');
       say(`   1. Abra ${TOKEN_URL}`);
       say('      (já vem com a permissão read:packages; escolha "30 days" e clique em "Generate token"; copie o texto ghp_...)');

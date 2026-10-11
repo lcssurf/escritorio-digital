@@ -11,7 +11,7 @@ const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.js
 const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 64; // pets plus room for the name tag
 const FEET_PAD = 6;       // transparent canvas pixels under the soles (2 sprite rows x 3)
 const AUTOHIDE_BAR = 48;  // assumed taskbar height when it hides itself (Windows 11 default, in DIP)
-const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {} };
+const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {}, panelPos: {} };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -119,13 +119,24 @@ function sizeFor(mode, d) {
   const dw = mode === 'wide' ? Math.min(1120, wa.width - 24) : 420, dh = mode === 'wide' ? Math.min(780, wa.height - 24) : 680;
   return { w: clampN(Math.round(saved.w || dw), mode === 'wide' ? 760 : 380, Math.max(380, wa.width - 16)), h: clampN(Math.round(saved.h || dh), 480, Math.max(480, wa.height - 16)) };
 }
+// where the person left the panel (per mode); ignored if that spot is no longer on any screen
+function savedSpot(mode, w, h) {
+  const p = (cfg.panelPos || {})[mode];
+  if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+  const ok = screen.getAllDisplays().some((dd) => {
+    const a = dd.workArea;
+    return p.x + 80 < a.x + a.width && p.x + w - 80 > a.x && p.y >= a.y - 8 && p.y + 60 < a.y + a.height;
+  });
+  return ok ? { x: Math.round(p.x), y: Math.round(p.y) } : null;
+}
 function openPanel(opts = {}) {
   const d = screen.getPrimaryDisplay();
   if (panel && !panel.isDestroyed()) {
     if (panelMode === 'normal') {
       const { w, h } = sizeFor('normal', d);
       const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
-      panel.setBounds({ x, y: Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0)), width: w, height: h });
+      const spot = savedSpot('normal', w, h);
+      panel.setBounds({ x: spot ? spot.x : x, y: spot ? spot.y : Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0)), width: w, height: h });
     }
     panel.show(); panel.focus();
     panel.webContents.send('focus', opts);
@@ -134,9 +145,10 @@ function openPanel(opts = {}) {
   panelMode = 'normal';
   const { w, h } = sizeFor('normal', d);
   const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
-  const y = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0));
+  const y0 = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0));
+  const spot0 = savedSpot('normal', w, h);
   panel = new BrowserWindow({
-    x, y, width: w, height: h, minWidth: 380, minHeight: 480, frame: false, resizable: true, maximizable: false, fullscreenable: false, alwaysOnTop: true,
+    x: spot0 ? spot0.x : x, y: spot0 ? spot0.y : y0, width: w, height: h, minWidth: 380, minHeight: 480, frame: false, resizable: true, maximizable: false, fullscreenable: false, alwaysOnTop: true,
     skipTaskbar: true, show: false, backgroundColor: nativeTheme.shouldUseDarkColors ? '#15131f' : '#f5f4fa',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
   });
@@ -151,6 +163,12 @@ function openPanel(opts = {}) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { const b = panel.getBounds(); saveCfg({ panelSize: { ...(cfg.panelSize || {}), [panelMode]: { w: b.width, h: b.height } } }); }, 400);
   });
+  let moveTimer = null;
+  panel.on('moved', () => {   // the person dragged the title bar: remember where, for this mode
+    if (!panel || panel.isDestroyed()) return;
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => { if (!panel || panel.isDestroyed()) return; const b = panel.getBounds(); saveCfg({ panelPos: { ...(cfg.panelPos || {}), [panelMode]: { x: b.x, y: b.y } } }); }, 400);
+  });
   panel.on('closed', () => { panel = null; panelMode = 'normal'; });
 }
 // the page asks for more room while a document is open, and gives it back when it is closed
@@ -161,8 +179,9 @@ function setPanelWide(wide) {
   const d = screen.getPrimaryDisplay(), b = panel.getBounds();
   panelMode = mode;
   const { w, h } = sizeFor(mode, d), wa = d.workArea;
-  const x = clampN(b.x + b.width - w, wa.x + 8, wa.x + wa.width - w - 8);   // grow to the left: the panel sits at the right
-  const y = clampN(b.y + b.height - h, wa.y + 8, wa.y + wa.height - h - 8);   // keep its bottom edge
+  const spot = savedSpot(mode, w, h);
+  const x = spot ? spot.x : clampN(b.x + b.width - w, wa.x + 8, wa.x + wa.width - w - 8);   // grow to the left: the panel sits at the right
+  const y = spot ? spot.y : clampN(b.y + b.height - h, wa.y + 8, wa.y + wa.height - h - 8);   // keep its bottom edge
   panel.setBounds({ x, y, width: w, height: h });
   panel.focus();
 }

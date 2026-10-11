@@ -73,6 +73,7 @@ def test_asking_for_an_adjustment_gives_a_proposal_that_changes_nothing_until_ap
     job = fui.store.claim_next("w@box/w0", 300, agent=None)
     assert job["specialist"] == "chief" and "Troque a palavra draft por rascunho" in job["prompt"] and "<<<ATUAL\ndraft\n\nATUAL>>>" in job["prompt"]
     fui.store.finish(job["id"], "w@box/w0", True, "Troquei a palavra.\n<<<DOCUMENTO\nrascunho\nDOCUMENTO>>>", 5)
+    fui.chat_settle_all()   # the overlay does this every few seconds: it must not swallow the proposal (it did, once)
     view = fui.revise_view(tid)
     assert not view["pending"]
     reply = view["messages"][-1]

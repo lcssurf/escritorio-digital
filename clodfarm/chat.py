@@ -108,6 +108,8 @@ class Chat:
             data = self._read()
         out = []
         for member, msgs in data.items():
+            if member.startswith("rev-"):   # adjustment requests have their own way of being answered (a proposal)
+                continue
             answered = {m.get("reply_to") for m in msgs if m["role"] == "assistant" and m.get("kind", "answer") == "answer"}
             started = any(m.get("plan", {}).get("status") == "started" and not m.get("plan", {}).get("done") for m in msgs if m["role"] == "assistant")
             if started or any(m["role"] == "user" and m["id"] not in answered for m in msgs):

@@ -390,6 +390,12 @@ class FarmUI:
                     self.chat.add_reply(member, m["id"], chat.clean_reply(t.get("result")) or "(não consegui concluir)", ok=False, kind="done")
                     self.chat.update_plan(member, m["id"], done=True)
 
+    def chat_settle_all(self):
+        """Settle every conversation with a member of the team whose job has finished (the overlay asks every few seconds)."""
+        for mid in self.chat.members_waiting():
+            if self.team.get(mid):
+                self.chat_settle(mid)
+
     def chat_view(self, member: str) -> dict:
         self.chat_settle(member)
         return {"messages": self.chat.history(member), "pending": bool(self.chat.pending(member))}
@@ -1444,8 +1450,7 @@ def make_handler(ui: FarmUI):
                 if path == "/api/chat-latest":  # the newest answers, for the speech bubbles on the bar
                     if not who.manager:
                         return self._err(403, "only the farm's person talks to the team from here")
-                    for mid in ui.chat.members_waiting():
-                        ui.chat_settle(mid)
+                    ui.chat_settle_all()
                     q = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
                     try:
                         since = float(q.get("since") or 0)

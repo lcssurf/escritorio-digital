@@ -30,7 +30,7 @@ const OVERLAY = path.join(ROOT, 'overlay');
 // A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
 // Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
 // A versão do projeto (arquivo VERSION) é também a etiqueta da imagem: código e imagem andam sempre juntos.
-const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.4.1'; } })();
+const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.4.2'; } })();
 const IMAGE = process.env.ESCRITORIO_IMAGE || `ghcr.io/lcssurf/escritorio-digital:${VERSION}`;
 const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';

@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.4.2
+- A bolinha vermelha que os bichos usavam para brincar deu lugar a um brinquedo que se reconhece: novelo (gato), osso (cachorro), cenoura (coelho), bambu (panda), peixe (pinguim), ratinho (coruja), biscoito (guaxinim) e bolinha de tênis (raposa).
+
 ## 1.4.1
 - **Animais menores e mais claros.** Os bichinhos foram redesenhados no mesmo nível de detalhe das pessoas: menores, de silhueta clara, com olhos grandes e brilhantes. Ganharam uma vida de bicho: comem de uma tigela (no lugar do café), brincam com uma bolinha (no lugar da leitura), dormem enrolados numa caminha de pet (no lugar do sofá) e sentam num banquinho para usar o computador.
 

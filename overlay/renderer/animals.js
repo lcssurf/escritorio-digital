@@ -175,6 +175,19 @@
     return head(g, bx - 2, by - 9 + ((opt && opt.hdy) || 0) + (walk && ph % 2 ? 1 : 0), g.o);
   }
 
+  // one toy per animal, so nobody wonders what that is: a ball of yarn, a bone, a carrot, bamboo, a fish, a mouse, a cookie, a tennis ball
+  function toy(g, sp, x, y, beat) {
+    const r = g.r;
+    if (sp === 'cat') { r('#a87bd6', x + 1, y - 6, 5, 6); r('#a87bd6', x, y - 5, 7, 4); r('#c9a8ee', x + 1, y - 5, 2, 1); r('#8a5cb8', x + 1, y - 3, 5, 1); r('#8a5cb8', x + 2, y - 5, 1, 4); r('#a87bd6', x - 3, y - 1, 3, 1); r('#a87bd6', x - 4, y, 2, 1); }   // yarn with its thread
+    else if (sp === 'dog') { r('#f4f0e0', x + 1, y - 3, 7, 2); r('#f4f0e0', x, y - 4, 2, 4); r('#f4f0e0', x + 7, y - 4, 2, 4); r('#d6d0bc', x + 1, y - 2, 7, 1); }   // a bone
+    else if (sp === 'rabbit') { r('#f08a24', x + 1, y - 7, 3, 4); r('#f08a24', x + 2, y - 3, 1, 3); r('#d4701a', x + 1, y - 5, 3, 1); r('#30a46c', x, y - 10, 2, 3); r('#30a46c', x + 3, y - 10, 2, 3); r('#30a46c', x + 2, y - 9, 1, 2); }   // a carrot
+    else if (sp === 'panda') { r('#4cb86a', x + 2, y - 9, 3, 9); r('#2f8f4a', x + 2, y - 6, 3, 1); r('#2f8f4a', x + 2, y - 2, 3, 1); r('#7fd68f', x + 2, y - 9, 1, 9); r('#4cb86a', x + 5, y - 8, 3, 2); }   // bamboo
+    else if (sp === 'penguin') { r('#7aa6d6', x + 1, y - 5, 6, 3); r('#5a86b6', x + 1, y - 3, 6, 1); r('#7aa6d6', x + 7, y - 6, 2, 5); r('#fff', x + 2, y - 5, 1, 1); r(K, x + 2, y - 4, 1, 1); }   // a fish
+    else if (sp === 'owl') { r('#b9b4c4', x + 1, y - 4, 6, 3); r('#b9b4c4', x + 5, y - 5, 2, 2); r('#f2a0b0', x + 5, y - 5, 1, 1); r(K, x + 6, y - 3, 1, 1); r('#f2a0b0', x - 3, y - 2, 4, 1); }   // a mouse with a tail
+    else if (sp === 'raccoon') { r('#d9a05b', x + 1, y - 6, 5, 6); r('#d9a05b', x, y - 5, 7, 4); r('#7a4a22', x + 2, y - 5, 1, 1); r('#7a4a22', x + 4, y - 4, 1, 1); r('#7a4a22', x + 2, y - 2, 1, 1); r('#e8be85', x + 1, y - 6, 3, 1); }   // a cookie
+    else { r('#c8e65a', x + 1, y - 6, 5, 6); r('#c8e65a', x, y - 5, 7, 4); r('#fff', x + 1, y - 5, 1, 4); r('#fff', x + 2, y - 6, 3, 1); r('#9fc23a', x + 5, y - 5, 1, 4); }   // a tennis ball
+  }
+
   // ---------------------------------------------------------------- scenes
   function draw(ctx, L, state, f, beat, k) {
     const g = ctxFor(ctx, L, k), FY = k.FY, bird = isBird(L.species), r = g.r;
@@ -191,9 +204,9 @@
       r('#e5e5ee', 36, FY - 4, 9, 4); r('#c9c9d6', 37, FY - 1, 7, 1); r('#a5632a', 37, FY - 4, 7, 1); r('#8a5a2b', 38 + (beat % 3), FY - 5, 2, 1);
       const h = bird ? sitter(g, f, beat, 'idle', { hdy: 2 + nib }) : walker(g, f, beat, 'idle', { hdx: 5, hdy: 6 + nib });
       identity(g, h);
-    } else if (state === 'read') {     // playing with a ball
-      const bounce = [0, 3, 5, 3][beat % 4], bx = 38 + [0, 1, 2, 1][beat % 4];
-      r('#e5484d', bx, FY - 5 - bounce, 5, 5); r('#ff8a8d', bx, FY - 5 - bounce, 2, 2); r('#b3262b', bx + 1, FY - 2 - bounce, 4, 2); r('#fff', bx + 1, FY - 4 - bounce, 3, 1);
+    } else if (state === 'read') {     // playing with its own toy, one that tells what it is
+      const bounce = [0, 3, 5, 3][beat % 4], tx = 38 + [0, 1, 2, 1][beat % 4];
+      toy(g, L.species, tx, FY - bounce, beat);
       const h = bird ? sitter(g, f, beat, 'idle', { hdy: 1 }) : walker(g, f, beat, 'idle', { hdx: 3, hdy: 3 });
       identity(g, h);
     } else if (state === 'sofa') {     // curled up in a pet bed

@@ -23,7 +23,8 @@
     const members = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', look: { style: 'bun', suit: '#2f2f3a', glasses: true } },
       { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', look: { style: 'long', prop: 1 } }, { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', look: { style: 'beard', prop: 4 } },
       { id: 'davi', name: 'Davi', title: 'Peças', gender: 'm', look: { style: 'side', prop: 2 } }, { id: 'elisa', name: 'Elisa', title: 'Revisão', gender: 'f', look: { style: 'pony', prop: 3 } }];
-    state.subagents = [{ id: 'r1', title: 'Organizar documentos do caso Exemplo', status: 'running', specialist: 'ana' }];
+    state.subagents = [{ id: 'r1', title: 'Organizar documentos do caso Exemplo', status: 'running', specialist: 'ana' }, { id: 'r2', title: 'Conferir prazos da semana', status: 'running', specialist: 'bruno' },
+      { id: 'r3', title: 'Revisar a minuta da inicial', status: 'running', specialist: 'elisa' }, { id: 'r4', title: 'Plano do caso Exemplo', status: 'running', specialist: 'chief' }];
     const landings = [{ id: 'l1', title: 'Petição inicial (rascunho)', commits: 2, at: Date.now() / 1000, specialist: 'davi', files: ['A	peticao.md'] }];
     return {
       api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/state') ? state : p.startsWith('/api/landings') ? landings : p.startsWith('/api/team') ? members : {} }),

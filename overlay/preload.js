@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('office', {
   openFarm: () => ipcRenderer.send('open-farm'),
   quit: () => ipcRenderer.send('quit'),
   openExports: () => ipcRenderer.send('open-exports'),
+  setWide: (wide) => ipcRenderer.send('panel-wide', !!wide),
   openConnectors: () => ipcRenderer.send('open-connectors'),
   notify: (n) => ipcRenderer.send('notify', n),
   togglePets: () => ipcRenderer.send('toggle-pets'),

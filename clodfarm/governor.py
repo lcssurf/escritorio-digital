@@ -108,6 +108,7 @@ class Policy:
     weekly_band: float = 0.05  # how far ahead of the weekly pace we may run
     five_hour_band: float = 0.30  # 5-hour pacing is loose: bursts are fine
     burst_hours: float = 0.0  # opt-in: this close to a weekly reset, run at full speed up to the target
+    pacing: bool = True  # False: no pacing at all, only the hard stops (the weekly target and the 5-hour ceiling) limit the agents
     allow_overage: bool = False  # never draw on paid extra usage unless told to
     api_mode: bool = False  # ANTHROPIC_API_KEY: pay per token, no subscription windows
     daily_budget_usd: float = 0.0  # API mode: stop for the day at this spend (0 = no cap)
@@ -125,14 +126,20 @@ class Decision:
                 "pause_until": self.pause_until, "details": self.details}
 
 
-# How far ahead of the weekly pace the agents may run (the 80% cap of the week stays). "balanced" keeps the configured value.
-SPEEDS = {"balanced": None, "fast": 0.15, "max": 0.30}
+# The speed the person chooses in the office. The hard stops (80% of the week, 85% of the 5 hours) apply at every speed.
+#   balanced: the configured pacing (spreads the week out; one agent at a time once the week runs ahead of its pace)
+#   fast:     a wide band, so two or three agents can work together even when ahead of the pace
+#   max:      no pacing: every place works at once (up to max_workers) until a hard stop
+SPEEDS = ("balanced", "fast", "max")
 
 
 def with_speed(policy: Policy, speed: str | None) -> Policy:
     """The policy at the speed the person chose in the office (settings key ``speed``)."""
-    band = SPEEDS.get(speed or "")
-    return policy if band is None else replace(policy, weekly_band=band)
+    if speed == "fast":
+        return replace(policy, weekly_band=0.35, five_hour_band=0.60)
+    if speed == "max":
+        return replace(policy, pacing=False)
+    return policy
 
 
 def explain(snap: Snapshot | None, policy: Policy, now: float) -> dict:
@@ -230,6 +237,9 @@ def decide(snap: Snapshot | None, policy: Policy, now: float, spent_today: float
 
     # 3/4. pacing, with the use-it-or-lose-it override near the weekly reset
     frac, reasons, resume = 1.0, [], []
+    if not policy.pacing:
+        seven = five = None   # no pacing: only the hard stops above can slow the agents
+        reasons.append("no pacing (maximum speed): only the 80% weekly and 85% 5-hour limits stop the agents")
     if seven:
         hours_left = (seven.resets_at - now) / 3600
         if hours_left <= policy.burst_hours:

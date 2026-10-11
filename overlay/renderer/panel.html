@@ -17,7 +17,11 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.4 "Segoe UI", system-ui, sans-serif; }
-  body { display: flex; flex-direction: column; border: 1px solid var(--line); overflow: hidden; }
+  body { display: flex; flex-direction: row; border: 1px solid var(--line); overflow: hidden; }
+  #left { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+  #reader { display: none; }
+  body.wide #left { flex: 0 0 430px; border-right: 1px solid var(--line); }
+  body.wide #reader { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: var(--bg); }
   button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 
@@ -165,6 +169,21 @@
   .steps2 li { display: flex; gap: 8px; padding: 5px 0; font-size: 13px; align-items: flex-start; } .steps2 .si { flex: none; width: 20px; text-align: center; }
   .steps2 .sx { flex: 1; min-width: 0; word-break: break-word; } .steps2 time { color: var(--dim); font-size: 11.5px; white-space: nowrap; flex: none; }
   .raw { font-family: Consolas, monospace; font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .rd-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); -webkit-app-region: drag; }
+  .rd-head > * { -webkit-app-region: no-drag; } .rd-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; } .rd-title b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rd-seg { width: 190px; } .rd-x { background: none; border: 0; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; color: var(--dim); font-size: 20px; } .rd-x:hover { background: var(--surface2); color: var(--fg); }
+  .rd-body { flex: 1; overflow: auto; padding: 18px 22px; min-height: 0; }
+  .paper { max-width: 760px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 26px 32px; box-shadow: var(--shadow); font-size: 15px; line-height: 1.65; }
+  .paper .doc { max-height: none; font-size: 15px; line-height: 1.65; } .paper .doc .dh1 { font-size: 20px; } .paper .doc .dh2 { font-size: 17px; } .paper .doc .p { margin: 6px 0; }
+  .editor { width: 100%; min-height: 360px; height: calc(100% - 64px); resize: none; border: 1px solid var(--line); border-radius: 12px; padding: 18px 22px; font: 15px/1.65 "Segoe UI", system-ui, sans-serif; background: var(--surface); color: var(--fg); }
+  .editor:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+  .rd-foot { border-top: 1px solid var(--line); padding: 10px 16px 12px; background: var(--surface); }
+  .thread { max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .diff { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 0; font-size: 14px; line-height: 1.55; margin: 10px 0; }
+  .dl { padding: 2px 14px; white-space: pre-wrap; word-break: break-word; } .dl.add { background: var(--ok-soft); } .dl.del { background: var(--bad-soft); text-decoration: line-through; opacity: .85; }
+  .dl .sign { display: inline-block; width: 16px; font-weight: 800; } .dl.skip { color: var(--dim); font-size: 12px; text-align: center; padding: 4px; }
+  .flist .label { margin-top: 12px; } .fileli { cursor: pointer; border-radius: 8px; } .fileli:hover { background: var(--surface); } .fileli.on { background: var(--acc-soft); }
+  .fold { font-size: 11px; font-weight: 700; background: var(--acc-soft); color: var(--acc); padding: 1px 7px; border-radius: 99px; margin-left: 7px; white-space: nowrap; }
   .addrow { display: flex; gap: 8px; margin: 2px 0 12px; } .addrow .btn { flex: 1; }
   .intro { color: var(--dim); font-size: 13px; margin: 0 2px 10px; }
   .preview { display: grid; place-items: center; background: var(--acc-soft); border-radius: 14px; margin-bottom: 12px; padding: 6px 0 0; }
@@ -179,6 +198,7 @@
 </style>
 </head>
 <body>
+<div id="left">
 <header>
   <div class="logo"><canvas id="logo" width="56" height="46"></canvas></div>
   <h1 id="title"></h1>
@@ -195,6 +215,8 @@
   <section id="s-settings"></section>
 </main>
 <nav id="nav"></nav>
+</div>
+<div id="reader" aria-label="Documento"></div>
 <script src="../i18n/index.js"></script>
 <script src="sprites.js"></script>
 <script src="office.js"></script>

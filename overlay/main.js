@@ -11,7 +11,7 @@ const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.js
 const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 64; // pets plus room for the name tag
 const FEET_PAD = 6;       // transparent canvas pixels under the soles (2 sprite rows x 3)
 const AUTOHIDE_BAR = 48;  // assumed taskbar height when it hides itself (Windows 11 default, in DIP)
-const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true };
+const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {} };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -110,27 +110,61 @@ function createOverlay() {
   overlay.once('ready-to-show', () => { if (!cfg.hidden) overlay.showInactive(); });
 }
 
+// The panel: a small window for quick things (it hides when you click elsewhere), and a wide one for reading and editing a
+// document (it stays until you close it). Both can be resized by the person, and the sizes are remembered.
+let panelMode = 'normal';
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function sizeFor(mode, d) {
+  const wa = d.workArea, saved = (cfg.panelSize || {})[mode] || {};
+  const dw = mode === 'wide' ? Math.min(1120, wa.width - 24) : 420, dh = mode === 'wide' ? Math.min(780, wa.height - 24) : 680;
+  return { w: clampN(Math.round(saved.w || dw), mode === 'wide' ? 760 : 380, Math.max(380, wa.width - 16)), h: clampN(Math.round(saved.h || dh), 480, Math.max(480, wa.height - 16)) };
+}
 function openPanel(opts = {}) {
   const d = screen.getPrimaryDisplay();
-  const w = 420, h = 680;
-  const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
-  const y = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0));
   if (panel && !panel.isDestroyed()) {
-    panel.setBounds({ x, y, width: w, height: h });
+    if (panelMode === 'normal') {
+      const { w, h } = sizeFor('normal', d);
+      const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
+      panel.setBounds({ x, y: Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0)), width: w, height: h });
+    }
     panel.show(); panel.focus();
     panel.webContents.send('focus', opts);
     return;
   }
+  panelMode = 'normal';
+  const { w, h } = sizeFor('normal', d);
+  const x = Math.max(d.bounds.x + 8, Math.min(d.bounds.x + d.bounds.width - w - 8, Math.round((opts.x ?? d.bounds.width - w - 24) - w / 2)));
+  const y = Math.max(d.bounds.y + 8, d.workArea.y + d.workArea.height - PET_H - h - 16 + (cfg.yoffset || 0));
   panel = new BrowserWindow({
-    x, y, width: w, height: h, frame: false, resizable: false, alwaysOnTop: true,
+    x, y, width: w, height: h, minWidth: 380, minHeight: 480, frame: false, resizable: true, maximizable: false, fullscreenable: false, alwaysOnTop: true,
     skipTaskbar: true, show: false, backgroundColor: nativeTheme.shouldUseDarkColors ? '#15131f' : '#f5f4fa',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
   });
   panel.setAlwaysOnTop(true, 'screen-saver');
   panel.loadFile(path.join(__dirname, 'renderer', 'panel.html'), { query: { id: opts.id || '', kind: opts.kind || '', tab: opts.tab === 'agent' ? 'team' : (opts.tab || '') } });
   panel.once('ready-to-show', () => panel.show());
-  panel.on('blur', () => { if (panel && !panel.isDestroyed() && !panel.webContents.isDevToolsOpened()) panel.hide(); });
-  panel.on('closed', () => { panel = null; });
+  // clicking elsewhere hides the small panel; the wide one (a document being read or edited) stays
+  panel.on('blur', () => { if (panel && !panel.isDestroyed() && panelMode === 'normal' && !panel.webContents.isDevToolsOpened()) panel.hide(); });
+  let saveTimer = null;
+  panel.on('resized', () => {   // the person dragged an edge: remember that size for this mode
+    if (!panel || panel.isDestroyed()) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { const b = panel.getBounds(); saveCfg({ panelSize: { ...(cfg.panelSize || {}), [panelMode]: { w: b.width, h: b.height } } }); }, 400);
+  });
+  panel.on('closed', () => { panel = null; panelMode = 'normal'; });
+}
+// the page asks for more room while a document is open, and gives it back when it is closed
+function setPanelWide(wide) {
+  if (!panel || panel.isDestroyed()) return;
+  const mode = wide ? 'wide' : 'normal';
+  if (mode === panelMode) return;
+  const d = screen.getPrimaryDisplay(), b = panel.getBounds();
+  panelMode = mode;
+  const { w, h } = sizeFor(mode, d), wa = d.workArea;
+  const x = clampN(b.x + b.width - w, wa.x + 8, wa.x + wa.width - w - 8);   // grow to the left: the panel sits at the right
+  const y = clampN(b.y + b.height - h, wa.y + 8, wa.y + wa.height - h - 8);   // keep its bottom edge
+  panel.setBounds({ x, y, width: w, height: h });
+  panel.focus();
 }
 
 function rebuildTray() {
@@ -177,6 +211,7 @@ ipcMain.on('click-through', (_e, through) => {
 });
 ipcMain.on('broadcast', (_e, evt) => { if (overlay && !overlay.isDestroyed()) overlay.webContents.send('event', evt); });
 ipcMain.on('open-panel', (_e, opts) => openPanel(opts || {}));
+ipcMain.on('panel-wide', (_e, wide) => setPanelWide(!!wide));
 ipcMain.on('quit', () => app.quit());
 ipcMain.on('open-connectors', () => shell.openExternal('https://claude.ai/settings/connectors'));   // fixed address: the renderer cannot choose where to go
 ipcMain.on('open-exports', () => { const d = exportDir(); try { fs.mkdirSync(d, { recursive: true }); } catch (_) { /* opening reports it */ } shell.openPath(d); });

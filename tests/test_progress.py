@@ -52,16 +52,22 @@ def test_a_job_shows_who_it_called_and_the_newest_steps(store):
 
 def test_a_faster_speed_lets_more_agents_run_and_the_reason_is_explained():
     now = 1_000_000.0
-    elapsed = 0.115                                   # a little over 18% of the week used by the lawyer, about 11% of the week gone
-    snap = Snapshot(observed_at=now, status="allowed", rate_limit_type=None, resets_at=None,
-                    five_hour=Window(0.05, now + 3 * 3600), seven_day=Window(0.18, now + SEVEN_DAYS * (1 - elapsed)))
-    pol = Policy(max_workers=3)
-    slow, fast, top = (decide(snap, with_speed(pol, s), now) for s in ("balanced", "fast", "max"))
-    assert slow.workers == 1 and "pacing the week" in slow.reason, "ahead of the weekly pace: one at a time"
-    assert slow.workers <= fast.workers <= top.workers and top.workers > slow.workers
+    # the real case: 21% of the week used with 11.5% of it gone, and 33% of the 5 hours used 46 minutes into the window
+    def snap(week, five):
+        return Snapshot(observed_at=now, status="allowed", rate_limit_type=None, resets_at=None,
+                        five_hour=Window(five, now + 5 * 3600 * (1 - 0.153)), seven_day=Window(week, now + SEVEN_DAYS * (1 - 0.115)))
+    pol, s = Policy(max_workers=3), snap(0.21, 0.33)
+    slow, fast, top = (decide(s, with_speed(pol, m), now) for m in ("balanced", "fast", "max"))
+    assert slow.workers == 1 and "pacing the week" in slow.reason, "ahead of the pace: one at a time (the situation that made jobs wait)"
+    assert fast.workers == 2, "fast: two can work together even when ahead of the pace"
+    assert top.workers == 3 and "no pacing" in top.reason, "maximum: all of them at once"
+    # the hard stops hold at every speed
+    for mode in ("balanced", "fast", "max"):
+        assert decide(snap(0.80, 0.10), with_speed(pol, mode), now).workers == 0, f"{mode}: 80% of the week stops everything"
+        assert decide(snap(0.10, 0.86), with_speed(pol, mode), now).workers == 0, f"{mode}: 85% of the 5 hours stops everything"
     assert with_speed(pol, None) is pol and with_speed(pol, "nonsense") is pol and with_speed(pol, "balanced") is pol
-    ex = explain(snap, pol, now)
-    assert ex["week_used"] == 0.18 and 0.13 < ex["week_allowed"] < 0.15 and ex["five_used"] == 0.05
+    ex = explain(s, pol, now)
+    assert ex["week_used"] == 0.21 and 0.13 < ex["week_allowed"] < 0.15 and ex["five_used"] == 0.33
     assert explain(None, pol, now)["week_used"] is None
 
 

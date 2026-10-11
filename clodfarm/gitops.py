@@ -261,6 +261,28 @@ def export_files(repo: str, ref: str, paths: list[str], dest: str) -> int:
     return n
 
 
+def write_and_commit(repo: str, cwd: str, rel: str, text: str, message: str) -> bool:
+    """Write ``text`` into ``rel`` inside the work's own folder and commit it on its branch. False when nothing changed."""
+    if not safe_relpath(rel):
+        raise GitError("unsafe path")
+    full = os.path.realpath(os.path.join(cwd, *rel.replace("\\", "/").split("/")))
+    root = os.path.realpath(cwd)
+    if not full.startswith(root + os.sep):
+        raise GitError("path outside the work")
+    with _locked(repo):
+        try:
+            with open(full, encoding="utf-8", newline="") as f:
+                if f.read() == text:
+                    return False
+        except OSError:
+            pass
+        with open(full, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+        git(cwd, "add", "--", rel)
+        git(cwd, "-c", "user.name=advogado", "-c", "user.email=advogado@localhost", "commit", "-qm", message)
+        return True
+
+
 def remove_worktree(repo: str, path: str, branch: str | None = None):
     """Remove a finished task's worktree; delete its branch too when given."""
     with _locked(repo):

@@ -445,6 +445,69 @@ class FarmUI:
             raise ValueError(str(e)) from e
         return {"path": path, "text": text, "truncated": truncated, "binary": binary}
 
+    def _landing_text_file(self, tid: str, path: str) -> tuple[dict, str]:
+        """A text file of work that waits for approval (the task, its text), or a ValueError."""
+        t = self.store.get_task(tid) or {}
+        if t.get("landing") != "awaiting":
+            raise ValueError("nothing waits for approval under that id")
+        allowed = {line.split("\t")[-1] for line in gitops.changed_files(self.cfg.repo_dir, t.get("landing_branch") or "", 500)
+                   if not line.startswith("D")}
+        if path not in allowed:
+            raise ValueError("that file is not part of this work")
+        try:
+            text, truncated, binary = gitops.show_file(self.cfg.repo_dir, t["landing_branch"], path, limit=200_000)
+        except gitops.GitError as e:
+            raise ValueError(str(e)) from e
+        if binary or truncated:
+            raise ValueError("only text files up to 200 KB can be edited here")
+        return t, text
+
+    def landing_save(self, tid: str, path: str, text: str, by: str) -> dict:
+        """The lawyer's own edit of a file of work that waits: a commit on its branch, approved or rejected with the rest."""
+        t, _ = self._landing_text_file(tid, path)
+        if not isinstance(text, str) or "\0" in text or len(text.encode("utf-8")) > 200_000:
+            raise ValueError("the text must be plain text up to 200 KB")
+        try:
+            changed = gitops.write_and_commit(self.cfg.repo_dir, t.get("landing_cwd") or "", path, text, f"Ajuste do advogado em {path}")
+        except gitops.GitError as e:
+            raise ValueError(str(e)) from e
+        if changed:
+            self.store.update_task(tid, landing_ahead=gitops.ahead_of(self.cfg.repo_dir, t.get("landing_branch") or ""))
+            self.store.event("landing.edited", f"{tid}: {path} edited by the lawyer", task=tid, by=by)
+        return {**self.landing_file(tid, path), "changed": changed}
+
+    def revise_start(self, tid: str, path: str, instruction: str) -> dict:
+        """Ask the author of the work to adjust one of its documents: the answer is a PROPOSAL the lawyer applies or not."""
+        instruction = str(instruction or "").strip()
+        if not instruction or len(instruction) > 2000:
+            raise ValueError("write what to change (up to 2000 characters)")
+        t, text = self._landing_text_file(tid, path)
+        if len(text.encode("utf-8")) > 60_000:
+            raise ValueError("this document is too large for an adjustment request: edit it by hand")
+        author = self.team.get(t.get("specialist") or team.CHIEF) or self.team.get(team.CHIEF)
+        key = "rev-" + tid
+        if len(self.chat.pending(key)) >= chat.MAX_PENDING:
+            raise ValueError("wait for the earlier answers before asking for more")
+        job = self.store.add_task("Ajuste: " + path.split("/")[-1], chat.revision_prompt(author, path, text, instruction),
+                                  created_by="overlay", owner=self.cfg.name, specialist=author["id"])
+        try:
+            self.chat.add_user(key, instruction, job["id"], mode="revise", path=path)
+        except chat.ChatError as e:
+            raise ValueError(str(e)) from e
+        return self.revise_view(tid)
+
+    def revise_view(self, tid: str) -> dict:
+        key = "rev-" + tid
+        for m in self.chat.pending(key):
+            t = self.store.get_task(m.get("task") or "") or {}
+            if t.get("status") == "done":
+                note, doc = chat.split_document(chat.clean_reply(t.get("result")))
+                extra = {"proposal": {"path": m.get("path"), "text": doc}} if doc is not None else {}
+                self.chat.add_reply(key, m["id"], note or "(pronto)", ok=True, **extra)
+            elif t.get("status") in ("failed", "cancelled", "denied") or (m.get("task") and not t):
+                self.chat.add_reply(key, m["id"], chat.clean_reply(t.get("result")) or "(não consegui ajustar)", ok=False)
+        return {"messages": self.chat.history(key), "pending": bool(self.chat.pending(key))}
+
     def landings(self) -> list[dict]:
         """Finished work waiting for a person's OK before it lands on main."""
         out = []
@@ -1340,6 +1403,11 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a Claude's person approves its missions")
                     return self._json(self._approvals(who))
+                m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/revise", path)
+                if m:  # the adjustment requests of a piece of work, and the answers
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm approves work")
+                    return self._json(ui.revise_view(m.group(1)))
                 m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/file", path)
                 if m:  # read one file of work that waits for approval
                     if not (who.manager or who.owner):
@@ -1781,6 +1849,14 @@ def make_handler(ui: FarmUI):
                 t = store.add_task(title, str(data.get("prompt") or title)[:20000], created_by="overlay",
                                    owner=ui.cfg.name, specialist=spec)
                 return self._json({"id": t["id"]})
+            m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/(save|revise)", path)
+            if m:
+                if not who.manager:
+                    return self._err(403, "only the farm's person edits work from here")
+                lid, action = m.groups()
+                if action == "save":
+                    return self._json(ui.landing_save(lid, str(data.get("path") or ""), data.get("text"), "manager"))
+                return self._json(ui.revise_start(lid, str(data.get("path") or ""), data.get("instruction")))
             m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/(approve|deny)", path)
             if m:
                 lid, action = m.groups()

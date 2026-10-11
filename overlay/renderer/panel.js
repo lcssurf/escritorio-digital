@@ -8,7 +8,7 @@
   let office = window.office, dicts = null, cfg = { lang: q.get('lang') || 'pt-BR', sound: true, url: 'http://localhost:8080', hasToken: true };
   let tab = q.get('tab') || '', focusId = q.get('id') || '';
   let chatWith = 'chief'; const chatDraft = {};
-  let viewing = null, prog = null, progOpen = '', progDetail = null, showRaw = false;
+  let viewing = null, prog = null, progOpen = '', progDetail = null, showRaw = false, revs = {}, revTimer = null;
   let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
@@ -28,6 +28,16 @@
       { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', instructions: 'Organize documentos por tipo e caso.', look: { style: 'long', prop: 1 } },
       { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', instructions: 'Vigie prazos.', look: { style: 'beard', prop: 4 } }];
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
+    const REV = { messages: [], pending: false };
+    const mockReview = (m, p, b) => {
+      if (/\/revise$/.test(p) && m === 'GET') return { ok: true, status: 200, data: REV };
+      if (/\/revise$/.test(p)) {
+        REV.messages.push({ id: 1, role: 'user', text: b.instruction, path: b.path }, { id: 2, role: 'assistant', reply_to: 1, ok: true, text: 'Encurtei os fatos e deixei só o essencial.',
+          proposal: { path: b.path, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício [CONFERIR].' } });
+        return { ok: true, status: 200, data: REV };
+      }
+      return { ok: true, status: 200, data: { path: b.path, text: b.text, truncated: false, binary: false, changed: true } };
+    };
     const NOW = Date.now() / 1000;
     const PROG = { now: NOW, pace: { limited: true, code: 'week', workers: 1, max: 3, speed: 'balanced', speeds: ['balanced', 'fast', 'max'], week_used: 0.18, week_allowed: 0.14 },
       jobs: [{ id: 'jobA1', title: 'Plano: Analisar a viabilidade do caso fictício da dona Maria', status: 'waiting', specialist: 'chief', created: NOW - 400, started: NOW - 390, finished: null, landing: null,
@@ -40,10 +50,10 @@
       recent: [] };
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
-      api: async (m, p, b) => p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      api: async (m, p, b) => /\/api\/landings\/[^/]+\/(revise|save)$/.test(p) ? mockReview(m, p, b) : p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => ({ ...cfg, onboarded: !q.has('tour') }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
-      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, quit() {}, togglePets() {}, broadcast() {},
+      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, setWide(w) { document.body.classList.toggle('wide', !!w); }, quit() {}, togglePets() {}, broadcast() {},
     };
   }
 
@@ -441,22 +451,175 @@
     }
     return box;
   }
+  // ------------------------------------------------------------------ the reader: documents of work that waits for approval
+  // The window opens to the side: the list stays on the left, the document is read, edited or adjusted on the right.
+  const MAIN_DOC = /(^|\/)saidas\/(pecas|requerimentos|peticoes|contratos|recursos)\//i;
+  const INPUT_DOC = /(^|\/)(entrada|entradas|modelos)\//i;
+  const fileRank = (p) => (MAIN_DOC.test(p) ? 'main' : INPUT_DOC.test(p) ? 'inputs' : 'support');
+  function folderOf(p) {
+    const m = /(^|\/)saidas\/([a-z0-9-]+)\//i.exec(p);
+    if (!m) return '';
+    const key = 'folder.' + m[2].toLowerCase();
+    const label = tr(key);
+    return label === key ? m[2] : label;
+  }
+  function friendly(p) {
+    const base = p.split('/').pop().replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim();
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : p;
+  }
+  function groupFiles(files) {
+    const g = { main: [], support: [], inputs: [] };
+    for (const f of files) g[fileRank(f.name)].push(f);
+    return g;
+  }
+  function fileList(l, files) {
+    const g = groupFiles(files), box = h('div', { class: 'flist' });
+    const sections = g.main.length
+      ? [['approvals.group.main', g.main], ['approvals.group.support', g.support], ['approvals.group.inputs', g.inputs]]
+      : [['approvals.group.docs', g.support], ['approvals.group.inputs', g.inputs]];
+    for (const [key, list] of sections) {
+      if (!list.length) continue;
+      box.append(h('div', { class: 'label' }, tr(key) + ' (' + list.length + ')'));
+      box.append(h('ul', { class: 'files' }, list.map((f) => {
+        const on = viewing && viewing.landing === l.id && viewing.path === f.name;
+        const open = () => (f.k === 'D' ? null : openFile(l, f));
+        return h('li', { class: 'fileli' + (on ? ' on' : ''), onclick: open, role: 'button', tabindex: '0', onkeydown: (e) => { if (e.key === 'Enter') open(); } },
+          h('span', { class: 'tagf ' + f.k }, tr('file.' + f.k)),
+          h('span', { class: 'fname', title: f.name }, friendly(f.name), folderOf(f.name) ? h('span', { class: 'fold' }, folderOf(f.name)) : null),
+          f.k === 'D' ? null : h('span', { class: 'link' }, tr('review.open')));
+      })));
+    }
+    return box;
+  }
+
   async function openFile(l, f) {
-    viewing = { landing: l.id, path: f.name, state: 'loading' };
-    renderApprovals();
+    if (viewing && viewing.dirty && !(viewing.landing === l.id && viewing.path === f.name)) { toast(tr('reader.unsaved'), true); return; }
+    office.setWide(true); document.body.classList.add('wide');
+    viewing = { landing: l.id, path: f.name, state: 'loading', mode: 'read', draft: '', dirty: false, preview: null };
+    renderApprovals(); renderReader();
     const r = await office.api('GET', '/api/landings/' + encodeURIComponent(l.id) + '/file?path=' + encodeURIComponent(f.name));
     if (!viewing || viewing.landing !== l.id || viewing.path !== f.name) return;
-    viewing = r.ok ? { landing: l.id, path: f.name, state: 'ok', data: r.data } : { landing: l.id, path: f.name, state: 'err' };
-    renderApprovals();
+    if (r.ok) { viewing.state = 'ok'; viewing.data = r.data; viewing.draft = r.data.text || ''; } else viewing.state = 'err';
+    renderReader(); loadRevs(l.id);
   }
-  function viewer(l) {
-    if (!viewing || viewing.landing !== l.id) return null;
-    const head = h('div', { class: 'vhead' }, h('b', {}, viewing.path.split('/').pop()), h('button', { class: 'link', onclick: () => { viewing = null; renderApprovals(); } }, tr('review.close')));
-    if (viewing.state === 'loading') return h('div', { class: 'viewer' }, head, h('div', { class: 'dim small' }, tr('review.loading')));
-    if (viewing.state === 'err') return h('div', { class: 'viewer' }, head, h('div', { class: 'dim small' }, tr('review.error')));
-    const d = viewing.data;
-    if (d.binary) return h('div', { class: 'viewer' }, head, h('div', { class: 'dim small' }, tr('review.binary')));
-    return h('div', { class: 'viewer' }, head, renderDoc(d.text), d.truncated ? h('div', { class: 'dim small' }, tr('review.truncated')) : null);
+  function closeReader(force) {
+    if (viewing && viewing.dirty && !force) { toast(tr('reader.unsaved'), true); return; }
+    viewing = null; if (revTimer) { clearInterval(revTimer); revTimer = null; }
+    document.body.classList.remove('wide'); office.setWide(false);
+    renderApprovals(); renderReader();
+  }
+
+  // a small line diff: what a proposed adjustment changes
+  function diffLines(a, b) {
+    const x = a.split('\n'), y = b.split('\n');
+    if (x.length * y.length > 4e6) return null;
+    const n = x.length, m = y.length, w = m + 1, dp = new Uint16Array((n + 1) * w);
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i * w + j] = x[i] === y[j] ? dp[(i + 1) * w + j + 1] + 1 : Math.max(dp[(i + 1) * w + j], dp[i * w + j + 1]);
+    const out = []; let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (x[i] === y[j]) { out.push(['same', x[i]]); i++; j++; } else if (dp[(i + 1) * w + j] >= dp[i * w + j + 1]) out.push(['del', x[i++]]); else out.push(['add', y[j++]]);
+    }
+    while (i < n) out.push(['del', x[i++]]);
+    while (j < m) out.push(['add', y[j++]]);
+    return out;
+  }
+  function renderDiff(oldText, newText) {
+    const ops = diffLines(oldText, newText), box = h('div', { class: 'diff' });
+    if (!ops) { box.append(renderDoc(newText)); return box; }
+    if (!ops.some((o) => o[0] !== 'same')) { box.append(h('div', { class: 'dim' }, tr('reader.nochange'))); return box; }
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      if (run.length > 6) { box.append(h('div', { class: 'dl same' }, run[0]), h('div', { class: 'dl skip' }, tr('reader.same', { n: run.length - 2 })), h('div', { class: 'dl same' }, run[run.length - 1])); } else for (const t of run) box.append(h('div', { class: 'dl same' }, t || ' '));
+      run = [];
+    };
+    for (const [k, t] of ops) { if (k === 'same') run.push(t); else { flush(); box.append(h('div', { class: 'dl ' + k }, h('span', { class: 'sign' }, k === 'add' ? '+' : '−'), t || ' ')); } }
+    flush();
+    return box;
+  }
+
+  async function loadRevs(id) {
+    const r = await office.api('GET', '/api/landings/' + encodeURIComponent(id) + '/revise');
+    if (r.ok && r.data) { revs[id] = r.data; if (viewing && viewing.landing === id) renderThread(); }
+    if (r.ok && r.data && r.data.pending) { if (!revTimer) revTimer = setInterval(() => (viewing ? loadRevs(viewing.landing) : null), 2000); } else if (revTimer) { clearInterval(revTimer); revTimer = null; }
+  }
+  const authorOf = (l) => memberOf(l && l.specialist) || memberOf('chief');
+  function landingOf(id) { return landings.find((x) => x.id === id); }
+
+  async function saveDoc(text, okMsg) {
+    const v = viewing; if (!v) return;
+    const r = await office.api('POST', '/api/landings/' + encodeURIComponent(v.landing) + '/save', { path: v.path, text });
+    if (!viewing || viewing !== v) return;
+    if (r.ok) { v.data = r.data; v.draft = r.data.text || ''; v.dirty = false; v.preview = null; v.warned = false; toast(tr(okMsg)); renderReader(); refresh(true); }
+    else toast(tr('approvals.failed', { why: (r.data && r.data.error) || r.error || r.status }), true);
+  }
+  function applyProposal(msg) {
+    const orig = viewing && viewing.data ? viewing.data.text || '' : '';
+    let text = msg.proposal.text;
+    if (orig.endsWith('\n') && !text.endsWith('\n')) text += '\n';
+    saveDoc(text, 'reader.applied');
+  }
+  function renderThread() {
+    const box = $('rd-thread'); if (!box || !viewing) return;
+    clear(box);
+    const l = landingOf(viewing.landing), who = authorOf(l), view = revs[viewing.landing] || { messages: [], pending: false };
+    const mine = view.messages.filter((m) => m.path === viewing.path || (m.role === 'assistant' && view.messages.some((u) => u.id === m.reply_to && u.path === viewing.path)));
+    for (const m of mine) {
+      if (m.role === 'user') { box.append(h('div', { class: 'bubble me' }, m.text)); continue; }
+      const b = h('div', { class: 'bubble them' + (m.ok === false ? ' bad' : '') }, m.text);
+      if (m.proposal) {
+        const applied = viewing.data && viewing.data.text === m.proposal.text;
+        b.append(h('div', { class: 'actions', style: 'margin-top:8px' },
+          h('button', { class: 'btn ghost', onclick: () => { viewing.preview = m; viewing.mode = 'read'; renderReader(); } }, tr('reader.preview')),
+          applied ? h('span', { class: 'chip working' }, tr('reader.applied')) : h('button', { class: 'btn ok', onclick: () => applyProposal(m) }, tr('reader.apply'))));
+      }
+      box.append(b);
+    }
+    if (view.pending) box.append(h('div', { class: 'bubble them typing' }, h('span'), h('span'), h('span')), h('div', { class: 'dim small' }, tr('reader.asking', { name: who ? who.name : '' })));
+    box.scrollTop = box.scrollHeight;
+  }
+  function renderReader() {
+    const r = $('reader'); if (!r) return;
+    clear(r);
+    if (!viewing) return;
+    const v = viewing, l = landingOf(v.landing), who = authorOf(l);
+    r.append(h('div', { class: 'rd-head' },
+      h('div', { class: 'rd-title' }, h('b', {}, friendly(v.path)), folderOf(v.path) ? h('span', { class: 'fold' }, folderOf(v.path)) : null, v.dirty ? h('span', { class: 'chip idle' }, tr('reader.unsavedtag')) : null),
+      h('div', { class: 'seg rd-seg' }, ['read', 'edit'].map((m) => h('button', { class: v.mode === m && !v.preview ? 'on' : '', disabled: v.state !== 'ok' || (v.data && v.data.binary), onclick: () => { if (v.preview && m === 'edit') { toast(tr('reader.dismissfirst'), true); return; } v.mode = m; v.preview = null; renderReader(); } }, tr('reader.' + m)))),
+      h('button', { class: 'rd-x', 'aria-label': tr('review.close'), onclick: () => closeReader(false) }, '×')));
+    const body = h('div', { class: 'rd-body' });
+    if (v.state === 'loading') body.append(h('div', { class: 'dim' }, tr('review.loading')));
+    else if (v.state === 'err') body.append(h('div', { class: 'dim' }, tr('review.error')));
+    else if (v.data && v.data.binary) body.append(h('div', { class: 'dim' }, tr('review.binary')));
+    else if (v.preview) {
+      body.append(h('div', { class: 'banner pace' }, h('b', {}, tr('reader.proposal')), h('div', {}, v.preview.text)),
+        renderDiff(v.data.text || '', v.preview.proposal.text),
+        h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { v.preview = null; renderReader(); } }, tr('reader.dismiss')), h('button', { class: 'btn ok', onclick: () => applyProposal(v.preview) }, tr('reader.apply'))));
+    } else if (v.mode === 'edit') {
+      const ta = h('textarea', { class: 'editor', spellcheck: 'true', lang: 'pt-BR', 'aria-label': tr('reader.editing') });
+      ta.value = v.draft;
+      ta.addEventListener('input', () => { v.draft = ta.value; const dirty = ta.value !== (v.data.text || ''); if (dirty !== v.dirty) { v.dirty = dirty; const t = r.querySelector('.rd-title'); if (t) { const old = t.querySelector('.chip'); if (old) old.remove(); if (dirty) t.append(h('span', { class: 'chip idle' }, tr('reader.unsavedtag'))); } sv.disabled = !dirty; } });
+      ta.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (v.dirty) saveDoc(v.draft, 'reader.saved'); } });
+      const sv = h('button', { class: 'btn ok', disabled: !v.dirty, onclick: () => saveDoc(v.draft, 'reader.saved') }, tr('reader.save'));
+      body.append(ta, h('div', { class: 'actions' }, h('button', { class: 'btn ghost', disabled: !v.dirty, onclick: () => { v.draft = v.data.text || ''; v.dirty = false; renderReader(); } }, tr('reader.discard')), sv));
+      setTimeout(() => ta.focus(), 30);
+    } else {
+      body.append(h('div', { class: 'paper' }, renderDoc(v.data.text || '')));
+      if (v.data.truncated) body.append(h('div', { class: 'dim small' }, tr('review.truncated')));
+    }
+    r.append(body);
+    const ask = h('textarea', { class: 'chatin', rows: '2', id: 'rd-ask', placeholder: tr('reader.ask.ph') });
+    const send = h('button', { class: 'btn acc', style: 'flex:none;padding:10px 16px', onclick: async () => {
+      const text = ask.value.trim(); if (!text) return;
+      if (v.dirty) { toast(tr('reader.unsaved'), true); return; }
+      send.disabled = true;
+      const res = await office.api('POST', '/api/landings/' + encodeURIComponent(v.landing) + '/revise', { path: v.path, instruction: text });
+      send.disabled = false;
+      if (res.ok) { ask.value = ''; revs[v.landing] = res.data; renderThread(); loadRevs(v.landing); } else toast((res.data && res.data.error) || String(res.status), true);
+    } }, tr('reader.ask.send'));
+    ask.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send.click(); } });
+    r.append(h('div', { class: 'rd-foot' }, h('div', { class: 'label' }, tr('reader.ask', { name: who ? who.name : '' })), h('div', { class: 'thread', id: 'rd-thread' }), h('div', { class: 'chatbar' }, ask, send)));
+    renderThread();
   }
 
   // ------------------------------------------------------------------ first-run tour and the "what do the characters mean" sheet
@@ -584,6 +747,8 @@
     const b = banner(); if (b) s.append(b);
     s.append(h('h2', {}, tr('prog.title')));
     if (!prog) { s.append(h('div', { class: 'note' }, tr('review.loading'))); return; }
+    const running = prog.jobs.reduce((n, j) => n + j.nodes.filter((x) => x.status === 'running').length, 0);
+    if (running > 1) s.append(h('div', { class: 'chipw', style: 'margin-bottom:10px' }, h('i'), tr('prog.parallel', { n: running })));
     const pb = paceBanner(prog.pace, prog.jobs); if (pb) s.append(pb);
     if (!prog.jobs.length) {
       const art = sprite('clodfarm', 'sofa', 'art'); art.className = 'art';
@@ -614,10 +779,7 @@
         h('div', { class: 'by' }, tr('approvals.by', { name: p.name, role: role || tr('pet.chief') })),
         h('div', { class: 'label' }, tr('approvals.what')),
         h('div', { class: 'said' }, cleanSummary(l.summary) || tr('team.noresult')),
-        files.length ? [h('div', { class: 'label' }, tr('approvals.changes')),
-          h('ul', { class: 'files' }, files.map((f) => h('li', { class: 'fileli' }, h('span', { class: 'tagf ' + f.k }, tr('file.' + f.k)),
-            h('span', { class: 'fname' }, f.name.split('/').pop()), f.k === 'D' ? null : h('button', { class: 'link', onclick: () => openFile(l, f) }, tr('review.open'))))),
-          viewer(l)] : null,
+        files.length ? [h('div', { class: 'label' }, tr('approvals.changes')), fileList(l, files)] : null,
         h('div', { class: 'after' }, tr('approvals.after')));
       if (confirmDeny.has(l.id)) {
         card.append(h('div', { class: 'confirm' }, h('p', {}, tr('approvals.confirmdeny')), h('div', { class: 'actions' },
@@ -632,12 +794,13 @@
     }
   }
   async function decide(l, kind) {
+    if (viewing && viewing.landing === l.id && viewing.dirty) { toast(tr('reader.approve.blocked'), true); return; }
     busy.add(l.id); renderApprovals();
     const r = await office.api('POST', '/api/landings/' + encodeURIComponent(l.id) + '/' + kind, {});
     busy.delete(l.id); confirmDeny.delete(l.id);
     if (r.ok) {
       toast(tr(kind === 'approve' ? 'approvals.saved' : 'approvals.denied'));
-      viewing = null;
+      if (viewing && viewing.landing === l.id) closeReader(true);
       if (kind === 'approve' && office.broadcast) office.broadcast({ type: 'approved', id: l.id, specialist: l.specialist || 'chief' });
     } else toast(tr('approvals.failed', { why: (r.data && r.data.error) || r.error || r.status }), true);
     await refresh(true);
@@ -713,7 +876,7 @@
 
   function render() {
     if (tab !== 'chat' && chatTimer) { clearInterval(chatTimer); chatTimer = null; }
-    renderChrome(); renderChatTab(); renderProgress(); renderTeam(); renderApprovals(); renderSettings();
+    renderChrome(); renderChatTab(); renderProgress(); renderTeam(); renderApprovals(); renderSettings(); renderReader();
   }
 
   // where a request to open the panel lands: approvals when asked, the conversation for a character, else the tab named

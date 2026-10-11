@@ -27,6 +27,28 @@ class ChatError(ValueError):
     pass
 
 
+_DOC = re.compile(r"<<<DOCUMENTO[ \t]*\n(.*?)\n[ \t]*DOCUMENTO>>>", re.S)
+
+
+def split_document(text: str) -> tuple[str, str | None]:
+    """A revised document comes back between <<<DOCUMENTO and DOCUMENTO>>>: returns (what was said, the document or None)."""
+    m = _DOC.search(text or "")
+    if not m:
+        return (text or "").strip(), None
+    return (text[:m.start()] + text[m.end():]).strip(), m.group(1)
+
+
+def revision_prompt(member: dict, path: str, current: str, instruction: str) -> str:
+    she = member.get("gender") == "f"
+    return (f"O advogado quer ajustar um documento que está em revisão (ainda não foi aprovado). Você é {member['name']}"
+            f"{', ' + member['title'] if member.get('title') else ''}; fale de si no {'feminino' if she else 'masculino'}.\n"
+            f"Arquivo: {path}\n\nPedido do advogado:\n{instruction}\n\nDocumento atual:\n<<<ATUAL\n{current}\nATUAL>>>\n\n"
+            "Responda assim: primeiro, em 1 a 3 frases, o que você mudou (ou, se o pedido não estiver claro, a pergunta que precisa fazer). "
+            "Depois, se houve mudança, o documento COMPLETO já ajustado entre as linhas <<<DOCUMENTO e DOCUMENTO>>>, sem comentários dentro. "
+            "Mantenha o que não foi pedido para mudar, não invente fatos, leis ou datas e deixe [CONFERIR] onde houver dúvida. "
+            "NÃO crie nem altere arquivos, NÃO faça commit e NÃO use `clodfarm spawn`: responda só com texto.")
+
+
 def clean_reply(result: str) -> str:
     return _GIT_TAIL.sub("", result or "").strip()
 
@@ -93,7 +115,7 @@ class Chat:
         return out
 
     # --------------------------------------------------------------- changes
-    def add_user(self, member: str, text: str, task: str, mode: str = "direct") -> dict:
+    def add_user(self, member: str, text: str, task: str, mode: str = "direct", **extra) -> dict:
         text = str(text or "").strip()
         if not text:
             raise ChatError("write something")
@@ -105,21 +127,21 @@ class Chat:
             answered = {m.get("reply_to") for m in msgs if m["role"] == "assistant" and m.get("kind", "answer") == "answer"}
             if len([m for m in msgs if m["role"] == "user" and m["id"] not in answered]) >= MAX_PENDING:
                 raise ChatError("wait for the earlier answers before sending more")
-            msg = {"id": (msgs[-1]["id"] + 1) if msgs else 1, "role": "user", "text": text, "at": time.time(), "task": task, "mode": mode}
+            msg = {"id": (msgs[-1]["id"] + 1) if msgs else 1, "role": "user", "text": text, "at": time.time(), "task": task, "mode": mode, **extra}
             msgs.append(msg)
             data[member] = msgs[-KEEP:]
             self._write(data)
             return msg
 
     def add_reply(self, member: str, reply_to: int, text: str, ok: bool = True, waiting: bool = False,
-                  plan: dict | None = None, kind: str = "answer") -> dict | None:
+                  plan: dict | None = None, kind: str = "answer", **extra) -> dict | None:
         with self._lock:
             data = self._read()
             msgs = data.get(member) or []
             if any(m.get("reply_to") == reply_to and m.get("kind", "answer") == kind for m in msgs if m["role"] == "assistant"):
                 return None   # already answered (two settles at once)
             msg = {"id": (msgs[-1]["id"] + 1) if msgs else 1, "role": "assistant", "text": text, "at": time.time(),
-                   "reply_to": reply_to, "ok": ok, "waiting": waiting, "kind": kind}
+                   "reply_to": reply_to, "ok": ok, "waiting": waiting, "kind": kind, **extra}
             if plan:
                 msg["plan"] = plan
             msgs.append(msg)

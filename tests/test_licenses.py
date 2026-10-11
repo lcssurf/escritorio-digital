@@ -8,7 +8,7 @@ SPDX = "SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0"
 OURS = [
     "clodfarm/chat.py", "clodfarm/team.py", "clodfarm/progress.py",
     "tests/test_chat.py", "tests/test_claude_connectors.py", "tests/test_landing_approval.py", "tests/test_team.py",
-    "tests/test_ux.py", "tests/test_licenses.py", "tests/test_progress.py",
+    "tests/test_ux.py", "tests/test_licenses.py", "tests/test_progress.py", "tests/test_review_edit.py",
     "overlay/main.js", "overlay/preload.js", "overlay/i18n/index.js", "overlay/renderer/app.js", "overlay/renderer/office.js",
     "overlay/renderer/panel.js", "overlay/renderer/sprites.js", "overlay/renderer/templates.js",
     "overlay/renderer/pack-previdenciario.js", "overlay/test/i18n.test.js", "scripts/escritorio.mjs",

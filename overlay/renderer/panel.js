@@ -10,6 +10,7 @@
   let chatWith = 'chief'; const chatDraft = {};
   let viewing = null, prog = null, progOpen = '', progDetail = null, showRaw = false, revs = {}, revTimer = null;
   let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
+  let hiringData = { pending: [], recent: [] };
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
   const tr = (k, v) => I18N.make(dicts, cfg.lang)(k, v);
@@ -27,6 +28,8 @@
     const M = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', instructions: 'Priorize prazos curtos.', look: { style: 'bun', suit: '#2f2f3a', glasses: true } },
       { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', instructions: 'Organize documentos por tipo e caso.', look: { style: 'long', prop: 1 } },
       { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', instructions: 'Vigie prazos.', look: { style: 'beard', prop: 4 } }];
+    if (q.has('firstrun')) M.splice(1);
+    M.push({ id: 'rh', name: 'Helena', title: 'Recursos Humanos', gender: 'f', lead: false, parent: 'chief', instructions: 'Você é o RH do escritório: monta e cuida da equipe.', look: { style: 'long', prop: 1, glasses: true } });
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
     const REV = { messages: [], pending: false };
     const mockReview = (m, p, b) => {
@@ -39,6 +42,10 @@
       return { ok: true, status: 200, data: { path: b.path, text: b.text, truncated: false, binary: false, changed: true } };
     };
     const NOW = Date.now() / 1000;
+    const HIRE = { id: 'h1a2b3c4d', status: 'pending', message: 'Montei uma equipe pequena para um escritório previdenciário.', ignored: 0, items: [
+      { action: 'hire', ref: 'coord-docs', reason: '', test: 'Peça: organize os documentos de um caso fictício.', fields: { name: 'Beatriz', title: 'Coordenação de documentos', lead: true, parent: 'chief', gender: 'f', instructions: 'Você coordena documentos e peças. A ordem é: documentos organizados primeiro, depois a minuta e, por fim, a revisão. Tudo é rascunho.' } },
+      { action: 'hire', ref: '', reason: '', test: 'Peça: confira a pasta de um cliente fictício.', fields: { name: 'Gabi', title: 'Documentos', lead: false, parent: 'coord-docs', gender: 'f', instructions: 'Você recebe os arquivos em clientes/<nome>/entrada/, confere, renomeia e arquiva, e lista o que falta.' } },
+      { action: 'edit', id: 'ana', name: 'Ana', reason: 'As instruções estavam vagas sobre onde gravar.', fields: { instructions: 'Você acompanha andamentos... (texto novo completo)' } }] };
     const ALERTS = q.has('alerts') ? [{ kind: 'login' }, { kind: 'limit' }] : [];
     const PROG = { now: NOW, alerts: ALERTS, pace: { limited: true, code: 'week', workers: 1, max: 3, speed: 'balanced', speeds: ['balanced', 'fast', 'max'], week_used: 0.18, week_allowed: 0.14 },
       jobs: [{ id: 'jobA1', title: 'Plano: Analisar a viabilidade do caso fictício da dona Maria', status: 'waiting', specialist: 'chief', created: NOW - 400, started: NOW - 390, finished: null, landing: null,
@@ -51,7 +58,7 @@
       recent: [] };
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
-      api: async (m, p, b) => /\/api\/landings\/[^/]+\/(revise|save)$/.test(p) ? mockReview(m, p, b) : p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      api: async (m, p, b) => p.startsWith('/api/hiring/import') ? { ok: true, status: 200, data: { id: 'x' } } : p.startsWith('/api/hiring') ? { ok: true, status: 200, data: { recent: [], pending: q.has('hiring') ? [HIRE] : [] } } : /\/api\/landings\/[^/]+\/(revise|save)$/.test(p) ? mockReview(m, p, b) : p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => ({ ...cfg, onboarded: !q.has('tour'), legalAccepted: !q.has('legal'), version: '1.0.3', exportFormats: ['docx'], update: q.has('update') ? { version: '1.1.0', notes: 'Novidades de teste', url: 'https://github.com/lcssurf/escritorio-digital/releases/latest' } : null }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, setWide(w) { document.body.classList.toggle('wide', !!w); },
@@ -92,7 +99,8 @@
 
   // ------------------------------------------------------------------ data
   async function refresh(force) {
-    const [ld, st, tm, pg] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state'), office.api('GET', '/api/team'), office.api('GET', '/api/progress')]);
+    const [ld, st, tm, pg, hr] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state'), office.api('GET', '/api/team'), office.api('GET', '/api/progress'), office.api('GET', '/api/hiring')]);
+    if (hr.ok && hr.data && Array.isArray(hr.data.pending)) hiringData = hr.data;
     if (tm.ok && Array.isArray(tm.data)) members = tm.data;
     if (pg.ok && pg.data) prog = pg.data;
     if (progOpen && prog && prog.jobs.concat(prog.recent || []).some((j) => j.id === progOpen)) loadDetail(progOpen);
@@ -100,7 +108,7 @@
     authErr = ld.status === 401 || ld.status === 403;
     landings = ld.ok && Array.isArray(ld.data) ? ld.data : [];
     farm = st.ok ? st.data : null;
-    const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), members, offline, authErr, prog && [prog.pace, prog.jobs.map((j) => [j.id, j.status, j.nodes.map((n) => n.status), (j.steps[j.steps.length - 1] || {}).at]), Math.floor(((prog.now) || 0) / 10)], progDetail && (progDetail.job.steps.slice(-1)[0] || {}).at, [...confirmDeny], [...busy]]);
+    const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), members, offline, authErr, hiringData.pending.map((p) => p.id), prog && [prog.pace, prog.jobs.map((j) => [j.id, j.status, j.nodes.map((n) => n.status), (j.steps[j.steps.length - 1] || {}).at]), Math.floor(((prog.now) || 0) / 10)], progDetail && (progDetail.job.steps.slice(-1)[0] || {}).at, [...confirmDeny], [...busy]]);
     if (!force && sig === lastSig) return;
     lastSig = sig;
     if (!tab) tab = 'chat';
@@ -133,6 +141,7 @@
       const b = h('button', { class: id === tab ? 'on' : '', onclick: () => { tab = id; focusId = ''; render(); }, 'aria-label': tr(key) }, icon(id), tr(key));
       if (id === 'approvals' && landings.length) b.append(h('span', { class: 'badge' }, landings.length));
       if (id === 'progress' && prog && prog.jobs.length) b.append(h('span', { class: 'badge info' }, prog.jobs.length));
+      if (id === 'team' && hiringData.pending.length) b.append(h('span', { class: 'badge' }, hiringData.pending.length));
       nav.append(b);
     }
     for (const id of ['chat', 'progress', 'team', 'approvals', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
@@ -195,7 +204,7 @@
     const states = memberStates();
     if (members.length <= 1) s.append(h('div', { class: 'intro' }, tr('team.intro')));
     s.append(h('div', { class: 'addrow' }, h('button', { class: 'btn acc', onclick: () => startEdit(null) }, '+ ' + tr('team.new'))));
-    if (members.length <= 2 && cfg.lang === 'pt-BR') s.append(packCard());
+    s.append(rhSection());
     if (members.length <= 2) s.append(h('div', { class: 'label' }, tr('team.templates')),
       h('div', { class: 'opts', style: 'margin-bottom:12px' }, (window.Templates[cfg.lang] || window.Templates.en).map((t) =>
         h('button', { onclick: () => startEdit(null, t) }, t.name + ' · ' + t.title))));
@@ -236,39 +245,90 @@
     })));
   }
 
-  function packCard() {
-    const pack = window.PackPrevidenciario;
-    const btn = h('button', { class: 'btn acc', onclick: async () => {
-      btn.disabled = true; btn.textContent = tr('team.pack.installing');
-      let list = members.slice(), n = 0, failed = false;
-      const find = (m) => list.find((x) => x.name === m.name && (x.title || '') === (m.title || ''));
-      const send = async (body) => {
-        const r = await office.api('POST', '/api/team', body);
-        if (!r.ok) { toast(tr('edit.err', { why: (r.data && r.data.error) || r.status }), true); failed = true; return null; }
-        list = r.data; return r.data;
-      };
-      const chief = list.find((x) => x.id === 'chief');
-      if (chief && !chief.instructions) await send({ ...chief, instructions: pack.chief });
-      const leadId = {};
-      for (const l of pack.leads) {
-        if (failed) break;
-        const { team, key, ...body } = l;
-        const have = find(l);
-        if (!have) n++;
-        if (!await send(have ? { ...have, ...body, id: have.id, lead: true, parent: 'chief' } : { ...body, lead: true, parent: 'chief' })) break;
-        leadId[key] = find(l).id;
-      }
-      for (const m of pack.members) {
-        if (failed) break;
-        const { team, ...body } = m;
-        const have = find(m);
-        if (!have) n++;
-        if (!await send(have ? { ...have, parent: leadId[team] || 'chief', lead: false, id: have.id } : { ...body, parent: leadId[team] || 'chief', lead: false })) break;
-      }
-      toast(tr('team.pack.done', { n }));
+  // ------------------------------------------------------------------ the RH: proposals to hire, change or let go, and imports
+  const picks = new Map();   // proposal id -> the indexes the lawyer keeps ticked
+  const ACTION_KEY = { hire: 'rh.prop.hire', edit: 'rh.prop.edit', dismiss: 'rh.prop.dismiss' };
+  function bossName(it, p) {
+    const f = it.fields || {};
+    const b = f.parent || 'chief';
+    const viaRef = p.items.find((x) => x.ref && x.ref === b);
+    const m = memberOf(b);
+    return viaRef ? viaRef.fields.name : (m ? m.name : b);
+  }
+  function proposalCard(p) {
+    if (!picks.has(p.id)) picks.set(p.id, new Set(p.items.map((_, i) => i)));
+    const on = picks.get(p.id);
+    const card = h('div', { class: 'card prop' }, h('b', {}, tr('rh.prop.title')));
+    if (p.message) card.append(h('div', { class: 'note', style: 'margin:4px 0' }, p.message));
+    card.append(h('div', { class: 'note warn' }, tr('rh.prop.warn')));
+    p.items.forEach((it, i) => {
+      const f = it.fields || {};
+      const name = it.action === 'hire' ? f.name : (it.name || it.id);
+      const box = h('input', { type: 'checkbox', onchange: () => { if (box.checked) on.add(i); else on.delete(i); approve.disabled = !on.size; } });
+      box.checked = on.has(i);
+      const row = h('div', { class: 'propitem' },
+        h('label', { class: 'switch' }, box,
+          h('span', { class: 'chip ' + (it.action === 'dismiss' ? 'alert' : it.action === 'edit' ? 'idle' : 'working') }, tr(ACTION_KEY[it.action])),
+          h('span', { class: 'pname' }, h('b', {}, name), it.action === 'hire' && f.title ? h('span', { class: 'role' }, ' · ' + f.title) : null,
+            it.action === 'hire' && f.lead ? h('span', { class: 'badge-lead' }, tr('rh.prop.lead')) : null)));
+      if (it.action === 'hire') row.append(h('div', { class: 'dim small' }, tr('rh.prop.reports', { boss: bossName(it, p) })));
+      if (it.reason) row.append(h('div', { class: 'dim small' }, tr('rh.prop.why', { why: it.reason })));
+      if (it.test) row.append(h('div', { class: 'dim small' }, tr('rh.prop.test', { t: it.test })));
+      if (f.instructions) row.append(h('details', { class: 'how' }, h('summary', {}, tr('rh.prop.instr')), h('div', { class: 'detail' }, f.instructions)));
+      card.append(row);
+    });
+    if (p.ignored) card.append(h('div', { class: 'note' }, tr('rh.prop.ignored', { n: p.ignored })));
+    const approve = h('button', { class: 'btn ok', onclick: async () => {
+      approve.disabled = true;
+      const r = await office.api('POST', '/api/hiring/' + encodeURIComponent(p.id) + '/approve', { items: [...on].sort((a, b) => a - b) });
+      if (r.ok) { const last = (r.data.recent || []).slice(-1)[0] || {}; toast(tr('rh.prop.done', { n: (last.results || []).length })); picks.delete(p.id); }
+      else { toast(tr('rh.prop.fail', { why: (r.data && r.data.error) || r.error || r.status }), true); approve.disabled = false; }
       await refresh(true);
-    } }, tr('team.pack.install'));
-    return h('div', { class: 'card' }, h('b', {}, tr('team.pack.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('team.pack.text')), btn);
+    } }, tr('rh.prop.approve'));
+    const deny = h('button', { class: 'btn ghost', onclick: async () => {
+      const r = await office.api('POST', '/api/hiring/' + encodeURIComponent(p.id) + '/deny', {});
+      if (r.ok) { toast(tr('rh.prop.denied')); picks.delete(p.id); }
+      await refresh(true);
+    } }, tr('rh.prop.deny'));
+    card.append(h('div', { class: 'actions' }, deny, approve));
+    return card;
+  }
+  async function startWithRh() {
+    const r = await office.api('POST', '/api/chat/rh', { text: tr('rh.first') });
+    if (!r.ok) toast(tr('edit.err', { why: (r.data && r.data.error) || r.status }), true);
+    openChat('rh');
+  }
+  function importCard() {
+    const ta = h('textarea', { class: 'chatin', rows: '5', placeholder: tr('rh.import.paste'), style: 'height:110px' });
+    const note = h('input', { type: 'text', placeholder: tr('rh.import.note'), maxlength: '300' });
+    let fname = '';
+    const file = h('input', { type: 'file', accept: '.md,.markdown,.txt,.text', style: 'display:none', onchange: async () => {
+      const f = file.files && file.files[0]; if (!f) return;
+      if (f.size > 200000) { toast(tr('rh.import.big'), true); return; }
+      fname = f.name; ta.value = await f.text();
+    } });
+    const send = h('button', { class: 'btn acc', onclick: async () => {
+      if (!ta.value.trim()) return;
+      send.disabled = true;
+      const r = await office.api('POST', '/api/hiring/import', { text: ta.value, name: fname, note: note.value });
+      send.disabled = false;
+      if (r.ok) { toast(tr('rh.import.sent')); ta.value = ''; note.value = ''; fname = ''; } else toast(tr('rh.import.err', { why: (r.data && r.data.error) || r.error || r.status }), true);
+    } }, tr('rh.import.send'));
+    return h('details', { class: 'how card' }, h('summary', {}, tr('rh.import.title')),
+      h('div', { class: 'note', style: 'margin:6px 0 8px' }, tr('rh.import.text')),
+      ta, h('div', { class: 'actions', style: 'margin-top:6px' }, h('button', { class: 'btn ghost', onclick: () => file.click() }, tr('rh.import.file')), file),
+      note, h('div', { class: 'actions' }, send));
+  }
+  function rhSection() {
+    const box = h('div', {});
+    for (const p of (hiringData.pending || [])) box.append(proposalCard(p));
+    if (memberOf('rh')) box.append(h('div', { class: 'card' }, h('b', {}, tr('rh.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('rh.text')),
+      h('div', { class: 'actions', style: 'margin-top:0' }, h('button', { class: 'btn acc', onclick: () => openChat('rh') }, tr('rh.talk')))), importCard());
+    return box;
+  }
+  function firstRunCard() {
+    return h('div', { class: 'card' }, h('b', {}, tr('rh.firstrun.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('rh.firstrun.text')),
+      h('div', { class: 'actions', style: 'margin-top:0' }, h('button', { class: 'btn acc', onclick: startWithRh }, tr('rh.start'))));
   }
 
   // ------------------------------------------------------------------ conversation (the first tab: the chief by default)
@@ -292,7 +352,7 @@
     stripEl.append(h('span', { class: 'dim small' }, tr('chat.working')), h('button', { class: 'link', onclick: () => { tab = 'progress'; render(); } }, tr('prog.see')));
     for (const m of act) stripEl.append(h('span', { class: 'chipw' }, h('i'), m.name + (m.title ? ' · ' + m.title : '')));
   }
-  function renderChatTab() { const s = $('s-chat'); clear(s); if (tab === 'chat') renderChat(s); }
+  function renderChatTab() { const s = $('s-chat'); clear(s); if (tab === 'chat') { renderChat(s); if (members.length <= 2 && memberOf('rh') && chatWith === 'chief') s.prepend(firstRunCard()); } }
   function renderChat(s) {
     let m = memberOf(chatWith);
     if (!m) { chatWith = 'chief'; m = memberOf('chief'); }

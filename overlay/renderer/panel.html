@@ -165,6 +165,10 @@
   pre.cmd { background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: Consolas, "SF Mono", monospace; font-size: 12.5px; white-space: pre-wrap; word-break: break-all; user-select: all; }
   .sheet.legal { max-width: 440px; } .legal-list { margin: 8px 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.5; } .legal-list li { margin-bottom: 8px; }
   details.how.card summary { font-weight: 700; }
+  .prop .propitem { border-top: 1px solid var(--line); padding: 10px 0; } .prop .propitem:first-of-type { border-top: 0; }
+  .prop .detail { white-space: pre-wrap; max-height: 220px; overflow: auto; font-size: 12.5px; margin-top: 6px; }
+  .note.warn { color: var(--warn); font-weight: 600; }
+  .prop .propitem label.switch { align-items: flex-start; } .prop .pname { flex: 1; min-width: 0; line-height: 1.35; } .prop .pname .badge-lead { margin-left: 6px; white-space: nowrap; }
   .banner.pace { background: var(--warn-soft); color: var(--warn); } .banner.pace b { display: block; margin-bottom: 3px; }
   .jobhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; } .jt { min-width: 0; } .jt b { display: block; }
   .card.recent { opacity: .85; }
@@ -229,7 +233,6 @@
 <script src="sprites.js"></script>
 <script src="office.js"></script>
 <script src="templates.js"></script>
-<script src="pack-previdenciario.js"></script>
 <script src="panel.js"></script>
 </body>
 </html>

@@ -58,23 +58,28 @@ tp = Office.buildPets({ subagents: [] }, [], false, [...members.slice(0, 2), { i
 assert.deepStrictEqual(tp.map((p) => p.id), ['S:chief', 'S:lider', 'S:fixo'], 'chief, then orchestrators, then pinned');
 assert.ok(Office.buildPets(state, [], false, []).some((p) => p.id === 'A:a'), 'without a team it falls back to the old characters');
 
-// the ready-made pack: 16 valid specialists, every rule the server enforces already holds
-const Pack = require('../renderer/pack-previdenciario.js'), Sprites = require('../renderer/sprites.js');
-assert.strictEqual(Pack.members.length, 16);
-assert.strictEqual(Pack.leads.length, 5, 'five orchestrators');
-const leadKeys = new Set(Pack.leads.map((l) => l.key));
-for (const m of Pack.members) assert.ok(leadKeys.has(m.team), 'every specialist belongs to a team: ' + m.name);
-for (const l of Pack.leads) assert.ok(Pack.members.some((m) => m.team === l.key), 'every orchestrator has a team: ' + l.name);
-assert.strictEqual(new Set([...Pack.members, ...Pack.leads].map((m) => m.name)).size, 21, 'names are unique');
-for (const m of [...Pack.members, ...Pack.leads]) {
+// the catalog the RH offers (clodfarm/catalog): 21 valid models, every rule the server enforces already holds
+const fs = require('fs'), path = require('path');
+const Cat = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'clodfarm', 'catalog', 'previdenciario.json'), 'utf8'));
+const Sprites = require('../renderer/sprites.js');
+const leads = Cat.entries.filter((e) => e.kind === 'lead'), specs = Cat.entries.filter((e) => e.kind === 'specialist');
+assert.strictEqual(specs.length, 16);
+assert.strictEqual(leads.length, 5, 'five coordinators');
+const leadKeys = new Set(leads.map((l) => l.team));
+for (const m of specs) assert.ok(leadKeys.has(m.team), 'every specialist belongs to a team: ' + m.name);
+for (const l of leads) assert.ok(specs.some((m) => m.team === l.team), 'every coordinator has a team: ' + l.name);
+assert.strictEqual(new Set(Cat.entries.map((m) => m.name)).size, 21, 'names are unique');
+assert.strictEqual(new Set(Cat.entries.map((m) => m.id)).size, 21, 'ids are unique');
+for (const m of Cat.entries) {
+  assert.ok(/^[a-z0-9][a-z0-9-]{0,30}$/.test(m.id), 'id: ' + m.id);
   assert.ok(m.name.length >= 1 && m.name.length <= 40 && m.title.length <= 60, 'name/title limits: ' + m.name);
   assert.ok(m.instructions.length > 80 && m.instructions.length <= 6000, 'instructions size: ' + m.name);
   assert.ok(['m', 'f'].includes(m.gender));
   assert.ok((m.gender === 'f' ? Sprites.STYLE_F : Sprites.STYLE_M).includes(m.look.style), 'hair style fits the gender: ' + m.name);
   assert.ok(m.look.prop == null || (m.look.prop >= 0 && m.look.prop <= 4));
   for (const k of ['hair', 'skin', 'suit']) assert.ok(/^#[0-9a-fA-F]{6}$/.test(m.look[k]), k + ' colour: ' + m.name);
-  assert.ok(!/senha|login/i.test(m.instructions) || /nunca|não|nao/i.test(m.instructions), 'no specialist is told to log in: ' + m.name);
+  assert.ok(!/senha|login/i.test(m.instructions) || /nunca|não|nao/i.test(m.instructions), 'no model is told to log in: ' + m.name);
 }
-assert.ok(Pack.members.filter((m) => m.gender === 'f').length >= 6 && Pack.members.filter((m) => m.gender === 'm').length >= 6, 'a mixed team');
-assert.ok(Pack.chief.length <= 6000);
+assert.ok(specs.filter((m) => m.gender === 'f').length >= 6 && specs.filter((m) => m.gender === 'm').length >= 6, 'a mixed team');
+assert.ok(Cat.chief.length <= 6000);
 console.log('ok');

@@ -73,7 +73,7 @@ Ele faz, nesta ordem (e mostra cada passo):
 2. **baixa a nossa imagem do escritório** (de 2 a 4 minutos na primeira vez);
 3. **liga o escritório** e cria a pasta de entregas (`Documentos/Escritório Digital`);
 4. confere a **conta Claude** (veja 🧍 abaixo);
-5. monta a **equipe padrão** na primeira vez (a chefe, 5 coordenações e 16 especialistas; se a pessoa já tem equipe, ela é mantida) e **mostra os funcionários** sobre a barra de tarefas (ou o Dock).
+5. cria o **RH** (a Helena: quem monta e cuida da equipe) e **mostra os funcionários** sobre a barra de tarefas (ou o Dock). A instalação **não monta equipe pronta**: quem a monta é a pessoa, conversando com o RH, que entrevista, propõe e só contrata com o OK dela. Se a pessoa já tem equipe, ela é mantida e só o RH é acrescentado.
 
 **🧍 Conta Claude.** O escritório usa o **plano Claude da própria pessoa** (Pro ou Max). Se faltar o login, o comando para com o código **3** e mostra o que fazer: a pessoa roda `docker exec -it clodfarm clodfarm login`, abre o endereço que aparece, aprova e **cola o código de volta**. (Se o terminal for interativo, o comando já abre isso sozinho.) Depois **rode `instalar` de novo**: ele continua de onde parou. Avise que os agentes gastam o plano dela e que o sistema para em 80% do uso semanal e 85% das 5 horas.
 
@@ -86,8 +86,9 @@ Na primeira vez o `npm install` do aplicativo dos funcionários leva de 1 a 2 mi
 ## 4. Conferir e entregar
 
 1. `node scripts/escritorio.mjs verificar`: tudo precisa estar ✔.
-2. **Teste curto com dados fictícios:** clique na Marina (a chefe) e peça *"Organize um índice de documentos de um caso fictício"*. Ela mostra um plano; a pessoa clica **Começar**; ao terminar, o funcionário chama com "!"; ela lê e **aprova**. Confira que o arquivo apareceu na pasta de entregas.
-3. Explique em poucas linhas:
+2. **Monte a equipe com o RH:** na aba Conversa, o botão "Montar a minha equipe" abre a conversa com o RH. Ele faz de 4 a 6 perguntas, e a proposta (quem contratar, com cargo, instruções e um teste sugerido) aparece na aba **Equipe**: a pessoa lê, desmarca o que não quer e clica **Aprovar selecionados**. Ela também pode **importar um prompt ou uma skill** que já tenha (aba Equipe): o RH adapta e propõe.
+3. **Teste curto com dados fictícios:** clique na Marina (a chefe) e peça *"Organize um índice de documentos de um caso fictício"*. Ela mostra um plano; a pessoa clica **Começar**; ao terminar, o funcionário chama com "!"; ela lê e **aprova**. Confira que o arquivo apareceu na pasta de entregas.
+4. Explique em poucas linhas:
    - Clique em qualquer funcionário para conversar; a chefe encaminha para quem sabe.
    - **Nada é enviado a ninguém e nada entra no projeto sem a aprovação dela.**
    - Os conectores do Google (Drive, Gmail, Agenda) vêm **desligados**; dá para liberar em Ajustes, só leitura.

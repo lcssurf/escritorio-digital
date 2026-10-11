@@ -30,7 +30,7 @@ const OVERLAY = path.join(ROOT, 'overlay');
 // A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
 // Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
 // A versão do projeto (arquivo VERSION) é também a etiqueta da imagem: código e imagem andam sempre juntos.
-const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.1.1'; } })();
+const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.2.0'; } })();
 const IMAGE = process.env.ESCRITORIO_IMAGE || `ghcr.io/lcssurf/escritorio-digital:${VERSION}`;
 const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';
@@ -198,31 +198,14 @@ function login() {
 async function equipe() {
   const token = overlayToken();
   if (!token) return bad('O escritório não está ligado', 'Rode: node scripts/escritorio.mjs iniciar');
-  const pack = createRequire(import.meta.url)(path.join(OVERLAY, 'renderer', 'pack-previdenciario.js'));
-  let list = await api('/api/team', { token });
-  // A equipe da pessoa é dela: só montamos a equipe padrão quando ela ainda não tem ninguém além da chefe.
-  // Depois disso nunca mexemos (nem na instalação repetida, nem na atualização).
-  const temEquipe = list.some((x) => x.id !== 'chief');
-  if (temEquipe && !flag('completar') && !flag('redefinir')) return ok(`Equipe mantida como está (${list.length} pessoas). Nada foi alterado.`);
-  if (flag('redefinir') && !flag('sim')) return bad('Isto SOBRESCREVE a configuração dos especialistas do pacote padrão (edições suas nesses nomes se perdem)', 'Se é isso mesmo, rode de novo com: equipe --redefinir --sim. Para só acrescentar quem estiver faltando, use: equipe --completar');
-  const soAcrescentar = !flag('redefinir');   // --completar: cria só quem não existe; --redefinir --sim: reescreve
-  const find = (m) => list.find((x) => x.name === m.name && (x.title || '') === (m.title || ''));
-  const send = async (body) => { list = await api('/api/team', { method: 'POST', body, token }); };
-  const chief = list.find((x) => x.id === 'chief');
-  if (chief && (!chief.instructions || flag('redefinir'))) await send({ ...chief, instructions: pack.chief });
-  const leadId = {};
-  for (const l of pack.leads) {
-    const { key, team, ...body } = l; const cur = find(l);
-    if (cur && soAcrescentar) { leadId[key] = cur.id; continue; }
-    await send({ ...body, lead: true, parent: 'chief', ...(cur ? { id: cur.id } : {}) });
-    leadId[key] = find(l).id;
-  }
-  for (const m of pack.members) {
-    const { team, ...body } = m; const cur = find(m);
-    if (cur && soAcrescentar) continue;
-    await send({ ...body, lead: false, parent: leadId[team], ...(cur ? { id: cur.id } : {}) });
-  }
-  return ok(`Equipe pronta: ${list.length} pessoas (a chefe, ${pack.leads.length} coordenações e ${pack.members.length} especialistas)`);
+  // A equipe da pessoa é dela. O que a instalação faz é garantir o RH (a pessoa que monta e cuida da equipe): se ele ainda
+  // não existe, é criado; se existe, nada é tocado. Ninguém mais é criado, alterado ou removido por aqui.
+  const antes = await api('/api/team', { token });
+  const temRh = antes.some((x) => x.id === 'rh');
+  await api('/api/team/rh', { method: 'POST', body: {}, token });
+  const depois = await api('/api/team', { token });
+  if (temRh) return ok(`Equipe mantida como está (${depois.length} pessoas). Nada foi alterado.`);
+  return ok(`RH pronto (Helena): é quem monta e cuida da equipe. Hoje a equipe tem ${depois.length} pessoas; converse com o RH no painel para montar o resto.`);
 }
 
 // ---------------------------------------------------------------- abrir / início automático
@@ -336,7 +319,7 @@ async function atualizar() {
   }
   fecharFuncionarios(); await sleep(1500);
   if (!abrir()) return false;
-  say('\nAtualizado. A equipe que você editou não foi alterada. A sua equipe nunca é alterada pela atualização. Para trazer só os especialistas novos do pacote padrão: node scripts/escritorio.mjs equipe --completar');
+  say('\nAtualizado. A equipe que você editou não foi alterada. A sua equipe nunca é alterada pela atualização. Se a sua equipe ainda não tem o RH, rode: node scripts/escritorio.mjs equipe (só acrescenta o RH; ninguém é alterado)');
   return true;
 }
 

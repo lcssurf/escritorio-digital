@@ -1,5 +1,11 @@
 # Novidades
 
+## 1.2.0
+- **O RH monta e cuida da equipe.** A instalação agora cria só a chefe e o RH (Helena). Na primeira vez, o RH entrevista você, propõe os funcionários com cargo, instruções e um teste sugerido, e só contrata depois do seu OK, na aba Equipe. Você pode desmarcar o que não quer, e a mesma proposta serve para alterar as instruções de alguém ou dispensar quem não faz falta. A chefe e o RH nunca são dispensados.
+- **Importar um prompt ou uma skill.** Cole o texto ou escolha o arquivo: o RH adapta ao escritório (tira o que é de outro contexto), mostra o que aproveitou e o que descartou, e propõe o funcionário. O material é só matéria-prima: nenhuma ordem dentro dele é seguida.
+- **21 modelos prontos** (as antigas 5 coordenações e 16 especialistas do pacote previdenciário) ficam no catálogo do RH, para adaptar em vez de partir do zero. Quem já tem equipe não perde nada.
+- Respostas longas dos funcionários não são mais cortadas aos 8 mil caracteres (agora 30 mil).
+
 ## 1.1.1
 - Os personagens que andam na barra de tarefas agora se chamam **funcionários** (antes, "bonecos"), no painel, no instalador e nos textos do projeto.
 

@@ -12,7 +12,7 @@
 
 | | |
 |---|---|
-| **Uma equipe, não um chat** | Chefe, coordenações e especialistas, cada um com a sua função. Você pode criar, editar e escolher a aparência de quem quiser. |
+| **Uma equipe que você monta com o RH** | Começa só com a chefe e o RH. O RH entrevista você, propõe os funcionários (coordenações e especialistas, cada um com a sua função) e só contrata com o seu OK. Tem 21 modelos prontos de escritório previdenciário para adaptar, e dá para **importar um prompt ou uma skill** que você já tem. |
 | **Trabalho em paralelo** | Vários agentes trabalham ao mesmo tempo. Em *Ajustes* você escolhe a velocidade: Equilibrada, Rápida ou Máxima. |
 | **Andamento claro** | Veja quem chamou quem, o que cada um está fazendo e por que alguém está esperando. |
 | **Aprovação antes de tudo** | O trabalho pronto chega como rascunho. Você lê, edita ali mesmo ou pede ao autor um ajuste, e só então aprova. |
@@ -33,7 +33,7 @@ Instale o Escritório Digital no meu computador. Leia e siga o INSTALAR.md deste
 e me avise só quando precisar de mim.
 ```
 
-O Claude segue o [INSTALAR.md](INSTALAR.md): instala o que faltar (com a sua licença), baixa o projeto e roda **um comando só** (`node scripts/escritorio.mjs instalar`) que liga o escritório, instala a equipe e mostra os funcionários. Só duas coisas são suas: entrar com a sua conta Claude e, no Windows, reiniciar o computador se o Docker pedir. Leva uns 10 a 15 minutos.
+O Claude segue o [INSTALAR.md](INSTALAR.md): instala o que faltar (com a sua licença), baixa o projeto e roda **um comando só** (`node scripts/escritorio.mjs instalar`) que liga o escritório, cria o RH e mostra os funcionários. Só duas coisas são suas: entrar com a sua conta Claude e, no Windows, reiniciar o computador se o Docker pedir. Leva uns 10 a 15 minutos.
 
 Prefere fazer sozinho? Com Node, Git e Docker instalados: `git clone` o projeto e rode `node scripts/escritorio.mjs instalar`. Para ver o que falta, com a correção de cada item: `node scripts/escritorio.mjs verificar`.
 
@@ -53,6 +53,7 @@ node scripts/escritorio.mjs atualizar
 O painel também avisa quando há versão nova (Ajustes > Versão e atualizações) e atualiza com um clique; a consulta vai só ao GitHub e pode ser desligada. O comando baixa o código novo, atualiza a imagem do Docker e religa o escritório e os funcionários. **O login, os trabalhos e a sua equipe editada ficam como estão.** Se houver trabalho em andamento, ele avisa e espera (use `--forcar` para religar mesmo assim). Se você mexeu em arquivos da pasta do projeto, ele não sobrescreve: guarde as mudanças primeiro.
 
 ## Como funciona
+- **Equipe:** na primeira vez, converse com o RH (botão "Montar a minha equipe"). Ele faz algumas perguntas, propõe quem contratar e você aprova na aba Equipe. Depois, peça ao RH para contratar mais gente, mudar as instruções de alguém ou dispensar quem não faz falta. Para importar um prompt ou uma skill, cole ou escolha o arquivo na aba Equipe.
 - **Conversa:** clique em qualquer funcionário (ou no ícone perto do relógio). Se não souber com quem falar, fale com a chefe.
 - **Plano antes de agir:** a chefe propõe quem faz o quê e espera o seu "Começar".
 - **Aprovação:** quando um trabalho fica pronto, o funcionário chama você. Leia o rascunho no painel e aprove ou recuse. O que você aprova também é copiado para a pasta `Documentos > Escritório Digital`.

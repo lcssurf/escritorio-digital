@@ -306,7 +306,7 @@ class Store:
         A parent whose sub-agents are still open goes to ``waiting``; it is re-queued
         (and resumed with their results) when the last one finishes."""
         mine = self._mine(worker)
-        fields, drop = {"result": result[-8000:], "finished": now()}, ("lease_until", "worker")
+        fields, drop = {"result": result[-30000:], "finished": now()}, ("lease_until", "worker")
         if not ok:
             task = self.get_task(tid) or {}
             status = "failed" if int(task.get("attempts", 1)) >= int(task.get("max_attempts", 3)) else "queued"

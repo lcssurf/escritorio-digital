@@ -49,7 +49,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, boards, boot, bots, browser, chat, connectors, dashboards, gitops, planner, policy, progress, scrub, sso, team
+from . import __version__, boards, boot, bots, browser, chat, connectors, dashboards, gitops, hiring, planner, policy, progress, rh, scrub, sso, team
 from . import mcp
 from .agents import AgentManager, room_note
 from .slack import SlackBridge
@@ -231,6 +231,7 @@ class FarmUI:
         self.stopping = threading.Event()
         self.team = team.Team(os.path.join(cfg.workspace, ".farm", "team.json"))
         self.chat = chat.Chat(os.path.join(cfg.workspace, ".farm", "chat.json"))
+        self.hiring = hiring.Hiring(os.path.join(cfg.workspace, ".farm", "hiring.json"))
         self.overlay_token()  # make the desktop overlay's secret now, so the install can read it
         self._state_cache: tuple[float, dict] | None = None
         self._views: dict[str, tuple[float, bytes, str]] = {}  # per viewer kind: (at, JSON, ETag)
@@ -394,6 +395,9 @@ class FarmUI:
             if status == "done":
                 waiting = t.get("landing") == "awaiting"
                 text, plan = chat.clean_reply(t.get("result")), None
+                if member == rh.RH_ID:
+                    text, _raw = hiring.split_block(text)
+                    text = text or "(veja a proposta na aba Equipe)"
                 if m.get("mode") == "plan":
                     text, plan = chat.split_plan(text, {x["id"] for x in self.team.all() if x["id"] != member})
                 self.chat.add_reply(member, m["id"], text or ("(veja o plano abaixo)" if plan else "(sem resposta)"), ok=True,
@@ -411,6 +415,77 @@ class FarmUI:
                 elif t.get("status") in ("failed", "cancelled", "denied") or not t:
                     self.chat.add_reply(member, m["id"], chat.clean_reply(t.get("result")) or "(não consegui concluir)", ok=False, kind="done")
                     self.chat.update_plan(member, m["id"], done=True)
+
+    # ------------------------------------------------------------ the RH: proposals to hire, change or let go, and imports
+    def hiring_scan(self):
+        """Read the finished jobs of the RH once each: a proposal in one of them becomes a card for the lawyer."""
+        for t in self.store.list_tasks("done", 40):
+            if t.get("specialist") != rh.RH_ID or self.hiring.seen(t["id"]):
+                continue
+            self.hiring.mark_seen(t["id"])
+            note, raw = hiring.split_block(chat.clean_reply(t.get("result")))
+            if raw is None:
+                continue
+            message, items, ignored = hiring.parse(raw, self.team.all())
+            if items:
+                self.hiring.add(t["id"], message, note, items, ignored, source=str(t.get("title") or "")[:80])
+                self.store.event("hiring.proposed", f"the RH proposed {len(items)} change(s) to the team", task=t["id"], by=rh.RH_ID)
+
+    def hiring_view(self) -> dict:
+        self.hiring_scan()
+        v = self.hiring.view()
+        names = {m["id"]: m["name"] for m in self.team.all()}
+        for p in v["pending"] + v["recent"]:
+            for it in p["items"]:
+                if it.get("id"):
+                    it["name"] = names.get(it["id"], it["id"])
+        return v
+
+    def hiring_decide(self, pid: str, approve: bool, selected=None, by: str = "manager") -> dict:
+        p = self.hiring.get(pid)
+        if not p or p.get("status") != "pending":
+            raise ValueError("that proposal was decided already")
+        if not approve:
+            self.hiring.decide(pid, "denied")
+            self.store.event("hiring.denied", f"team proposal {pid} was not approved", by=by)
+            return self.hiring_view()
+        idx = list(range(len(p["items"]))) if selected is None else selected
+        if not isinstance(idx, list) or not all(isinstance(i, int) and 0 <= i < len(p["items"]) for i in idx) or len(set(idx)) != len(idx) or not idx:
+            raise ValueError("choose at least one item of the proposal")
+        chosen = [p["items"][i] for i in sorted(idx)]
+        try:
+            results = self.team.apply_items(chosen)
+        except team.TeamError as e:
+            raise ValueError(str(e)) from e
+        self.hiring.decide(pid, "approved", results=results, chosen=sorted(idx))
+        self.office_guide()
+        self._views.clear()
+        self.store.event("hiring.approved", f"team proposal {pid}: " + ", ".join(f"{r['action']} {r['name']}" for r in results)[:300], by=by)
+        return self.hiring_view()
+
+    def hiring_import(self, text, source_name: str = "", note: str = "") -> dict:
+        """A prompt or skill the lawyer already has: handed to the RH to adapt and propose (it changes nothing by itself)."""
+        if not self.team.get(rh.RH_ID):
+            raise ValueError("the office has no RH yet: run `node scripts/escritorio.mjs equipe`")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("send the text of the prompt or skill")
+        if len(text) > 60000 or "\0" in text:
+            raise ValueError("that file is too large (the limit is 60,000 characters) or is not text")
+        name = " ".join(str(source_name or "").split())[:80]
+        t = self.store.add_task("Importar: " + (name or "material do advogado")[:60], rh.import_prompt(text.strip(), name, str(note or "")[:500]),
+                                created_by="overlay", owner=self.cfg.name, specialist=rh.RH_ID)
+        return {"id": t["id"]}
+
+    def ensure_rh(self) -> dict:
+        """The RH exists (created once, never changed after), and a chief with no instructions of her own gets the standard ones."""
+        member = self.team.add_fixed(rh.RH_ID, {"name": rh.RH_NAME, "title": rh.RH_TITLE, "gender": "f", "look": rh.RH_LOOK,
+                                                "instructions": rh.RH_INSTRUCTIONS, "parent": team.CHIEF})
+        chief = self.team.get(team.CHIEF)
+        if chief and not chief.get("instructions"):
+            self.team.upsert({**{k: chief.get(k) for k in ("name", "title", "gender", "look")}, "instructions": rh.CHIEF_INSTRUCTIONS,
+                              "lead": True, "pinned": True}, team.CHIEF)
+        self.office_guide()
+        return member
 
     def chat_settle_all(self):
         """Settle every conversation with a member of the team whose job has finished (the overlay asks every few seconds)."""
@@ -1552,6 +1627,10 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a person of this farm sees the team")
                     return self._json(ui.team.all())
+                if path == "/api/hiring":  # what the RH proposed and waits for the lawyer's OK
+                    if not who.manager:
+                        return self._err(403, "only the farm's person sees the RH's proposals")
+                    return self._json(ui.hiring_view())
                 if path == "/api/backup":  # the team and the speed, to save as a file
                     if not who.manager:
                         return self._err(403, "only the farm's person saves a backup")
@@ -1910,6 +1989,10 @@ def make_handler(ui: FarmUI):
                 if not who.manager:
                     return self._err(403, "only the farm's person talks to the team from here")
                 return self._json(ui.chat_send(m.group(1), data.get("text")))
+            if path == "/api/team/rh":   # the install makes sure the RH exists (idempotent)
+                if not who.manager:
+                    return self._err(403, "only the farm's person sets up the RH")
+                return self._json(ui.ensure_rh())
             if path == "/api/team" or re.fullmatch(r"/api/team/[a-z0-9-]{1,31}(/delete)?", path):
                 if not who.manager:
                     return self._err(403, "only the farm's person manages the team")
@@ -1925,6 +2008,15 @@ def make_handler(ui: FarmUI):
                     raise ValueError(str(e)) from e
                 ui.office_guide()
                 return self._json(ui.team.all())
+            if path == "/api/hiring/import":
+                if not who.manager:
+                    return self._err(403, "only the farm's person imports a prompt or a skill")
+                return self._json(ui.hiring_import(data.get("text"), str(data.get("name") or ""), str(data.get("note") or "")))
+            m = re.fullmatch(r"/api/hiring/(h[0-9a-f]{8})/(approve|deny)", path)
+            if m:
+                if not who.manager:
+                    return self._err(403, "only the farm's person decides on the RH's proposals")
+                return self._json(ui.hiring_decide(m.group(1), m.group(2) == "approve", data.get("items"), "manager"))
             if path == "/api/restore":
                 if not who.manager:
                     return self._err(403, "only the farm's person restores a backup")

@@ -16,6 +16,8 @@ import tempfile
 import threading
 import unicodedata
 
+from . import catalog, rh
+
 CHIEF = "chief"
 MAX_MEMBERS = 40
 ID_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
@@ -33,6 +35,11 @@ OFFICE_RULES = (
     "6. Conectores da conta do advogado (Google Drive, Gmail, Agenda) só existem para você se ele os liberou, e são somente leitura: "
     "consulte, nunca envie, apague, compartilhe ou altere nada.\n"
 )
+
+
+RH_HINT = ("\nCriar, mudar ou dispensar funcionários, e importar um prompt ou uma skill que o advogado já tem, é com o RH (id `rh`): "
+           "peça a ele com `clodfarm spawn \"<título>\" --specialist rh --prompt \"<o que o advogado quer>\"` e avise que a proposta "
+           "dele aparece na aba Equipe, para o advogado aprovar. Você não monta equipe sozinha.\n")
 
 
 class TeamError(ValueError):
@@ -219,6 +226,43 @@ class Team:
             self._write(sorted(out, key=lambda m: m["id"] != CHIEF))
         return len(out)
 
+    def add_fixed(self, mid: str, data: dict) -> dict:
+        """Create a member with a fixed id (the RH is always `rh`) if nobody has that id yet; an existing one is left alone."""
+        fields = clean_member(data)
+        with self._lock:
+            members = self._read()
+            cur = next((m for m in members if m["id"] == mid), None)
+            if cur:
+                return cur
+            fields = self._fit(fields, members, None)
+            if len(members) >= MAX_MEMBERS:
+                raise TeamError(f"the team is limited to {MAX_MEMBERS} people")
+            member = {"id": mid, **fields}
+            members.append(member)
+            self._write(members)
+            return member
+
+    def apply_items(self, items: list[dict]) -> list[dict]:
+        """Carry out approved proposals (hire, edit, dismiss) all together or not at all. Returns what each one did."""
+        from . import hiring
+        with self._lock:
+            members = self._read()
+            new, results = hiring.apply(members, items)
+            self._write(sorted(new, key=lambda m: m["id"] != CHIEF))
+            return results
+
+    def roster_all(self) -> str:
+        """Everybody (not only the chief's direct reports), for the RH, who needs the whole picture."""
+        lines = []
+        for m in self.all():
+            if m["id"] == CHIEF:
+                continue
+            gist = " ".join((m.get("instructions") or "").split())[:140]
+            boss = m.get("parent") or CHIEF
+            lines.append(f"- {m['id']}: {m['name']}, {m.get('title') or 'sem cargo'}" + (" (coordenação)" if m.get("lead") else "")
+                         + f", responde a {boss}" + (f". {gist}" if gist else ""))
+        return "\n".join(lines) or "(só a chefe e você)"
+
     def delete(self, mid: str):
         if mid == CHIEF:
             raise TeamError("the chief cannot be removed")
@@ -262,7 +306,7 @@ class Team:
             "equipe sabe fazer, com `clodfarm spawn \"<título>\" --specialist <id> --prompt \"<tarefa completa>\"`, e diga a ele o "
             "que disparou. Os resultados voltam para a aprovação dele no painel do escritório: nada entra no projeto sem o OK.\n\n"
             + OFFICE_RULES + ("\n" + chief["instructions"] + "\n" if chief.get("instructions") else "")
-            + "\n### Sua equipe (ids para o --specialist)\n" + self.roster(CHIEF) + "\n")
+            + "\n### Sua equipe (ids para o --specialist)\n" + self.roster(CHIEF) + "\n" + (RH_HINT if self.get(rh.RH_ID) else ""))
 
     def briefing(self, task: dict) -> str:
         """What a run for a team member is told on top of the farm guide (empty for any other sub-agent)."""
@@ -273,6 +317,8 @@ class Team:
         head = (f"\n## Quem você é\nVocê é {m['name']}" + (f", {m['title']}" if m.get("title") else "") +
                 f", do escritório de advocacia. Ao falar de si, use o {'feminino' if she else 'masculino'}.\n")
         own = "\n## Suas instruções\n" + m["instructions"] + "\n" if m.get("instructions") else ""
+        if m["id"] == rh.RH_ID:   # the RH needs the whole team, the catalog and the format of a proposal
+            return head + OFFICE_RULES + own + rh.briefing_extras(self.roster_all(), catalog.index_text())
         if m.get("lead"):   # the chief and the leads coordinate a team
             boss = "chefe do escritório" if m["id"] == CHIEF else "coordenação"
             return (head + OFFICE_RULES + own + "\n## Sua equipe\n" + self.roster(m["id"]) + "\n\n## Como delegar\n"
@@ -281,5 +327,6 @@ class Team:
                     "Eles trabalham em paralelo, cada um na sua branch. Se uma etapa depende da outra, faça em rodadas: "
                     "espere a anterior terminar. Quando terminarem, você é retomado: junte as branches, confira o conjunto e "
                     "entregue um resumo claro do que foi feito e do que precisa de conferência.\n"
-                    "Se a tarefa for pequena, faça você mesmo. Use só os ids da lista acima.\n")
+                    "Se a tarefa for pequena, faça você mesmo. Use só os ids da lista acima.\n"
+                    + (RH_HINT if m["id"] == CHIEF and self.get(rh.RH_ID) else ""))
         return head + OFFICE_RULES + "\n## Suas instruções\n" + (m.get("instructions") or "(sem instruções específicas: faça o melhor trabalho dentro das regras)") + "\n"

@@ -313,6 +313,21 @@ def cmd_spawn(cfg, a):
     return 0
 
 
+def cmd_catalog(cfg, a):
+    """The ready-made models the RH can offer (read-only)."""
+    from . import catalog
+    if a.what == "show":
+        text = catalog.show_text(a.id or "")
+        if not text:
+            print(f"no model called {a.id!r}; `clodfarm catalog list` shows them", file=sys.stderr)
+            return 1
+        print(text)
+        return 0
+    es = catalog.entries()
+    _out([{k: e.get(k) for k in ("id", "kind", "team", "name", "title")} for e in es], a.json, catalog.index_text())
+    return 0
+
+
 def cmd_subagents(cfg, a):
     store = _store(cfg)
     ts = store.list_tasks("running") + store.list_tasks("waiting") + store.list_tasks("queued", 50)
@@ -1625,6 +1640,9 @@ def main(argv=None):
     sw.add_argument("--specialist", help="give it to this member of the office's team (their id), so it works as them")
     sw.add_argument("--parent", help="make it the sub-agent of this one (default inside a sub-agent: $FARM_TASK_ID)")
     sw.add_argument("--detach", action="store_true", help="inside a sub-agent: start it on its own, not as your child")
+    ct = add("catalog", cmd_catalog, "ready-made team models the RH can adapt (list, or show <id>)")
+    ct.add_argument("what", nargs="?", choices=["list", "show"], default="list")
+    ct.add_argument("id", nargs="?")
     sl = add("subagents", cmd_subagents, "the sub-agents running and waiting")
     sl.add_argument("--all", action="store_true", help="also the recently finished ones")
     sl.add_argument("--mine", action="store_true", help="only the ones this Claude started")

@@ -2,6 +2,12 @@
 
 Um escritório de advocacia com agentes de IA. Bonecos em pixel-art vivem sobre a barra de tarefas (Windows) ou o Dock (macOS): uma chefe, coordenações e especialistas. Você conversa com a chefe, ela encaminha para quem sabe, mostra o plano antes de começar, e **nada entra no projeto nem sai do escritório sem a sua aprovação**.
 
+<p align="center">
+  <img src="docs/media/demo-pt-BR.gif" alt="Os bonecos na barra de tarefas, o painel com a conversa, o andamento em paralelo, e o leitor onde você edita ou pede um ajuste antes de aprovar" width="860">
+</p>
+
+<sub>Gravado com dados fictícios. [Vídeo em MP4](docs/media/demo-pt-BR.mp4) · [English version (GIF)](docs/media/demo-en.gif)</sub>
+
 ## Instalar: peça ao Claude
 
 Abra o Claude (Claude Code, no app ou no terminal) e cole:

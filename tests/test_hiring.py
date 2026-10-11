@@ -200,7 +200,7 @@ def test_a_name_that_is_taken_gets_its_own_id(fui):
 def test_the_proposal_block_is_not_shown_in_the_chat_with_the_rh(fui):
     fui.chat_send("rh", "monte a minha equipe")
     job = fui.store.claim_next("w@box/w0", 300, agent=None)
-    assert job["specialist"] == "rh" and "Helena" in job["prompt"]
+    assert job["specialist"] == "rh" and "Teresa" in job["prompt"]
     fui.store.finish(job["id"], "w@box/w0", True, block([hire()]), 5)
     msgs = fui.chat_view("rh")["messages"]
     reply = [m for m in msgs if m["role"] == "assistant"][0]["text"]

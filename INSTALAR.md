@@ -73,7 +73,7 @@ Ele faz, nesta ordem (e mostra cada passo):
 2. **baixa a nossa imagem do escritório** (de 2 a 4 minutos na primeira vez);
 3. **liga o escritório** e cria a pasta de entregas (`Documentos/Escritório Digital`);
 4. confere a **conta Claude** (veja 🧍 abaixo);
-5. cria o **RH** (a Helena: quem monta e cuida da equipe) e **mostra os funcionários** sobre a barra de tarefas (ou o Dock). A instalação **não monta equipe pronta**: quem a monta é a pessoa, conversando com o RH, que entrevista, propõe e só contrata com o OK dela. Se a pessoa já tem equipe, ela é mantida e só o RH é acrescentado.
+5. cria o **RH** (a Teresa: quem monta e cuida da equipe) e **mostra os funcionários** sobre a barra de tarefas (ou o Dock). A instalação **não monta equipe pronta**: quem a monta é a pessoa, conversando com o RH, que entrevista, propõe e só contrata com o OK dela. Se a pessoa já tem equipe, ela é mantida e só o RH é acrescentado.
 
 **🧍 Conta Claude.** O escritório usa o **plano Claude da própria pessoa** (Pro ou Max). Se faltar o login, o comando para com o código **3** e mostra o que fazer: a pessoa roda `docker exec -it clodfarm clodfarm login`, abre o endereço que aparece, aprova e **cola o código de volta**. (Se o terminal for interativo, o comando já abre isso sozinho.) Depois **rode `instalar` de novo**: ele continua de onde parou. Avise que os agentes gastam o plano dela e que o sistema para em 80% do uso semanal e 85% das 5 horas.
 

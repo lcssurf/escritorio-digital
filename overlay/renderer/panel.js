@@ -29,7 +29,7 @@
       { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', instructions: 'Organize documentos por tipo e caso.', look: { style: 'long', prop: 1 } },
       { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', instructions: 'Vigie prazos.', look: { style: 'beard', prop: 4 } }];
     if (q.has('firstrun')) M.splice(1);
-    M.push({ id: 'rh', name: 'Helena', title: 'Recursos Humanos', gender: 'f', lead: false, parent: 'chief', instructions: 'Você é o RH do escritório: monta e cuida da equipe.', look: { style: 'long', prop: 1, glasses: true } });
+    M.push({ id: 'rh', name: 'Teresa', title: 'Recursos Humanos', gender: 'f', lead: false, parent: 'chief', instructions: 'Você é o RH do escritório: monta e cuida da equipe.', look: { style: 'long', prop: 1, glasses: true } });
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
     const REV = { messages: [], pending: false };
     const mockReview = (m, p, b) => {

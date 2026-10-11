@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.3.1
+- O RH agora se chama **Teresa** (antes, Helena), para não se confundir com a Helena da coordenação INSS do catálogo.
+
 ## 1.3.0
 - **Quem é quem, num relance.** Cada equipe veste uma cor (todos de uma coordenação iguais) e leva um crachá com o desenho da equipe; cada cargo tem o seu acessório (fone, viseira verde, lápis na orelha, óculos redondos, gravata-borboleta, cachecol, boné, coração, coroa, monóculo); a chefe usa coroa e dragonas douradas, as coordenações dragonas prateadas. O nome de cada um aparece sempre numa plaquinha com a cor da equipe, e há um anel da cor da equipe no chão. A chefe e as coordenações são um pouco maiores.
 - **Muito mais variedade:** 8 penteados para cada gênero (raspado, cacheado, careca, bigode, black power, chanel, trança, ondulado), mais tons de pele e de cabelo, porte robusto e acessórios.

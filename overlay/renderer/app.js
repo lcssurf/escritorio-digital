@@ -21,7 +21,7 @@
     const state = { agents: [{ id: 'clodfarm', name: 'Chefe', loggedIn: true, running: 1 }, { id: 'ana', name: 'Ana', loggedIn: true, running: 0 }, { id: 'rui', name: 'Rui', loggedIn: true, running: 0 }],
       subagents: [{ id: 'task-docs', title: 'Organizar documentos do caso Exemplo', status: 'running' }, { id: 'task-draft', title: 'Minuta da inicial (fictícia)', status: 'running' }] };
     const members = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', lead: true, look: { style: 'bun', glasses: true } },
-      { id: 'rh', name: 'Helena', title: 'Recursos Humanos', gender: 'f', pinned: true, parent: 'chief', look: { style: 'wavy', skin: '#a86b45' } },
+      { id: 'rh', name: 'Teresa', title: 'Recursos Humanos', gender: 'f', pinned: true, parent: 'chief', look: { style: 'wavy', skin: '#a86b45' } },
       { id: 'c-inss', name: 'Sofia', title: 'Coordenação INSS', gender: 'f', lead: true, parent: 'chief', look: { style: 'braid', skin: '#f6d0a4' } },
       { id: 'c-docs', name: 'Beatriz', title: 'Coordenação Documentos', gender: 'f', lead: true, parent: 'chief', look: { style: 'curly', skin: '#8d5a3a' } },
       { id: 'c-cli', name: 'Fernando', title: 'Coordenação Cliente', gender: 'm', lead: true, parent: 'chief', look: { style: 'mustache', skin: '#e8b685' } },

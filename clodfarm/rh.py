@@ -27,7 +27,7 @@ CHIEF_INSTRUCTIONS = (
     "escritório), saidas/ (o que a equipe entrega). Tudo é rascunho para o advogado conferir."
 )
 
-RH_NAME, RH_TITLE = "Helena", "Recursos Humanos"
+RH_NAME, RH_TITLE = "Teresa", "Recursos Humanos"
 RH_LOOK = {"style": "wavy", "kit": 8, "skin": "#a86b45", "hair": "#2a2230"}
 
 RH_INSTRUCTIONS = (

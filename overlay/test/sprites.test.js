@@ -18,7 +18,7 @@ const draws = (lk, state, f) => { const c = fakeCtx(); S.draw(c, lk, state || 'i
 
 // ---- a team: coordinators open colours, the people under them wear them
 const M = [
-  { id: 'chief', name: 'Marina', lead: true }, { id: 'rh', name: 'Helena', parent: 'chief' },
+  { id: 'chief', name: 'Marina', lead: true }, { id: 'rh', name: 'Teresa', parent: 'chief' },
   { id: 'l1', name: 'A', lead: true, parent: 'chief' }, { id: 'l2', name: 'B', lead: true, parent: 'chief' }, { id: 'l3', name: 'C', lead: true, parent: 'chief' },
   { id: 's1', name: 'D', parent: 'l1' }, { id: 's2', name: 'E', parent: 'l1' }, { id: 's3', name: 'F', parent: 'l2' }, { id: 's4', name: 'G', parent: 'chief' },
 ];

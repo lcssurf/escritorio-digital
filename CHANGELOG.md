@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.4.0
+- **Animais de verdade.** O estilo Animais foi refeito: agora são bichinhos cartoon fofos (gato, cachorro, coelho, raposa, panda, pinguim, coruja e guaxinim), de quatro patas (pinguim e coruja em pé), com cabeça grande e olhos brilhantes, e não mais pessoas com cabeça de bicho. A equipe veste um **colete e uma bandana** na cor da equipe (dourado para a chefe, com medalha prateada nas coordenações), e cada cargo usa o seu acessório na cabeça. Sentam-se na almofada para trabalhar, enrolam-se no sofá para dormir e pulam quando uma entrega é aprovada.
+
 ## 1.3.1
 - O RH agora se chama **Teresa** (antes, Helena), para não se confundir com a Helena da coordenação INSS do catálogo.
 

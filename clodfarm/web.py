@@ -49,7 +49,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from . import __version__, boards, boot, bots, browser, chat, connectors, dashboards, gitops, planner, policy, scrub, sso, team
+from . import __version__, boards, boot, bots, browser, chat, connectors, dashboards, gitops, planner, policy, progress, scrub, sso, team
 from . import mcp
 from .agents import AgentManager, room_note
 from .slack import SlackBridge
@@ -301,6 +301,60 @@ class FarmUI:
         self.store.event("connectors.changed", "connectors let in for the office: " + (", ".join(wanted) or "none"), by="ui")
         self._views.clear()
         return self.claude_connectors()
+
+    def _pace(self) -> dict:
+        """Why jobs may be waiting for a free place, in numbers (the panel writes the sentence)."""
+        from .cli import _seats
+        from .governor import SPEEDS, explain
+        rows = [r for r in _seats(self.cfg, self.store) if not r["seat"].startswith("bot-")]
+        r = rows[0] if rows else None
+        speed = self.store.settings().get("speed") or "balanced"
+        if not r:
+            return {"limited": False, "speed": speed, "speeds": list(SPEEDS)}
+        d, pol = r["decision"], r["policy"]
+        limited = d.workers < pol.max_workers
+        code = "none"
+        if limited:
+            code = "week" if "week" in d.reason else "five" if "5-hour" in d.reason else "stopped" if d.workers == 0 else "other"
+        return {"limited": limited, "code": code, "workers": d.workers, "max": pol.max_workers, "speed": speed, "speeds": list(SPEEDS),
+                "pause_until": d.pause_until, **explain(r["snapshot"], pol, now())}
+
+    def _job_view(self, top: dict, steps_limit: int) -> dict:
+        nodes = progress.tree(self.store, top["id"])
+        for n in nodes:
+            m = self.team.get(n.get("specialist"))
+            n["name"], n["title_role"] = (m["name"], m.get("title") or "") if m else ("", "")
+        ids = {n["id"] for n in nodes}
+        st = progress.steps(self.store, ids, steps_limit)
+        return {"id": top["id"], "title": top.get("title"), "status": top.get("status"), "specialist": top.get("specialist"),
+                "created": top.get("created"), "started": top.get("started"), "finished": top.get("finished"),
+                "landing": top.get("landing"), "nodes": nodes, "steps": st}
+
+    def progress(self) -> dict:
+        """The jobs in progress (and a few that just finished), each with the people it called and its latest steps."""
+        tops = []
+        for s in ("running", "waiting", "queued"):
+            tops += [t for t in self.store.list_tasks(s, 60) if not t.get("parent")]
+        tops.sort(key=lambda t: float(t.get("created") or 0))
+        recent = [t for t in self.store.list_tasks("done", 30) if not t.get("parent")
+                  and now() - float(t.get("finished") or t.get("updated") or 0) < 3 * 3600][:4]
+        return {"now": now(), "pace": self._pace(), "jobs": [self._job_view(t, 25) for t in tops],
+                "recent": [self._job_view(t, 8) for t in recent]}
+
+    def progress_detail(self, tid: str, limit: int) -> dict:
+        t = self.store.get_task(tid)
+        if not t or t.get("parent"):
+            raise ValueError("no such job")
+        return {"now": now(), "pace": self._pace(), "job": self._job_view(t, limit)}
+
+    def set_speed(self, mode: str) -> dict:
+        from .governor import SPEEDS
+        if mode not in SPEEDS:
+            raise ValueError("speed must be one of " + ", ".join(SPEEDS))
+        self.store.set_settings(speed=mode)
+        self.store.event("speed.changed", f"office speed set to {mode}", by="ui")
+        self._views.clear()
+        return self._pace()
 
     def office_guide(self):
         """The chief's conversation guide in the CLAUDE.md every session reads: rewritten when the team changes."""
@@ -1295,6 +1349,23 @@ def make_handler(ui: FarmUI):
                         return self._json(ui.landing_file(m.group(1), q.get("path") or ""))
                     except ValueError as e:
                         return self._err(400, str(e))
+                if path == "/api/progress":  # what is going on inside the jobs
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm follows the jobs")
+                    return self._json(ui.progress())
+                m = re.fullmatch(r"/api/progress/([A-Za-z0-9]{6,40})", path)
+                if m:
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm follows the jobs")
+                    q = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
+                    try:
+                        limit = int(q.get("limit") or 80)
+                    except ValueError:
+                        limit = 80
+                    try:
+                        return self._json(ui.progress_detail(m.group(1), max(1, min(limit, progress.LIMIT_STEPS))))
+                    except ValueError as e:
+                        return self._err(404, str(e))
                 m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})", path)
                 if m:  # the conversation with one member of the team
                     if not who.manager:
@@ -1662,6 +1733,10 @@ def make_handler(ui: FarmUI):
                     raise
                 store.event("owner.account", f"{who.owner}'s person set a username to sign in with", by="ui")
                 return self._json({"username": acct[0]})
+            if path == "/api/speed":   # how fast the office may work (it paces the use of the Claude plan)
+                if not who.manager:
+                    return self._err(403, "only the farm's person sets the speed")
+                return self._json(ui.set_speed(str(data.get("mode") or "")))
             m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})/plan/(\d{1,9})/(start|cancel)", path)
             if m:
                 if not who.manager:

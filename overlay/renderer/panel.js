@@ -8,7 +8,7 @@
   let office = window.office, dicts = null, cfg = { lang: q.get('lang') || 'pt-BR', sound: true, url: 'http://localhost:8080', hasToken: true };
   let tab = q.get('tab') || '', focusId = q.get('id') || '';
   let chatWith = 'chief'; const chatDraft = {};
-  let viewing = null;
+  let viewing = null, prog = null, progOpen = '', progDetail = null, showRaw = false;
   let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
@@ -28,9 +28,19 @@
       { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', instructions: 'Organize documentos por tipo e caso.', look: { style: 'long', prop: 1 } },
       { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', instructions: 'Vigie prazos.', look: { style: 'beard', prop: 4 } }];
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
+    const NOW = Date.now() / 1000;
+    const PROG = { now: NOW, pace: { limited: true, code: 'week', workers: 1, max: 3, speed: 'balanced', speeds: ['balanced', 'fast', 'max'], week_used: 0.18, week_allowed: 0.14 },
+      jobs: [{ id: 'jobA1', title: 'Plano: Analisar a viabilidade do caso fictício da dona Maria', status: 'waiting', specialist: 'chief', created: NOW - 400, started: NOW - 390, finished: null, landing: null,
+        nodes: [{ id: 'jobA1', title: 'Plano', status: 'waiting', specialist: 'chief', started: NOW - 390, depth: 0, name: 'Marina', title_role: 'Chefe do escritório' },
+          { id: 'k1', title: 'Documentos', status: 'done', specialist: 'ana', started: NOW - 380, finished: NOW - 290, depth: 1, name: 'Ana', title_role: 'Documentos' },
+          { id: 'k2', title: 'Prazos', status: 'running', specialist: 'bruno', started: NOW - 280, depth: 1, name: 'Bruno', title_role: 'Prazos' },
+          { id: 'k3', title: 'Viabilidade', status: 'queued', specialist: 'ana', started: null, depth: 1, name: 'Ana', title_role: 'Documentos' }],
+        steps: [{ at: NOW - 300, task: 'jobA1', cat: 'call', arg: 'Documentos: Maria (fictício)', who: 'ana', text: 'Bash: clodfarm spawn ...' }, { at: NOW - 200, task: 'k2', cat: 'read', arg: 'clientes/maria-exemplo/inventario.md', text: 'Read: x' },
+          { at: NOW - 120, task: 'k2', cat: 'compute', arg: '', text: 'Bash: python3 -' }, { at: NOW - 40, task: 'k2', cat: 'write', arg: 'saidas/prazos/maria.md', text: 'Write: saidas/prazos/maria.md' }, { at: NOW - 12, task: 'k2', cat: 'say', arg: 'Montei a lista de prazos; falta conferir a data provável do parto.', text: 'x' }] }],
+      recent: [] };
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
-      api: async (m, p, b) => p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      api: async (m, p, b) => p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
       getConfig: async () => ({ ...cfg, onboarded: !q.has('tour') }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, quit() {}, togglePets() {}, broadcast() {},
@@ -49,6 +59,7 @@
     team: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.2a3 3 0 0 0-2.2-2.9"/><path d="M15.5 5.2a3.2 3.2 0 0 1 0 5.6"/>',
     approvals: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.3 9.5"/>',
     chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/>',
+    progress: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   };
   function icon(name) { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = ICONS[name]; return s; }
@@ -60,7 +71,8 @@
   }
   function ago(sec, nowSec) {
     const d = Math.max(0, (nowSec || Date.now() / 1000) - sec);
-    if (d < 60) return tr('time.now');
+    if (d < 10) return tr('time.now');
+    if (d < 60) return tr('time.sec', { n: Math.floor(d) });
     if (d < 3600) return tr('time.min', { n: Math.floor(d / 60) });
     return tr('time.h', { n: Math.floor(d / 3600) });
   }
@@ -68,16 +80,19 @@
 
   // ------------------------------------------------------------------ data
   async function refresh(force) {
-    const [ld, st, tm] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state'), office.api('GET', '/api/team')]);
+    const [ld, st, tm, pg] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state'), office.api('GET', '/api/team'), office.api('GET', '/api/progress')]);
     if (tm.ok && Array.isArray(tm.data)) members = tm.data;
+    if (pg.ok && pg.data) prog = pg.data;
+    if (progOpen && prog && prog.jobs.concat(prog.recent || []).some((j) => j.id === progOpen)) loadDetail(progOpen);
     offline = !st.ok && st.status === 0;
     authErr = ld.status === 401 || ld.status === 403;
     landings = ld.ok && Array.isArray(ld.data) ? ld.data : [];
     farm = st.ok ? st.data : null;
-    const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), members, offline, authErr, [...confirmDeny], [...busy]]);
+    const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), members, offline, authErr, prog && [prog.pace, prog.jobs.map((j) => [j.id, j.status, j.nodes.map((n) => n.status), (j.steps[j.steps.length - 1] || {}).at]), Math.floor(((prog.now) || 0) / 10)], progDetail && (progDetail.job.steps.slice(-1)[0] || {}).at, [...confirmDeny], [...busy]]);
     if (!force && sig === lastSig) return;
     lastSig = sig;
     if (!tab) tab = 'chat';
+    if (tab === 'progress') { renderChrome(); renderProgress(); return; }
     if (tab === 'chat' || tab === 'settings' || editing) { renderChrome(); if (tab === 'chat') paintStrip(); return; } // never wipe what is being typed
     render();
   }
@@ -101,12 +116,13 @@
       h('div', { class: 'tile' }, h('b', {}, running), h('span', {}, tr('sum.working'))),
       h('div', { class: 'tile' }, h('b', {}, team), h('span', {}, tr('sum.team'))));
     const nav = $('nav'); clear(nav);
-    for (const [id, key] of [['chat', 'nav.chat'], ['team', 'nav.team'], ['approvals', 'nav.approvals'], ['settings', 'nav.settings']]) {
+    for (const [id, key] of [['chat', 'nav.chat'], ['progress', 'nav.progress'], ['team', 'nav.team'], ['approvals', 'nav.approvals'], ['settings', 'nav.settings']]) {
       const b = h('button', { class: id === tab ? 'on' : '', onclick: () => { tab = id; focusId = ''; render(); }, 'aria-label': tr(key) }, icon(id), tr(key));
       if (id === 'approvals' && landings.length) b.append(h('span', { class: 'badge' }, landings.length));
+      if (id === 'progress' && prog && prog.jobs.length) b.append(h('span', { class: 'badge info' }, prog.jobs.length));
       nav.append(b);
     }
-    for (const id of ['chat', 'team', 'approvals', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
+    for (const id of ['chat', 'progress', 'team', 'approvals', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
   }
   function banner() {
     if (cfg.hidden) return h('div', { class: 'banner' }, tr('banner.hidden'), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => office.togglePets() }, tr('settings.show')));
@@ -234,7 +250,7 @@
     clear(stripEl);
     if (!act.length) { stripEl.style.display = 'none'; return; }
     stripEl.style.display = 'flex';
-    stripEl.append(h('span', { class: 'dim small' }, tr('chat.working')));
+    stripEl.append(h('span', { class: 'dim small' }, tr('chat.working')), h('button', { class: 'link', onclick: () => { tab = 'progress'; render(); } }, tr('prog.see')));
     for (const m of act) stripEl.append(h('span', { class: 'chipw' }, h('i'), m.name + (m.title ? ' · ' + m.title : '')));
   }
   function renderChatTab() { const s = $('s-chat'); clear(s); if (tab === 'chat') renderChat(s); }
@@ -480,6 +496,105 @@
       h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { closeModal(); showTour(0); } }, tr('onb.again')), h('button', { class: 'btn acc', onclick: closeModal }, tr('help.close')))));
   }
 
+  // ------------------------------------------------------------------ progress: what is going on inside the jobs
+  const elapsed = (from, to) => {
+    if (!from) return '';
+    const s = Math.max(0, Math.round((to || (farm && farm.now) || Date.now() / 1000) - from));
+    return s < 60 ? s + ' s' : s < 3600 ? Math.floor(s / 60) + ' min ' + (s % 60 ? (s % 60) + ' s' : '') : Math.floor(s / 3600) + ' h ' + Math.floor((s % 3600) / 60) + ' min';
+  };
+  const sinceWhen = (at) => ago(at, prog && prog.now);
+  function nodeName(n) { return n.name ? n.name + (n.title_role ? ' · ' + n.title_role : '') : tr('prog.someone'); }
+  function stepText(st, nodes) {
+    const n = (nodes || []).find((x) => x.id === st.task), who = n && n.name ? n.name + ': ' : '';
+    const arg = String(st.arg || '').trim();
+    const cap = (s, k) => (s.length > k ? s.slice(0, k - 1) + '…' : s);
+    let text;
+    switch (st.cat) {
+      case 'read': text = arg ? tr('step.read', { arg: cap(arg, 60) }) : tr('step.read.none'); break;
+      case 'write': text = arg ? tr('step.write', { arg: cap(arg, 60) }) : tr('step.write.none'); break;
+      case 'edit': text = tr('step.edit', { arg: cap(arg, 60) }); break;
+      case 'search': text = tr('step.search', { arg: cap(arg, 50) }); break;
+      case 'web': text = tr('step.web', { arg: cap(arg, 50) }); break;
+      case 'call': { const m = memberOf(st.who); text = tr('step.call', { who: m ? m.name : (st.who || tr('prog.someone')), arg: cap(arg, 70) }); break; }
+      case 'check': text = tr('step.check'); break;
+      case 'save': text = tr('step.save'); break;
+      case 'merge': text = tr('step.merge'); break;
+      case 'compute': text = tr('step.compute'); break;
+      case 'think': text = tr('step.think'); break;
+      case 'say': text = tr('step.say', { arg: cap(arg, 160) }); break;
+      case 'run': text = tr('step.run'); break;
+      default: text = tr('step.tool', { arg: cap(arg, 40) });
+    }
+    return who + text;
+  }
+  const STEP_ICON = { read: '📖', write: '✍️', edit: '✏️', search: '🔎', web: '🌐', call: '📣', check: '👀', save: '💾', merge: '🧩', compute: '🧮', think: '💭', say: '💬', run: '⚙️', tool: '🔧' };
+  const STATUS_CHIP = { running: 'working', waiting: 'working', queued: 'idle', done: 'offline', failed: 'alert' };
+
+  function paceBanner(pace, jobs) {
+    if (!pace || !pace.limited) return null;
+    const waiting = jobs.some((j) => j.nodes.some((n) => n.status === 'queued'));
+    if (!waiting && pace.code !== 'stopped') return null;
+    const pct = (x) => (x == null ? '?' : Math.round(x * 100));
+    const key = pace.code === 'week' ? 'pace.week' : pace.code === 'five' ? 'pace.five' : pace.code === 'stopped' ? 'pace.stopped' : 'pace.other';
+    return h('div', { class: 'banner pace' }, h('b', {}, tr('pace.title')), h('div', {}, tr(key, { workers: pace.workers, max: pace.max, used: pct(pace.code === 'five' ? pace.five_used : pace.week_used), allowed: pct(pace.code === 'five' ? pace.five_allowed : pace.week_allowed) })));
+  }
+  function speedPicker(pace) {
+    if (!pace) return null;
+    const cur = pace.speed || 'balanced';
+    const seg = h('div', { class: 'seg' }, ['balanced', 'fast', 'max'].map((m) => h('button', { class: cur === m ? 'on' : '', onclick: async () => {
+      const r = await office.api('POST', '/api/speed', { mode: m });
+      if (r.ok) { toast(tr('speed.saved')); await refresh(true); } else toast((r.data && r.data.error) || String(r.status), true);
+    } }, tr('speed.' + m))));
+    return h('div', { class: 'card' }, h('b', {}, tr('speed.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('speed.text')), seg, h('div', { class: 'note' }, tr('speed.' + cur + '.hint')));
+  }
+
+  function jobCard(j, recent) {
+    const open = progOpen === j.id;
+    const nodes = j.nodes || [], done = nodes.filter((n) => n.status === 'done').length;
+    const active = nodes.filter((n) => n.status === 'running' || n.status === 'waiting').length;
+    const queued = nodes.filter((n) => n.status === 'queued').length;
+    const status = j.status === 'queued' ? 'queued' : j.status === 'done' || j.landing ? 'done' : j.status === 'failed' ? 'failed' : 'running';
+    const head = h('div', { class: 'jobhead', role: 'button', tabindex: '0', onclick: () => { progOpen = open ? '' : j.id; if (!open) loadDetail(j.id); renderProgress(); } },
+      h('div', { class: 'jt' }, h('b', {}, j.title || j.id), h('div', { class: 'dim small' }, (j.status === 'done' ? tr('prog.finished', { t: elapsed(j.started || j.created, j.finished) }) : tr('prog.running', { t: elapsed(j.started || j.created) })) +
+        (nodes.length > 1 ? ' · ' + tr('prog.team', { done, total: nodes.length - 1 > 0 ? nodes.length - 1 : 0 }) : ''))),
+      h('span', { class: 'chip ' + (STATUS_CHIP[status] || 'idle') }, tr('prog.status.' + status)));
+    const card = h('div', { class: 'card' + (recent ? ' recent' : '') }, head);
+    // who is doing what
+    card.append(h('ul', { class: 'tree' }, nodes.map((n) => h('li', { style: 'margin-left:' + n.depth * 16 + 'px' },
+      h('span', { class: 'sdot ' + n.status }, ''), h('span', { class: 'tn' }, nodeName(n)),
+      h('span', { class: 'dim small tt' }, n.status === 'queued' ? tr('prog.node.queued') : n.status === 'done' ? tr('prog.node.done', { t: elapsed(n.started, n.finished) }) : tr('prog.node.running', { t: elapsed(n.started) }))))));
+    // the newest steps
+    const full = open && progDetail && progDetail.job && progDetail.job.id === j.id ? progDetail.job.steps : null;
+    const list = (full || j.steps || []).slice().reverse();
+    const shown = open ? list : list.slice(0, 3);
+    if (shown.length) card.append(h('ul', { class: 'steps2' }, shown.map((st) => h('li', {}, h('span', { class: 'si' }, STEP_ICON[st.cat] || '•'),
+      h('span', { class: 'sx' }, stepText(st, nodes), open && showRaw && st.text ? h('div', { class: 'raw' }, st.text) : null), h('time', {}, sinceWhen(st.at))))));
+    else card.append(h('div', { class: 'note' }, tr('prog.nosteps')));
+    if (open) card.append(h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { showRaw = !showRaw; renderProgress(); } }, tr(showRaw ? 'prog.hideraw' : 'prog.showraw'))));
+    else if ((j.steps || []).length > 3) card.append(h('button', { class: 'link', onclick: () => { progOpen = j.id; loadDetail(j.id); renderProgress(); } }, tr('prog.more', { n: (j.steps || []).length - 3 })));
+    return card;
+  }
+  async function loadDetail(id) {
+    const r = await office.api('GET', '/api/progress/' + encodeURIComponent(id) + '?limit=120');
+    if (r.ok && r.data) { progDetail = r.data; if (tab === 'progress') renderProgress(); }
+  }
+  function renderProgress() {
+    const s = $('s-progress'), main = document.querySelector('main'), y = main ? main.scrollTop : 0;
+    clear(s);
+    const b = banner(); if (b) s.append(b);
+    s.append(h('h2', {}, tr('prog.title')));
+    if (!prog) { s.append(h('div', { class: 'note' }, tr('review.loading'))); return; }
+    const pb = paceBanner(prog.pace, prog.jobs); if (pb) s.append(pb);
+    if (!prog.jobs.length) {
+      const art = sprite('clodfarm', 'sofa', 'art'); art.className = 'art';
+      s.append(h('div', { class: 'empty' }, art, h('b', {}, tr('prog.empty.title')), tr('prog.empty.text')));
+    }
+    for (const j of prog.jobs) s.append(jobCard(j, false));
+    if (prog.recent && prog.recent.length) { s.append(h('h2', {}, tr('prog.recent'))); for (const j of prog.recent) s.append(jobCard(j, true)); }
+    const sp = speedPicker(prog.pace); if (sp) s.append(sp);
+    if (main) main.scrollTop = y;
+  }
+
   // ------------------------------------------------------------------ approvals
   function renderApprovals() {
     const s = $('s-approvals'); clear(s);
@@ -576,6 +691,7 @@
       h('button', { class: 'btn ghost', 'aria-label': '+', onclick: nudge(-1) }, '▲'),
       h('button', { class: 'btn ghost', onclick: nudge(0) }, tr('settings.auto')));
     s.append(h('h2', {}, tr('nav.settings')),
+      speedPicker(prog && prog.pace),
       connectorsCard(),
       h('div', { class: 'card' }, h('b', {}, tr('settings.exports')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('settings.exportshint')),
         h('div', { class: 'actions', style: 'margin-top:0' }, h('button', { class: 'btn ghost', onclick: () => office.openExports() }, tr('settings.openexports')))),
@@ -597,7 +713,7 @@
 
   function render() {
     if (tab !== 'chat' && chatTimer) { clearInterval(chatTimer); chatTimer = null; }
-    renderChrome(); renderChatTab(); renderTeam(); renderApprovals(); renderSettings();
+    renderChrome(); renderChatTab(); renderProgress(); renderTeam(); renderApprovals(); renderSettings();
   }
 
   // where a request to open the panel lands: approvals when asked, the conversation for a character, else the tab named

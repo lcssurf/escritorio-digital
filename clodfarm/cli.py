@@ -42,7 +42,7 @@ import time
 from . import __version__
 from .auth import auth_status
 from .config import load
-from .governor import decide
+from .governor import decide, with_speed
 from .store import TASK_ID, Store, iso, now
 
 
@@ -113,13 +113,14 @@ def _seats(cfg, store) -> list[dict]:
     workers = store.workers()
     names = sorted(set(snaps) | {w.get("seat") for w in workers if w.get("seat")}) or ["default"]
     out = []
+    base = with_speed(cfg.policy, store.settings().get("speed"))   # the speed the person chose in the office
     for seat in names:
         snap = snaps.get(seat)
-        policy = cfg.policy if seat.startswith("api-") == cfg.policy.api_mode else \
-            type(cfg.policy)(**{**vars(cfg.policy), "api_mode": seat.startswith("api-")})
+        policy = base if seat.startswith("api-") == base.api_mode else \
+            type(base)(**{**vars(base), "api_mode": seat.startswith("api-")})
         if seat.startswith("bot-"):  # a bot: paced like an API key, on its own workers, with no money cap
-            policy = type(cfg.policy)(**{**vars(cfg.policy), "api_mode": True, "daily_budget_usd": 0.0,
-                                         "max_workers": max(1, sum(w.get("seat") == seat for w in workers))})
+            policy = type(base)(**{**vars(base), "api_mode": True, "daily_budget_usd": 0.0,
+                                   "max_workers": max(1, sum(w.get("seat") == seat for w in workers))})
         d = decide(snap, policy, now(), store.spent_today(seat))
         out.append({"seat": seat, "snapshot": snap, "decision": d, "policy": policy, "slots": store.slots(seat),
                     "boxes": sorted({w["SK"].rsplit("/", 1)[0] for w in workers if w.get("seat") == seat})})

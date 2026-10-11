@@ -29,7 +29,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OVERLAY = path.join(ROOT, 'overlay');
 // A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
 // Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
-const IMAGE = process.env.ESCRITORIO_IMAGE || 'ghcr.io/lcssurf/escritorio-digital:1.0.1';
+const IMAGE = process.env.ESCRITORIO_IMAGE || 'ghcr.io/lcssurf/escritorio-digital:1.0.2';
 const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';
 const PORT = 8080;

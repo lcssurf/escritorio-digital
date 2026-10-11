@@ -25,7 +25,7 @@ API key mode has no subscription windows: only a daily dollar cap applies.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 FIVE_HOURS = 5 * 3600
 SEVEN_DAYS = 7 * 24 * 3600
@@ -123,6 +123,31 @@ class Decision:
     def to_dict(self) -> dict:
         return {"workers": self.workers, "reason": self.reason,
                 "pause_until": self.pause_until, "details": self.details}
+
+
+# How far ahead of the weekly pace the agents may run (the 80% cap of the week stays). "balanced" keeps the configured value.
+SPEEDS = {"balanced": None, "fast": 0.15, "max": 0.30}
+
+
+def with_speed(policy: Policy, speed: str | None) -> Policy:
+    """The policy at the speed the person chose in the office (settings key ``speed``)."""
+    band = SPEEDS.get(speed or "")
+    return policy if band is None else replace(policy, weekly_band=band)
+
+
+def explain(snap: Snapshot | None, policy: Policy, now: float) -> dict:
+    """Why the farm runs fewer agents than it could, as numbers a person can read (fractions 0..1)."""
+    out = {"week_used": None, "week_allowed": None, "five_used": None, "five_allowed": None, "week_resets": None, "five_resets": None}
+    if snap is None or policy.api_mode:
+        return out
+    seven, five = _live(snap.seven_day, now), _live(snap.five_hour, now)
+    if seven:
+        out.update(week_used=round(seven.utilization, 3), week_resets=seven.resets_at,
+                   week_allowed=round(_allowed(seven, SEVEN_DAYS, policy.weekly_target, policy.weekly_band, now), 3))
+    if five:
+        out.update(five_used=round(five.utilization, 3), five_resets=five.resets_at,
+                   five_allowed=round(_allowed(five, FIVE_HOURS, policy.five_hour_ceiling, policy.five_hour_band, now), 3))
+    return out
 
 
 def _live(w: Window | None, now: float) -> Window | None:

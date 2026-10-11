@@ -107,7 +107,7 @@
   .toast { position: fixed; left: 50%; bottom: 74px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 99px; font-weight: 600; font-size: 13px; box-shadow: var(--shadow); z-index: 9; animation: in .2s ease; }
   .toast.err { background: var(--bad); color: #fff; }
 
-  nav { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--surface); }
+  nav { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: var(--surface); }
   nav button { background: none; border: 0; padding: 9px 4px 8px; cursor: pointer; color: var(--dim); display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; position: relative; }
   nav button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   nav button.on { color: var(--acc); } nav button:hover { color: var(--fg); } nav button.on:hover { color: var(--acc); }
@@ -153,6 +153,18 @@
   .connrow .cn { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .how { margin-top: 10px; font-size: 13px; } .how summary { cursor: pointer; font-weight: 700; color: var(--acc); }
   .steps { margin: 8px 0 0; padding-left: 20px; color: var(--dim); } .steps li { margin: 5px 0; }
+  nav .badge.info { background: var(--acc); }
+  .banner.pace { background: var(--warn-soft); color: var(--warn); } .banner.pace b { display: block; margin-bottom: 3px; }
+  .jobhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; } .jt { min-width: 0; } .jt b { display: block; }
+  .card.recent { opacity: .85; }
+  .tree { list-style: none; margin: 10px 0 4px; padding: 0; }
+  .tree li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; } .tree .tn { font-weight: 600; } .tree .tt { margin-left: auto; white-space: nowrap; }
+  .sdot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: none; }
+  .sdot.running { background: var(--ok); animation: blink 1.2s infinite; } .sdot.waiting { background: var(--warn); } .sdot.queued { background: var(--line); } .sdot.done { background: var(--ok); } .sdot.failed { background: var(--bad); }
+  .steps2 { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--line); }
+  .steps2 li { display: flex; gap: 8px; padding: 5px 0; font-size: 13px; align-items: flex-start; } .steps2 .si { flex: none; width: 20px; text-align: center; }
+  .steps2 .sx { flex: 1; min-width: 0; word-break: break-word; } .steps2 time { color: var(--dim); font-size: 11.5px; white-space: nowrap; flex: none; }
+  .raw { font-family: Consolas, monospace; font-size: 11px; color: var(--dim); margin-top: 2px; }
   .addrow { display: flex; gap: 8px; margin: 2px 0 12px; } .addrow .btn { flex: 1; }
   .intro { color: var(--dim); font-size: 13px; margin: 0 2px 10px; }
   .preview { display: grid; place-items: center; background: var(--acc-soft); border-radius: 14px; margin-bottom: 12px; padding: 6px 0 0; }
@@ -177,6 +189,7 @@
 <div class="tiles" id="tiles"></div>
 <main>
   <section id="s-chat"></section>
+  <section id="s-progress"></section>
   <section id="s-team"></section>
   <section id="s-approvals"></section>
   <section id="s-settings"></section>

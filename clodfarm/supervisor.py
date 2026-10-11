@@ -33,7 +33,7 @@ from .auth import (accept_remote_control, auth_status, banner, claude_name, inst
                    install_hooks, install_messaging, install_mod, install_model, seat_id, trust_directory)
 from .config import primary_name_file
 from .config import Config, load
-from .governor import Snapshot, decide
+from .governor import Snapshot, decide, with_speed
 from .runner import Live, RunHandle, build_cmd, kill_tree, run_agent, session_name, start_run
 from .store import Store, iso, now
 
@@ -380,7 +380,7 @@ class Farm:
         os.replace(path + ".tmp", path)
 
     def print_status(self):
-        d = decide(self.store.get_snapshot(self.seat), self.cfg.policy, now(), self.store.spent_today(self.seat))
+        d = decide(self.store.get_snapshot(self.seat), with_speed(self.cfg.policy, self.store.settings().get("speed")), now(), self.store.spent_today(self.seat))
         counts = {s: self.store.count(s) for s in ("queued", "running", "waiting")}
         print(json.dumps({"at": iso(), "status": counts, "budget": d.to_dict()}), flush=True)
 
@@ -666,7 +666,7 @@ class Farm:
             self.stop.wait(cfg.idle_sleep)
             return
         # this seat's own budget decides; other seats in the farm are paced separately
-        d = decide(store.get_snapshot(self.seat), cfg.policy, now(), store.spent_today(self.seat))
+        d = decide(store.get_snapshot(self.seat), with_speed(cfg.policy, store.settings().get("speed")), now(), store.spent_today(self.seat))
         slot = store.acquire_slot(holder, d.workers, cfg.lease_seconds, self.seat) if d.workers else None
         task = None
         if slot is None:

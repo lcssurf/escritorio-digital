@@ -15,8 +15,9 @@ This repository combines two layers of work, under two licenses.
      scripts/escritorio.mjs      the install and maintenance tool
      clodfarm/team.py            the team: chief, leads and specialists
      clodfarm/chat.py            conversation with the team and the plan
+     clodfarm/progress.py        following a job: who called whom, what each one is doing
      tests/test_team.py, tests/test_chat.py, tests/test_ux.py,
-     tests/test_landing_approval.py, tests/test_claude_connectors.py, tests/test_licenses.py
+     tests/test_landing_approval.py, tests/test_claude_connectors.py, tests/test_licenses.py, tests/test_progress.py
      INSTALAR.md, CLAUDE.md, NOTICE.md, TRADEMARKS.md, Dockerfile.dev
 
    and OUR CHANGES to these files that came from clodfarm (the unchanged upstream parts of each remain MIT;

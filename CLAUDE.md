@@ -3,7 +3,7 @@
 Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © Duke Security, Inc.): um escritório de advocacia com agentes de IA, bonecos em pixel-art sobre a barra de tarefas e **aprovação humana antes de qualquer entrega**.
 
 ## Se pediram para INSTALAR
-Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/escritorio.mjs <verificar|construir|iniciar|equipe|abrir|inicio|status|desinstalar>`.
+Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/escritorio.mjs <instalar|verificar|construir|iniciar|equipe|abrir|inicio|status|desinstalar>`; o `instalar` faz tudo e pula o que já está pronto.
 
 ## Regras do projeto (valem para qualquer mudança)
 - **Nada de dado real de cliente** em testes, exemplos ou commits.
@@ -16,12 +16,14 @@ Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/esc
 ## Mapa
 - `clodfarm/` motor (Python). Nosso: `team.py` (chefe, coordenações, especialistas), `chat.py` (conversa e plano), `web.py` (API do overlay: `/api/team`, `/api/chat/*`, `/api/landings/*`, `/api/claude-connectors`), `policy.py` (filtro de ferramentas), `supervisor.py` (`land()` espera a aprovação).
 - `overlay/` app de desktop (Electron): bonecos (`renderer/sprites.js`), painel (`renderer/panel.js`), textos em `i18n/` (pt-BR e en).
-- `scripts/escritorio.mjs` instalação e manutenção (Windows, macOS, Linux).
+- `scripts/escritorio.mjs` instalação e manutenção (Windows, macOS, Linux). `scripts/sync-plugin.sh` é do projeto original (um teste cita).
+- `Dockerfile.dev` a nossa parte sobre a imagem do clodfarm original (versão fixada); `Dockerfile` monta tudo do zero.
+- `docs/clodfarm/` tudo o que veio do projeto original e não usamos no dia a dia (README, changelog, compose, scripts de operação).
 - `tests/` testes do motor (pytest); `overlay/test/` testes do overlay (`npm test` em `overlay/`).
 
 ## Comandos de desenvolvimento
 - Testes do motor (no Linux/Docker): `pip install pytest 'moto[server]' -e . && pytest -q tests/`
 - Testes do overlay: `cd overlay && npm test`
-- Reconstruir só o nosso código sobre uma imagem existente: `docker build -f Dockerfile.dev -t escritorio-digital:dev .`
+- Reconstruir só o nosso código: `node scripts/escritorio.mjs construir` (baixa a base fixada e põe o nosso código por cima).
 - Textos novos: sempre nos **dois** idiomas (`overlay/i18n/pt-BR.json` e `en.json`); `npm test` confere que as chaves batem.
 - Arquivos `.js`/`.py` grandes: edite com ferramentas de arquivo, não com `sed`/heredoc (aspas e barras se perdem no shell).

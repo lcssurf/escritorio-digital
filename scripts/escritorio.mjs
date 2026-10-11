@@ -2,16 +2,20 @@
 // Escritório Digital: uma ferramenta só, igual no Windows, no Mac e no Linux (precisa só do Node 18+).
 // Pensada para uma IA (o Claude) instalar e cuidar do escritório, mas serve para qualquer pessoa.
 //
-//   node scripts/escritorio.mjs verificar        o que está pronto e o que falta, com a correção de cada item
-//   node scripts/escritorio.mjs construir        monta a imagem do escritório no Docker (demora alguns minutos)
-//   node scripts/escritorio.mjs iniciar          liga (ou recria) o escritório      [--ca arquivo.pem] [--entregas pasta]
-//   node scripts/escritorio.mjs equipe           instala a equipe pronta (5 coordenações e 16 especialistas)
-//   node scripts/escritorio.mjs abrir            abre os bonecos na barra
-//   node scripts/escritorio.mjs inicio on|off    abrir sozinho quando o computador ligar
-//   node scripts/escritorio.mjs status           resumo de uma linha por item
-//   node scripts/escritorio.mjs desinstalar --sim   remove o escritório (os dados ficam, salvo --apagar-dados)
+//   node scripts/escritorio.mjs instalar         TUDO: prepara, liga, instala a equipe e abre os bonecos (pode repetir)
 //
-// Cada comando é seguro de repetir. Saída em português, curta e sem jargão; erros dizem o que fazer.
+// Os passos, se você quiser um por vez:
+//   verificar    o que está pronto e o que falta, com a correção de cada item
+//   construir    baixa a imagem do escritório (de 2 a 4 minutos; --completo monta tudo do zero, 5 a 15 min)
+//   iniciar      liga (ou recria) o escritório      [--ca arquivo.pem] [--entregas pasta]
+//   equipe       instala a equipe pronta (5 coordenações e 16 especialistas)
+//   abrir        abre os bonecos na barra
+//   inicio on|off   abrir sozinho quando o computador ligar
+//   status       resumo
+//   desinstalar --sim   remove o escritório (os dados ficam, salvo --apagar-dados)
+//
+// Códigos de saída: 0 tudo certo; 1 falhou (a mensagem diz o que fazer); 3 falta um passo que só a pessoa pode fazer
+// (entrar com a conta Claude): ela faz e você roda o mesmo comando de novo.
 import { spawnSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -22,6 +26,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OVERLAY = path.join(ROOT, 'overlay');
 const IMAGE = process.env.ESCRITORIO_IMAGE || 'escritorio-digital:dev';
+// A imagem do clodfarm original, na versão em que a nossa cópia se baseia: já traz o Claude Code, o Node, o Chromium...
+// A nossa parte (poucos MB) entra por cima em segundos. Fixar a versão evita que uma atualização deles quebre o nosso código.
+const BASE = process.env.ESCRITORIO_BASE || 'ghcr.io/matank001/clodfarm:1.12.0';
 const NAME = 'clodfarm';
 const PORT = 8080;
 const URL_BASE = `http://localhost:${PORT}`;
@@ -32,10 +39,12 @@ const EXTRA_PATH = ['/usr/local/bin', '/opt/homebrew/bin', '/Applications/Docker
 const ENV = { ...process.env, PATH: [process.env.PATH || '', ...EXTRA_PATH].join(path.delimiter) };
 
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', env: ENV, windowsHide: true, ...opts });
-const ok = (m) => console.log('  ✔ ' + m);
-const bad = (m, fix) => { console.log('  ✖ ' + m); if (fix) console.log('      → ' + fix); };
 const say = (m) => console.log(m);
+const ok = (m) => { console.log('  ✔ ' + m); return true; };
+const bad = (m, fix) => { console.log('  ✖ ' + m); if (fix) console.log('      → ' + fix); return false; };
 const flag = (name) => { const i = process.argv.indexOf('--' + name); return i < 0 ? null : (process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : true); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const NEEDS_PERSON = 3;
 
 function documentsDir() {
   if (win) {
@@ -46,13 +55,13 @@ function documentsDir() {
   return path.join(os.homedir(), 'Documents');
 }
 const exportDir = () => (typeof flag('entregas') === 'string' ? flag('entregas') : path.join(documentsDir(), 'Escritório Digital'));
-const userDataDir = () => path.join(win ? (process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')) : mac ? path.join(os.homedir(), 'Library', 'Application Support') : (process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config')), 'escritorio-digital-overlay');
 
 const docker = (args, opts) => run('docker', args, opts);
 const dockerUp = () => docker(['info']).status === 0;
 const hasImage = () => docker(['image', 'inspect', IMAGE]).status === 0;
 const containerState = () => { const r = docker(['inspect', '-f', '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', NAME]); return r.status === 0 ? r.stdout.trim() : ''; };
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const isLoggedIn = () => /loggedIn:\s*True/i.test(docker(['exec', NAME, 'clodfarm', 'whoami']).stdout || '');
+const dockerHelp = () => (win ? 'Instale com: winget install -e --id Docker.DockerDesktop (reinicie o computador se pedir).' : mac ? 'Instale com: brew install --cask docker (ou baixe o Docker Desktop em docker.com).' : 'Instale o Docker Engine (docs.docker.com/engine/install).');
 
 async function api(pathname, { method = 'GET', body, token } = {}) {
   const res = await fetch(URL_BASE + pathname, {
@@ -75,17 +84,14 @@ async function verificar() {
 
   const major = Number(process.versions.node.split('.')[0]);
   check(major >= 18, `Node ${process.versions.node}`, `Node ${process.versions.node} é antigo demais`, 'Instale o Node 18 ou mais novo (https://nodejs.org).');
-  const hasDocker = docker(['--version']).status === 0;
-  if (!check(hasDocker, 'Docker instalado', 'Docker não encontrado',
-    win ? 'Instale com: winget install -e --id Docker.DockerDesktop (depois reinicie o computador se pedir).' : mac ? 'Instale com: brew install --cask docker (ou baixe o Docker Desktop em docker.com).' : 'Instale o Docker Engine (docs.docker.com/engine/install).')) return finish(all);
-  if (!check(dockerUp(), 'Docker rodando', 'O Docker está instalado, mas não está rodando', 'Abra o Docker Desktop, aceite os termos se pedir e espere aparecer "Engine running".')) return finish(all);
+  if (!check(docker(['--version']).status === 0, 'Docker instalado', 'Docker não encontrado', dockerHelp())) return fim(all);
+  if (!check(dockerUp(), 'Docker rodando', 'O Docker está instalado, mas não está rodando', 'Abra o Docker Desktop, aceite os termos se pedir e espere aparecer "Engine running".')) return fim(all);
   const img = check(hasImage(), `Imagem ${IMAGE} pronta`, `A imagem ${IMAGE} ainda não existe`, 'Rode: node scripts/escritorio.mjs construir');
   const st = containerState();
   const up = check(st.startsWith('running'), `Escritório ligado (${st})`, 'O escritório não está ligado', img ? 'Rode: node scripts/escritorio.mjs iniciar' : null);
   if (up) {
     try { await api('/api/me'); ok(`Painel no ar em ${URL_BASE}`); } catch (e) { all = false; bad('O painel não respondeu', 'Espere uns segundos e rode de novo; se persistir: docker logs clodfarm'); }
-    const who = docker(['exec', NAME, 'clodfarm', 'whoami']).stdout || '';
-    check(/loggedIn:\s*True/i.test(who), 'Conta Claude conectada', 'Falta entrar com a conta Claude', 'Rode num terminal: docker exec -it clodfarm clodfarm login  (abre um endereço; aprove e cole o código)');
+    check(isLoggedIn(), 'Conta Claude conectada', 'Falta entrar com a conta Claude', 'Rode num terminal: docker exec -it clodfarm clodfarm login  (abre um endereço; aprove e cole o código)');
     try {
       const team = await api('/api/team', { token: overlayToken() });
       check(team.length > 1, `Equipe instalada (${team.length} pessoas)`, 'A equipe ainda não foi instalada', 'Rode: node scripts/escritorio.mjs equipe');
@@ -93,30 +99,37 @@ async function verificar() {
     // um antivírus ou proxy que refaz o HTTPS faz o Claude de dentro do Docker reclamar de "certificado autoassinado"
     const iss = docker(['exec', NAME, 'sh', '-c', 'echo | openssl s_client -connect api.anthropic.com:443 -servername api.anthropic.com 2>/dev/null | openssl x509 -noout -issuer']).stdout || '';
     const suspect = /kaspersky|eset|avast|avg|bitdefender|zscaler|fortinet|cisco|symantec|mcafee|norton|sophos|bluecoat|netskope|proxy/i.test(iss);
-    check(!suspect, 'Conexão segura com a Anthropic sem intermediários', `Algo no computador está refazendo o HTTPS (${iss.trim().replace(/^issuer=\s*/, '')})`,
+    const trusted = docker(['exec', NAME, 'sh', '-c', 'test -f /workspace/.farm/extra-ca.pem']).status === 0;
+    check(!suspect || trusted, suspect ? 'Certificado de antivírus/proxy já é aceito pelo escritório' : 'Conexão segura com a Anthropic sem intermediários',
+      `Algo no computador está refazendo o HTTPS (${iss.trim().replace(/^issuer=\s*/, '')})`,
       'Exporte o certificado desse programa (só a parte pública) e rode: node scripts/escritorio.mjs iniciar --ca caminho/do/certificado.pem');
   }
-  check(fs.existsSync(path.join(OVERLAY, 'node_modules')), 'Bonecos instalados (overlay)', 'O overlay ainda não foi instalado', 'Rode: cd overlay && npm install');
-  finish(all);
+  check(fs.existsSync(path.join(OVERLAY, 'node_modules')), 'Bonecos instalados (overlay)', 'O overlay ainda não foi instalado', 'Rode: node scripts/escritorio.mjs abrir');
+  return fim(all);
 }
-function finish(all) { say(all ? '\nTudo certo.' : '\nHá itens para resolver (acima).'); process.exitCode = all ? 0 : 1; }
+function fim(all) { say(all ? '\nTudo certo.' : '\nHá itens para resolver (acima).'); return all; }
 
 // ---------------------------------------------------------------- construir
 function construir() {
   if (!dockerUp()) return bad('O Docker não está rodando', 'Abra o Docker Desktop e tente de novo.');
-  say('Montando a imagem do escritório (de 5 a 15 minutos na primeira vez)...');
-  const r = run('docker', ['build', '-t', IMAGE, '.'], { cwd: ROOT, stdio: 'inherit' });
-  if (r.status !== 0) {
-    say('\nO build falhou. Se o erro falou de "certificate", "SSL" ou "self-signed", algo no computador (antivírus ou proxy) está refazendo o HTTPS.');
-    say('Veja INSTALAR.md, seção "Antivírus que inspeciona HTTPS". Se o erro foi outro, rode de novo: o Docker reaproveita o que já baixou.');
-    process.exitCode = 1;
-  } else say('\nImagem pronta: ' + IMAGE);
+  if (flag('completo')) {
+    say('Montando tudo do zero (de 5 a 15 minutos)...');
+    const r = run('docker', ['build', '-t', IMAGE, '.'], { cwd: ROOT, stdio: 'inherit' });
+    if (r.status !== 0) { say('\nO build falhou. Se o erro falou de "certificate", "SSL" ou "self-signed", veja INSTALAR.md, seção "Antivírus que inspeciona HTTPS".'); return false; }
+    return ok('Imagem pronta: ' + IMAGE);
+  }
+  say(`Baixando a imagem do escritório (de 2 a 4 minutos na primeira vez; guardo o que já baixei)...`);
+  const pull = run('docker', ['pull', BASE], { stdio: 'inherit' });
+  if (pull.status !== 0) return bad('Não consegui baixar a imagem base', 'Confira a internet. Se o erro falar de "certificate", veja INSTALAR.md ("Antivírus que inspeciona HTTPS"). Alternativa: construir --completo');
+  const r = run('docker', ['build', '-f', path.join(ROOT, 'Dockerfile.dev'), '--build-arg', `BASE=${BASE}`, '-t', IMAGE, ROOT], { stdio: 'inherit' });
+  if (r.status !== 0) return bad('Não consegui montar a nossa parte por cima da imagem', 'Rode de novo; se persistir, tente: construir --completo');
+  return ok('Imagem pronta: ' + IMAGE);
 }
 
 // ---------------------------------------------------------------- iniciar
 async function iniciar() {
-  if (!dockerUp()) return bad('O Docker não está rodando', 'Abra o Docker Desktop e tente de novo.'), (process.exitCode = 1);
-  if (!hasImage()) return bad(`A imagem ${IMAGE} não existe`, 'Rode antes: node scripts/escritorio.mjs construir'), (process.exitCode = 1);
+  if (!dockerUp()) return bad('O Docker não está rodando', 'Abra o Docker Desktop e tente de novo.');
+  if (!hasImage()) return bad(`A imagem ${IMAGE} não existe`, 'Rode antes: node scripts/escritorio.mjs construir');
   const entregas = exportDir();
   fs.mkdirSync(entregas, { recursive: true });
   const extra = [];
@@ -124,9 +137,9 @@ async function iniciar() {
   if (typeof ca === 'string') {
     // só o certificado PÚBLICO da CA do antivírus/proxy vai para o volume; o Claude (Node) passa a confiar nele
     const abs = path.resolve(ca);
-    if (!fs.existsSync(abs)) return bad('Arquivo de certificado não encontrado: ' + abs), (process.exitCode = 1);
+    if (!fs.existsSync(abs)) return bad('Arquivo de certificado não encontrado: ' + abs);
     const r = docker(['run', '--rm', '--entrypoint', 'sh', '-v', 'clodfarm_workspace:/workspace', '-v', `${path.dirname(abs)}:/in:ro`, IMAGE, '-c', `mkdir -p /workspace/.farm && cp "/in/${path.basename(abs)}" /workspace/.farm/extra-ca.pem`]);
-    if (r.status !== 0) return bad('Não consegui copiar o certificado para o volume: ' + (r.stderr || '').trim()), (process.exitCode = 1);
+    if (r.status !== 0) return bad('Não consegui copiar o certificado para o volume: ' + (r.stderr || '').trim());
     extra.push('-e', 'NODE_EXTRA_CA_CERTS=/workspace/.farm/extra-ca.pem');
   } else if (docker(['run', '--rm', '--entrypoint', 'sh', '-v', 'clodfarm_workspace:/workspace', IMAGE, '-c', 'test -f /workspace/.farm/extra-ca.pem']).status === 0) {
     extra.push('-e', 'NODE_EXTRA_CA_CERTS=/workspace/.farm/extra-ca.pem');   // copiado numa vez anterior
@@ -135,21 +148,33 @@ async function iniciar() {
   const r = docker(['run', '-d', '--name', NAME, '--hostname', NAME, '--restart', 'unless-stopped', '-p', `127.0.0.1:${PORT}:8080`,
     '-e', `FARM_CONTAINER_NAME=${NAME}`, '-e', 'FARM_APPROVE_LANDING=1', '-e', 'FARM_EXPORT_DIR=/export', ...extra,
     '-v', 'clodfarm_claude-home:/home/farm/.claude', '-v', 'clodfarm_workspace:/workspace', '-v', `${entregas}:/export`, IMAGE]);
-  if (r.status !== 0) return bad('Não consegui ligar o escritório: ' + (r.stderr || '').trim()), (process.exitCode = 1);
+  if (r.status !== 0) return bad('Não consegui ligar o escritório: ' + (r.stderr || '').trim(), 'Se a porta 8080 estiver ocupada, feche o programa que a usa.');
   say('Ligando...');
   for (let i = 0; i < 40; i++) { await sleep(2000); if (containerState().includes('healthy')) break; }
   const st = containerState();
-  if (!st.includes('healthy')) return bad(`O escritório não ficou saudável (${st})`, 'Veja: docker logs clodfarm'), (process.exitCode = 1);
+  if (!st.includes('healthy')) return bad(`O escritório não ficou saudável (${st})`, 'Veja: docker logs clodfarm');
   ok(`Escritório no ar em ${URL_BASE}`);
   ok(`Entregas aprovadas ficam em: ${entregas}`);
-  const who = docker(['exec', NAME, 'clodfarm', 'whoami']).stdout || '';
-  if (!/loggedIn:\s*True/i.test(who)) say('\nFalta entrar com a conta Claude. Rode num terminal:\n  docker exec -it clodfarm clodfarm login\nEle mostra um endereço: abra, aprove e cole o código de volta.');
+  return true;
+}
+
+// ---------------------------------------------------------------- login (só a pessoa pode fazer)
+function login() {
+  if (isLoggedIn()) return ok('Conta Claude já conectada');
+  const how = 'docker exec -it clodfarm clodfarm login';
+  if (process.stdin.isTTY && process.stdout.isTTY) {
+    say('\nAgora entre com a sua conta Claude. Vai aparecer um endereço: abra no navegador, aprove e cole o código aqui.\n');
+    spawnSync('docker', ['exec', '-it', NAME, 'clodfarm', 'login'], { stdio: 'inherit', env: ENV });
+    if (isLoggedIn()) return ok('Conta Claude conectada');
+  }
+  say(`\n🧍 Falta entrar com a conta Claude (só você pode fazer). Rode num terminal:\n    ${how}\n  Ele mostra um endereço: abra no navegador, aprove e cole o código de volta.\n  Depois rode o mesmo comando de novo: ele continua de onde parou.`);
+  return NEEDS_PERSON;
 }
 
 // ---------------------------------------------------------------- equipe
 async function equipe() {
   const token = overlayToken();
-  if (!token) return bad('O escritório não está ligado', 'Rode: node scripts/escritorio.mjs iniciar'), (process.exitCode = 1);
+  if (!token) return bad('O escritório não está ligado', 'Rode: node scripts/escritorio.mjs iniciar');
   const pack = createRequire(import.meta.url)(path.join(OVERLAY, 'renderer', 'pack-previdenciario.js'));
   let list = await api('/api/team', { token });
   const find = (m) => list.find((x) => x.name === m.name && (x.title || '') === (m.title || ''));
@@ -166,20 +191,20 @@ async function equipe() {
     const { team, ...body } = m; const cur = find(m);
     await send({ ...body, lead: false, parent: leadId[team], ...(cur ? { id: cur.id } : {}) });
   }
-  ok(`Equipe pronta: ${list.length} pessoas (a chefe, ${pack.leads.length} coordenações e ${pack.members.length} especialistas)`);
+  return ok(`Equipe pronta: ${list.length} pessoas (a chefe, ${pack.leads.length} coordenações e ${pack.members.length} especialistas)`);
 }
 
 // ---------------------------------------------------------------- abrir / início automático
 function abrir() {
   if (!fs.existsSync(path.join(OVERLAY, 'node_modules'))) {
-    say('Instalando os bonecos (primeira vez)...');
-    const r = run(win ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: OVERLAY, stdio: 'inherit', shell: win });
-    if (r.status !== 0) return bad('npm install falhou'), (process.exitCode = 1);
+    say('Instalando os bonecos (primeira vez, de 1 a 2 minutos)...');
+    const r = run('npm install --no-audit --no-fund', [], { cwd: OVERLAY, stdio: 'inherit', shell: true });
+    if (r.status !== 0) return bad('npm install falhou', 'Confira a internet e rode de novo.');
   }
-  const bin = path.join(OVERLAY, 'node_modules', '.bin', win ? 'electron.cmd' : 'electron');
-  const p = spawn(bin, ['.'], { cwd: OVERLAY, detached: true, stdio: 'ignore', env: ENV, shell: win, windowsHide: true });
+  // o próprio Node abre o Electron (sem passar por um shell): igual em qualquer sistema
+  const p = spawn(process.execPath, [path.join(OVERLAY, 'node_modules', 'electron', 'cli.js'), '.'], { cwd: OVERLAY, detached: true, stdio: 'ignore', env: ENV, windowsHide: true });
   p.unref();
-  ok('Bonecos abertos: procure-os sobre a barra de tarefas (ou o Dock) e o ícone perto do relógio.');
+  return ok('Bonecos abertos: procure-os sobre a barra de tarefas (ou o Dock) e o ícone perto do relógio.');
 }
 
 function inicio(modo) {
@@ -203,7 +228,34 @@ function inicio(modo) {
   if (modo === 'off') { fs.rmSync(desk, { force: true }); return ok('Início automático desligado'); }
   fs.mkdirSync(path.dirname(desk), { recursive: true });
   fs.writeFileSync(desk, `[Desktop Entry]\nType=Application\nName=Escritório Digital\nExec=${bin} .\nPath=${OVERLAY}\n`);
-  ok('Início automático ligado');
+  return ok('Início automático ligado');
+}
+
+// ---------------------------------------------------------------- instalar: tudo, na ordem, pulando o que já está pronto
+async function instalar() {
+  say('Instalando o Escritório Digital. Cada passo só roda se ainda for preciso.\n');
+  say('1/5  Docker');
+  if (docker(['--version']).status !== 0) return bad('Docker não encontrado', dockerHelp());
+  if (!dockerUp()) return bad('O Docker está instalado, mas não está rodando', 'Abra o Docker Desktop, aceite os termos se pedir, espere "Engine running" e rode este comando de novo.');
+  ok('Docker rodando');
+
+  say('\n2/5  Imagem do escritório');
+  if (hasImage() && !flag('refazer')) ok(`${IMAGE} já existe`); else if (!construir()) return false;
+
+  say('\n3/5  Ligar o escritório');
+  const st = containerState();
+  if (st.startsWith('running') && st.includes('healthy') && !flag('recriar')) ok(`Já está ligado em ${URL_BASE}`); else if (!(await iniciar())) return false;
+
+  say('\n4/5  Conta Claude');
+  const lg = login();
+  if (lg !== true) return lg === NEEDS_PERSON ? NEEDS_PERSON : false;
+
+  say('\n5/5  Equipe e bonecos');
+  if (!(await equipe())) return false;
+  if (!abrir()) return false;
+  say('\nPronto! Clique na Marina (a chefe) para conversar. Um tour de 3 telas aparece na primeira vez.');
+  say('Quer que abra sozinho quando o computador ligar? Rode: node scripts/escritorio.mjs inicio on');
+  return true;
 }
 
 // ---------------------------------------------------------------- status / desinstalar
@@ -213,20 +265,23 @@ async function status() {
   try { const t = await api('/api/team', { token: overlayToken() }); say(`Equipe: ${t.length} pessoas`); } catch (_) { say('Equipe: indisponível'); }
   say(`Entregas: ${exportDir()}`);
   say(`Bonecos instalados: ${fs.existsSync(path.join(OVERLAY, 'node_modules')) ? 'sim' : 'não'}`);
+  return true;
 }
 
 function desinstalar() {
-  if (!flag('sim')) return say('Isto desliga e remove o escritório do Docker. Para confirmar, rode de novo com --sim.\nOs dados (login e trabalhos) ficam nos volumes do Docker, a menos que você use também --apagar-dados.');
+  if (!flag('sim')) { say('Isto desliga e remove o escritório do Docker. Para confirmar, rode de novo com --sim.\nOs dados (login e trabalhos) ficam nos volumes do Docker, a menos que você use também --apagar-dados.'); return true; }
   docker(['rm', '-f', NAME]);
   ok('Escritório removido do Docker');
   if (flag('apagar-dados')) { docker(['volume', 'rm', 'clodfarm_claude-home', 'clodfarm_workspace']); ok('Dados apagados (login e trabalhos dentro do Docker). A pasta de entregas no seu computador não foi tocada.'); }
+  return true;
 }
 
 const cmd = process.argv[2];
-const table = { verificar, construir, iniciar, equipe, abrir, status, desinstalar, inicio: () => inicio(process.argv[3]) };
+const table = { instalar, verificar, construir, iniciar, equipe, abrir, status, desinstalar, inicio: () => inicio(process.argv[3]) };
 if (!table[cmd]) {
-  say('Uso: node scripts/escritorio.mjs <verificar | construir | iniciar | equipe | abrir | inicio on|off | status | desinstalar>');
+  say('Uso: node scripts/escritorio.mjs <instalar | verificar | construir | iniciar | equipe | abrir | inicio on|off | status | desinstalar>');
   process.exitCode = cmd ? 2 : 0;
 } else {
-  Promise.resolve(table[cmd]()).catch((e) => { bad(e.message || String(e)); process.exitCode = 1; });
+  Promise.resolve(table[cmd]()).then((r) => { process.exitCode = r === true || r === undefined ? 0 : r === NEEDS_PERSON ? NEEDS_PERSON : 1; })
+    .catch((e) => { bad(e.message || String(e)); process.exitCode = 1; });
 }

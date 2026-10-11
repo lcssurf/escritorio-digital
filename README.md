@@ -12,9 +12,9 @@ Instale o Escritório Digital no meu computador. Leia e siga o INSTALAR.md deste
 e me avise só quando precisar de mim.
 ```
 
-O Claude segue o [INSTALAR.md](INSTALAR.md): confere o que falta, instala com a sua licença, monta e liga o escritório, instala a equipe e abre os bonecos. Só duas coisas são suas: entrar com a sua conta Claude e, no Windows, reiniciar o computador se o Docker pedir. Funciona no **Windows** (testado) e no **macOS** (ainda não testado num Mac).
+O Claude segue o [INSTALAR.md](INSTALAR.md): instala o que faltar (com a sua licença), baixa o projeto e roda **um comando só** (`node scripts/escritorio.mjs instalar`) que liga o escritório, instala a equipe e abre os bonecos. Só duas coisas são suas: entrar com a sua conta Claude e, no Windows, reiniciar o computador se o Docker pedir. Leva uns 5 a 10 minutos. Funciona no **Windows** (testado) e no **macOS** (ainda não testado num Mac).
 
-Prefere fazer sozinho? `node scripts/escritorio.mjs verificar` mostra o que falta, com a correção de cada item.
+Prefere fazer sozinho? Com Node, Git e Docker instalados: `git clone` o projeto e rode `node scripts/escritorio.mjs instalar`. Para ver o que falta, com a correção de cada item: `node scripts/escritorio.mjs verificar`.
 
 ## Como funciona
 - **Conversa:** clique em qualquer boneco (ou no ícone perto do relógio). Se não souber com quem falar, fale com a chefe.
@@ -27,4 +27,4 @@ Prefere fazer sozinho? `node scripts/escritorio.mjs verificar` mostra o que falt
 Nenhum dado de cliente real em testes. A IA rascunha, o advogado confere e envia. Sigilo e LGPD são decisão sua antes de usar dados reais.
 
 ## Sobre este projeto
-Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © 2026 Duke Security, Inc.). A licença original está em `LICENSE`; o README original do clodfarm está em `docs/README.clodfarm.md`. Para desenvolver, veja o [CLAUDE.md](CLAUDE.md).
+Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © 2026 Duke Security, Inc.). A licença original está em `LICENSE`; o README original do clodfarm e os arquivos do projeto original estão em `docs/clodfarm/`. Para desenvolver, veja o [CLAUDE.md](CLAUDE.md).

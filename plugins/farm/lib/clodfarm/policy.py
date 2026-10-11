@@ -27,10 +27,15 @@ GROUPS: dict[str, tuple[str, list[str]]] = {
     "browser": ("The farm's browser", ["mcp__browser*"]),
     "stripe": ("Stripe (payments)", ["mcp__stripe__*"]),
     "blender": ("Blender (3D)", ["mcp__blender__*"]),
+    # the connectors of the person's Claude account (Gmail, Google Drive, Calendar...): off unless named in "allow"
+    "claude_ai": ("Claude connectors (Gmail, Drive, Calendar...)", ["mcp__claude_ai_*"]),
     "mcp": ("Other MCP tools", ["mcp__*"]),
 }
 # built-in tools that --disallowedTools can name as they are (the hook covers the shell and MCP patterns)
 _FLAGGABLE = {"edit", "web", "agents", "messaging"}
+# a connector that was let in is read-only: only tools that look things up
+READ_ONLY = re.compile(r"^(search|get|list|read|fetch|find|describe|query|view|lookup|download|count|check)", re.I)
+CONNECTOR = re.compile(r"claude_ai_[A-Za-z0-9_]{1,60}")
 FARM_COMMAND = re.compile(r"^\s*(?:[A-Z_][A-Z0-9_]*=\S*\s+)*(?:\S*/)?clodfarm(?:\s|$)")
 
 
@@ -39,13 +44,16 @@ def groups_view() -> list[dict]:
 
 
 def clean(tools) -> dict:
-    """``"all"``, or {"deny": [group, ...]} with only known groups."""
+    """``"all"``, or {"deny": [group, ...]} with only known groups; ``"allow"`` (connectors let in) is kept when set."""
+    allow = []
+    if isinstance(tools, dict) and isinstance(tools.get("allow"), list):
+        allow = sorted({str(c) for c in tools["allow"] if CONNECTOR.fullmatch(str(c))})
     if tools in (None, "all") or (isinstance(tools, dict) and not tools.get("deny")):
-        return {"deny": []}
+        return {"deny": [], **({"allow": allow} if allow else {})}
     deny = tools.get("deny") if isinstance(tools, dict) else tools
     if not isinstance(deny, list):
         raise ValueError("tools: 'all' or {\"deny\": [groups]}")
-    return {"deny": sorted({str(g) for g in deny if str(g) in GROUPS})}
+    return {"deny": sorted({str(g) for g in deny if str(g) in GROUPS}), **({"allow": allow} if allow else {})}
 
 
 def load(config_dir: str) -> dict:
@@ -102,6 +110,16 @@ def decide(pol: dict, tool: str, tool_input: dict | None = None) -> tuple[bool, 
         cmd = str((tool_input or {}).get("command") or "")
         if FARM_COMMAND.match(cmd) and not re.search(r"[;&|`$<>]", cmd):
             return True, ""  # talking to the farm is always allowed
+    if g == "claude_ai":   # a connector of the person's account: only the ones they let in, and only to look things up
+        parts = tool.split("__", 2)
+        server, action = parts[1] if len(parts) > 1 else "", parts[2] if len(parts) > 2 else ""
+        if server in set(pol.get("allow", [])):
+            if READ_ONLY.match(action):
+                return True, ""
+            return False, (f"This connector is read-only in the office: '{action}' would change something. Use it only to look things up; "
+                           "the lawyer does the rest.")
+        return False, ("Connectors of the lawyer's Claude account (Gmail, Drive, Calendar...) are off for the office. Work with the files in "
+                       "the office folders; the lawyer can let a connector in from the office panel (Settings).")
     label = GROUPS[g][0]
     return False, (f"{label} is turned off for this Claude by its person (farm SETTINGS). Do the work without it, "
                    f"or ask your person to allow it. `clodfarm ...` commands still work.")
@@ -112,3 +130,18 @@ def hook_output(allowed: bool, reason: str) -> dict | None:
         return None
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                    "permissionDecisionReason": reason}}
+
+
+def ensure_connectors_off(store, cid: str, config_dir: str):
+    """The connectors of the person's Claude account are off for the office until they let one in (once; their later
+    choice, even turning it all on, is kept)."""
+    rec = store.claude(cid)
+    tools = clean(rec.get("tools"))
+    if "claude_ai" in tools["deny"]:
+        save(config_dir, tools, cid)       # make sure the hook's file exists
+        return
+    if rec.get("connectors_default"):
+        return
+    tools = {**tools, "deny": sorted(set(tools["deny"]) | {"claude_ai"})}
+    store.put_claude(cid, tools=tools, connectors_default=True)
+    save(config_dir, tools, cid)

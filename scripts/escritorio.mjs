@@ -110,14 +110,9 @@ async function verificar() {
 function fim(all) { say(all ? '\nTudo certo.' : '\nHá itens para resolver (acima).'); return all; }
 
 // ---------------------------------------------------------------- construir
-// O pacote é privado enquanto o projeto for: o Docker precisa estar "logado" no GitHub com uma conta que o enxergue.
-function loginRegistro() {
-  const tok = run('gh', ['auth', 'token']);
-  if (tok.status !== 0 || !tok.stdout.trim()) return false;
-  const who = run('gh', ['api', 'user', '-q', '.login']);
-  const user = who.status === 0 && who.stdout.trim() ? who.stdout.trim() : REGISTRY_USER;
-  return run('docker', ['login', 'ghcr.io', '-u', user, '--password-stdin'], { input: tok.stdout.trim() }).status === 0;
-}
+// O pacote é privado enquanto o projeto for. O GitHub NÃO aceita o token do "gh" para baixar pacotes: só um token
+// pessoal "clássico" com a permissão read:packages, usado no "docker login". Isso é feito pela pessoa (nunca digitamos token).
+const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=read:packages&description=Escritorio+Digital';
 
 function construir() {
   if (!dockerUp()) return bad('O Docker não está rodando', 'Abra o Docker Desktop e tente de novo.');
@@ -131,15 +126,19 @@ function construir() {
     return ok('Imagem pronta: ' + IMAGE);
   }
   say('Baixando a imagem do escritório (de 2 a 4 minutos na primeira vez; guardo o que já baixei)...');
-  let pull = run('docker', ['pull', IMAGE], { encoding: 'utf8' });
-  if (pull.status !== 0 && /unauthorized|denied|authentication required|not found|manifest unknown/i.test((pull.stderr || '') + (pull.stdout || ''))) {
-    say('O pacote é privado: entrando no GitHub pelo Docker...');
-    if (loginRegistro()) pull = run('docker', ['pull', IMAGE], { encoding: 'utf8' });
-  }
+  const pull = run('docker', ['pull', IMAGE], { encoding: 'utf8' });
   if (pull.status !== 0) {
     const out = ((pull.stderr || '') + (pull.stdout || '')).trim().split('\n').slice(-3).join(' | ');
-    return bad('Não consegui baixar a imagem: ' + out,
-      'Se for acesso: rode "gh auth login" e depois "gh auth refresh -h github.com -s read:packages", e repita. Se for certificado: veja INSTALAR.md. Alternativa: construir --completo');
+    if (/unauthorized|denied|authentication required|not found|manifest unknown/i.test(out)) {
+      say('\n🧍 O pacote do escritório é privado: o Docker precisa entrar no GitHub (só você pode fazer, eu não vejo o token):');
+      say(`   1. Abra ${TOKEN_URL}`);
+      say('      (já vem com a permissão read:packages; escolha "30 days" e clique em "Generate token"; copie o texto ghp_...)');
+      say('   2. Num terminal rode:  docker login ghcr.io -u SEU_USUARIO_DO_GITHUB   e cole o token quando pedir a senha.');
+      say('   3. Rode de novo o mesmo comando.');
+      say('   (Sem acesso ao pacote? Alternativa: construir --completo, que monta tudo do zero neste computador.)');
+      return bad('Falta autorizar o Docker no GitHub (código 3)') && false || NEEDS_PERSON;
+    }
+    return bad('Não consegui baixar a imagem: ' + out, 'Se o erro falar de certificado, veja INSTALAR.md ("Antivírus que inspeciona HTTPS"). Alternativa: construir --completo');
   }
   const info = docker(['image', 'inspect', IMAGE, '--format', '{{.Id}}']);
   if (info.status !== 0) return bad('A imagem não apareceu depois do download', 'Rode de novo.');
@@ -260,7 +259,7 @@ async function instalar() {
   ok('Docker rodando');
 
   say('\n2/5  Imagem do escritório');
-  if (hasImage() && !flag('refazer')) ok(`${IMAGE} já existe`); else if (!construir()) return false;
+  if (hasImage() && !flag('refazer')) ok(`${IMAGE} já existe`); else { const b = construir(); if (b !== true) return b === NEEDS_PERSON ? NEEDS_PERSON : false; }
 
   say('\n3/5  Ligar o escritório');
   const st = containerState();

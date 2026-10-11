@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Pure logic: turn the farm's JSON into the list of characters standing on the taskbar. No DOM, so it is testable.
 (function (root) {
   const MAX_PETS = 20;

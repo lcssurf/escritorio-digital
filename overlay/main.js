@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Escritório Digital overlay: little office workers standing on the Windows taskbar.
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, nativeTheme, shell, globalShortcut, Notification } = require('electron');
 const path = require('path');

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Ready-made specialists for a law office. The instructions are the real prompt the agent works under, so each
 // language has its own (a Portuguese-speaking office gets Portuguese instructions). The office rules are added on top by the server.
 (function (root) {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Tiny i18n shared by the main process and the renderer windows (UMD: works in Node and in the browser).
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();

@@ -1,10 +1,10 @@
-# clodfarm: always-on Claude Code agents. Runs as the non-root user "farm";
-# the container itself is the sandbox the agents work in.
+# Escritorio Digital: a law office of AI agents (a modified copy of clodfarm, MIT). Runs as the non-root user "farm";
+# the container itself is the sandbox the agents work in. See NOTICE.md for the licences of everything inside.
 FROM debian:bookworm-slim
-LABEL org.opencontainers.image.title="clodfarm" \
-      org.opencontainers.image.description="Always-on Claude Code agents with Remote Control, sub-agents and a per-account budget governor" \
-      org.opencontainers.image.source="https://github.com/matank001/clodfarm" \
-      org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.title="Escritorio Digital" \
+      org.opencontainers.image.description="A law office of AI agents with human approval before anything is delivered. A modified copy of clodfarm (MIT) plus our changes under PolyForm Shield. Includes Claude Code, which is Anthropic's software under Anthropic's terms." \
+      org.opencontainers.image.source="https://github.com/lcssurf/escritorio-digital" \
+      org.opencontainers.image.licenses="MIT AND LicenseRef-PolyForm-Shield-1.0.0"
 
 # the newest Claude Code (the "latest" channel, ahead of "stable"); the farm keeps it current (FARM_CLAUDE_UPDATE)
 ARG CLAUDE_VERSION=latest
@@ -57,6 +57,8 @@ RUN if [ "$BROWSER" = "1" ]; then set -eux; \
 COPY --chown=farm:farm pyproject.toml README.md /src/
 COPY --chown=farm:farm clodfarm /src/clodfarm
 RUN python3 -m venv /opt/clodfarm && /opt/clodfarm/bin/pip install --no-cache-dir /src && rm -rf /src
+COPY LICENSE NOTICE.md TRADEMARKS.md /usr/share/doc/escritorio-digital/
+COPY LICENSES /usr/share/doc/escritorio-digital/LICENSES/
 
 USER farm
 WORKDIR /workspace

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 """What makes the office usable by someone who never saw it: read the work before approving it, get the files on your own
 computer, and let the chief propose a plan that you accept before anything starts."""
 import json

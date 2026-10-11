@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Run: node test/i18n.test.js  (no dependencies)
 const assert = require('assert');
 const I18N = require('../i18n');

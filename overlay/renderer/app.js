@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 ﻿// Overlay renderer: characters on the taskbar. Polls the farm through the main process (the key never touches this page).
 (function () {
   const S = window.Sprites, O = window.Office;

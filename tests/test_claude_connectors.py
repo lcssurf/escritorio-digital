@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 """The connectors of the lawyer's Claude account (Gmail, Drive, Calendar...): off for the office until they let one in,
 and read-only when they do."""
 from clodfarm import policy

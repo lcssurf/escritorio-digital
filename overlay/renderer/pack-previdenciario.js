@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Pacote pronto: escritório previdenciário (INSS), 16 especialistas. Inspirado no mapa de funções de um escritório do ramo;
 // as instruções abaixo são originais deste projeto. Os especialistas trabalham em pastas do repositório do escritório
 // (entradas/, saidas/, clientes/, modelos/) e nunca fazem login, protocolam ou enviam nada: tudo é rascunho para o advogado.

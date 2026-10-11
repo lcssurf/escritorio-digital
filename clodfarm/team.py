@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 """The office's team: the specialists a person creates, and the chief who coordinates them.
 
 The team has three levels: the chief, the leads (orchestrators, who coordinate a team of their own) and the

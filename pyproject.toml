@@ -7,7 +7,7 @@ name = "clodfarm"
 dynamic = ["version"]
 description = "Always-on Claude Code agents in a container: Remote Control, sub-agents, a shared queue, and a budget governor that paces each account on its real 5-hour and weekly usage."
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "MIT AND LicenseRef-PolyForm-Shield-1.0.0"}
 requires-python = ">=3.10"
 authors = [{name = "Matan Kotick"}]
 keywords = ["claude", "claude-code", "ai-agents", "autonomous-agents", "multi-agent", "agent-orchestration",
@@ -17,7 +17,7 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
+  "License :: Other/Proprietary License",
   "Operating System :: POSIX :: Linux",
   "Operating System :: MacOS",
   "Programming Language :: Python :: 3",

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Escritório Digital: uma ferramenta só, igual no Windows, no Mac e no Linux (precisa só do Node 18+).
 // Pensada para uma IA (o Claude) instalar e cuidar do escritório, mas serve para qualquer pessoa.
 //
@@ -27,7 +29,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OVERLAY = path.join(ROOT, 'overlay');
 // A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
 // Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
-const IMAGE = process.env.ESCRITORIO_IMAGE || 'ghcr.io/lcssurf/escritorio-digital:1.0.0';
+const IMAGE = process.env.ESCRITORIO_IMAGE || 'ghcr.io/lcssurf/escritorio-digital:1.0.1';
 const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';
 const PORT = 8080;

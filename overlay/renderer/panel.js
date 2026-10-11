@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 ﻿// Panel: team, approvals, new job, settings. Plain language, nothing technical. All farm text goes in with textContent.
 (function () {
   const S = window.Sprites, O = window.Office;

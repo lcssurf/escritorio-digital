@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 """Talking to a member of the team from the overlay.
 
 Each message from the lawyer becomes a short job for that person (a sub-agent working as them); its result is the reply.

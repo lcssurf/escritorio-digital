@@ -26,5 +26,8 @@ Prefere fazer sozinho? Com Node, Git e Docker instalados: `git clone` o projeto 
 ## Regras do projeto
 Nenhum dado de cliente real em testes. A IA rascunha, o advogado confere e envia. Sigilo e LGPD são decisão sua antes de usar dados reais.
 
+## Licença e avisos legais
+Use à vontade, inclusive no seu escritório, **menos para vender um produto ou serviço que concorra com este**: a nossa parte é [PolyForm Shield 1.0.0](LICENSES/PolyForm-Shield-1.0.0.md), e a parte herdada do clodfarm continua MIT (o [LICENSE](LICENSE) mostra quem é quem). Nome e bonecos: [TRADEMARKS.md](TRADEMARKS.md). O Claude Code é software da Anthropic, sob os termos dela, e cada pessoa entra com a própria conta: leia o [NOTICE.md](NOTICE.md).
+
 ## Sobre este projeto
-Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © 2026 Duke Security, Inc.). A licença original está em `LICENSE`; o README original do clodfarm e os arquivos do projeto original estão em `docs/clodfarm/`. Para desenvolver, veja o [CLAUDE.md](CLAUDE.md).
+Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © 2026 Duke Security, Inc.; a licença original está em `LICENSES/MIT-clodfarm.txt`); o README original do clodfarm e os arquivos do projeto original estão em `docs/clodfarm/`. Para desenvolver, veja o [CLAUDE.md](CLAUDE.md).

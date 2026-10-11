@@ -1,6 +1,6 @@
 # Escritório Digital: guia para quem abrir este projeto
 
-Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © Duke Security, Inc.): um escritório de advocacia com agentes de IA, bonecos em pixel-art sobre a barra de tarefas e **aprovação humana antes de qualquer entrega**.
+Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © Duke Security, Inc.; a nossa parte é PolyForm Shield, veja `LICENSE`): um escritório de advocacia com agentes de IA, bonecos em pixel-art sobre a barra de tarefas e **aprovação humana antes de qualquer entrega**.
 
 ## Se pediram para INSTALAR
 Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/escritorio.mjs <instalar|verificar|construir|iniciar|equipe|abrir|inicio|status|desinstalar>`; o `instalar` faz tudo e pula o que já está pronto.
@@ -11,6 +11,7 @@ Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/esc
 - Segurança primeiro: valide tudo no servidor, limite tamanhos de entrada, não confie no cliente (a UI do overlay não é fronteira de segurança).
 - Os conectores da conta Claude (Gmail, Drive, Agenda) ficam **desligados por padrão** e, se liberados, **somente leitura** (`clodfarm/policy.py`).
 - Nunca commite certificados, tokens ou chaves (`.pem`, `overlay.token`, `.env`).
+- **Arquivo novo nosso** (código) começa com o cabeçalho `SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0` + `Required Notice: Copyright (c) 2026 lcssurf ...` e entra na lista do `LICENSE` e de `tests/test_licenses.py`. Não mexa nos avisos de copyright do clodfarm.
 - Comunicação com o usuário: português do Brasil, simples e curto.
 
 ## Mapa

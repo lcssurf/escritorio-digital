@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+// Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
 // Pixel-art office workers, drawn with rectangles on a small canvas that CSS scales up (no image files).
 // Every look comes from the agent's id: skin, hair, suit, tie, glasses and the desk prop of its role.
 // Pipeline per frame: body/props -> dark outline pass (so they read on any taskbar colour) -> effects (steam, zzz, bubbles).

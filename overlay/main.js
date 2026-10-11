@@ -1,5 +1,5 @@
 // Escritório Digital overlay: little office workers standing on the Windows taskbar.
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, nativeTheme, shell, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, nativeTheme, shell, globalShortcut, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -9,7 +9,7 @@ const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.js
 const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 64; // pets plus room for the name tag
 const FEET_PAD = 6;       // transparent canvas pixels under the soles (2 sprite rows x 3)
 const AUTOHIDE_BAR = 48;  // assumed taskbar height when it hides itself (Windows 11 default, in DIP)
-const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0 };
+const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -25,7 +25,8 @@ function saveCfg(patch) {
   for (const w of [overlay, panel]) if (w && !w.isDestroyed()) w.webContents.send('config', publicCfg());
   rebuildTray();
 }
-const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
+const exportDir = () => path.join(app.getPath('documents'), 'Escrit\u00f3rio Digital');   // where approved work is copied (the start script mounts it into the container)
+const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, onboarded: cfg.onboarded, notify: cfg.notify, exportDir: exportDir(), floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
 const t = (k, v) => I18N.make(DICTS, cfg.lang)(k, v);
 
 // The farm's secret for this PC: the container wrote it into its volume. It never leaves this machine.
@@ -153,7 +154,7 @@ ipcMain.handle('api', (_e, method, p, body) => {
 ipcMain.handle('config:get', () => publicCfg());
 ipcMain.handle('config:set', (_e, patch) => {
   const allowed = {};
-  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset']) if (k in patch) allowed[k] = patch[k];
+  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset', 'onboarded', 'notify']) if (k in patch) allowed[k] = patch[k];
   if ('yoffset' in allowed) allowed.yoffset = Math.max(-60, Math.min(60, Math.round(Number(allowed.yoffset) || 0)));
   // the key only ever goes to this PC: refuse any address that is not local
   if (allowed.url && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\/?$/.test(allowed.url)) delete allowed.url;
@@ -173,14 +174,24 @@ ipcMain.on('click-through', (_e, through) => {
 ipcMain.on('broadcast', (_e, evt) => { if (overlay && !overlay.isDestroyed()) overlay.webContents.send('event', evt); });
 ipcMain.on('open-panel', (_e, opts) => openPanel(opts || {}));
 ipcMain.on('quit', () => app.quit());
+ipcMain.on('open-exports', () => { const d = exportDir(); try { fs.mkdirSync(d, { recursive: true }); } catch (_) { /* opening reports it */ } shell.openPath(d); });
+ipcMain.on('notify', (_e, n) => {   // a Windows notification: the lawyer does not have to watch the bar
+  if (!cfg.notify || !Notification.isSupported() || !n || typeof n.title !== 'string') return;
+  if (panel && !panel.isDestroyed() && panel.isVisible() && panel.isFocused()) return;
+  const note = new Notification({ title: String(n.title).slice(0, 80), body: String(n.body || '').slice(0, 200), silent: !cfg.sound });
+  note.on('click', () => openPanel(n.target || { tab: 'chat', id: 'chief', kind: 'member' }));
+  note.show();
+});
 ipcMain.on('toggle-pets', () => togglePets());
 ipcMain.on('open-farm', () => shell.openExternal(cfg.url));
 
 if (!app.requestSingleInstanceLock()) app.quit();
+app.setAppUserModelId('com.escritoriodigital.overlay');
 app.whenReady().then(async () => {
   loadCfg();
   if (!cfg.token) { const tok = await fetchToken(); if (tok) saveCfg({ token: tok }); }
   createOverlay();
+  if (!cfg.onboarded) setTimeout(talkToChief, 1500);   // first run: the panel opens with the tour
   try { globalShortcut.register('Control+Alt+E', talkToChief); } catch (_) { /* the shortcut is a convenience */ }
   try {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));

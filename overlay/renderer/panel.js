@@ -6,6 +6,7 @@
   let office = window.office, dicts = null, cfg = { lang: q.get('lang') || 'pt-BR', sound: true, url: 'http://localhost:8080', hasToken: true };
   let tab = q.get('tab') || '', focusId = q.get('id') || '';
   let chatWith = 'chief'; const chatDraft = {};
+  let viewing = null;
   let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
@@ -27,10 +28,10 @@
     L.forEach((l) => { l.specialist = 'ana'; }); st.subagents.forEach((t, i) => { t.specialist = i ? 'bruno' : 'ana'; });
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
-      api: async (m, p, b) => p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
-      getConfig: async () => cfg,
+      api: async (m, p, b) => /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
+      getConfig: async () => ({ ...cfg, onboarded: !q.has('tour') }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
-      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, quit() {}, togglePets() {}, broadcast() {},
+      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, notify() {}, quit() {}, togglePets() {}, broadcast() {},
     };
   }
 
@@ -107,7 +108,7 @@
   }
   function banner() {
     if (cfg.hidden) return h('div', { class: 'banner' }, tr('banner.hidden'), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => office.togglePets() }, tr('settings.show')));
-    if (offline) return h('div', { class: 'banner' }, tr('error.offline', { url: cfg.url || '' }));
+    if (offline) return h('div', { class: 'banner' }, tr('error.offline', { url: cfg.url || '' }), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => refresh(true) }, tr('error.retry')));
     if (authErr) return h('div', { class: 'banner' }, tr('error.auth'));
     return null;
   }
@@ -263,8 +264,17 @@
           h('button', { onclick: () => { ta.value = tr('job.chip.' + k) + ' - '; chatDraft[m.id] = ta.value; ta.focus(); } }, tr('job.chip.' + k)))));
       return box;
     };
+    const planCard = (msg) => {
+      const pl = msg.plan, card = h('div', { class: 'plan' }, h('b', {}, tr('plan.title')),
+        h('ol', {}, pl.steps.map((stp) => { const mem = memberOf(stp.who); return h('li', {}, h('span', { class: 'pw' }, mem ? mem.name + (mem.title ? ' · ' + mem.title : '') : stp.who), h('span', {}, stp.task)); })));
+      if (pl.status === 'proposed') {
+        const act = (kind) => async () => { const r = await office.api('POST', '/api/chat/' + encodeURIComponent(m.id) + '/plan/' + msg.id + '/' + kind, {}); if (r.ok) { chatSig = ''; paint(r.data); } else toast(tr('chat.error', { why: (r.data && r.data.error) || r.error || r.status }), true); };
+        card.append(h('div', { class: 'ask' }, tr('plan.ask')), h('div', { class: 'actions', style: 'margin-top:8px' }, h('button', { class: 'btn ghost', onclick: act('cancel') }, tr('plan.no')), h('button', { class: 'btn ok', onclick: act('start') }, tr('plan.start'))));
+      } else card.append(h('div', { class: 'ask dim' }, tr(pl.status === 'started' ? (pl.done ? 'plan.done' : 'plan.started') : 'plan.cancelled')));
+      return card;
+    };
     const paint = (view) => {
-      const sig = JSON.stringify([view.messages.map((x) => x.id), view.pending]);
+      const sig = JSON.stringify([view.messages.map((x) => [x.id, x.plan && x.plan.status, x.plan && x.plan.done]), view.pending]);
       if (sig === chatSig) return;
       chatSig = sig; clear(list);
       if (!view.messages.length) list.append(hello());
@@ -272,6 +282,7 @@
         if (msg.role === 'user') list.append(h('div', { class: 'bubble me' }, msg.text));
         else {
           const b = h('div', { class: 'bubble them' + (msg.ok === false ? ' bad' : '') }, msg.text);
+          if (msg.plan && msg.plan.steps && msg.plan.steps.length) b.append(planCard(msg));
           if (msg.waiting) b.append(h('div', { class: 'waitrow' }, tr('chat.waiting'), ' ', h('button', { class: 'link', onclick: () => { tab = 'approvals'; render(); } }, tr('chat.review'))));
           list.append(b);
         }
@@ -382,6 +393,91 @@
   }
 
 
+  // ------------------------------------------------------------------ reading a document (markdown-lite, built with the DOM only)
+  function inlineDoc(str) {
+    const frag = document.createDocumentFragment(), re = /(\*\*[^*]+\*\*|\[CONFERIR\]|\{\{[^}]+\}\})/g;
+    let last = 0, m;
+    while ((m = re.exec(str))) {
+      if (m.index > last) frag.append(str.slice(last, m.index));
+      const t = m[0];
+      if (t === '[CONFERIR]') frag.append(h('span', { class: 'mark' }, 'CONFERIR'));
+      else if (t.startsWith('{{')) frag.append(h('span', { class: 'mark fill' }, t.slice(2, -2)));
+      else frag.append(h('strong', {}, t.slice(2, -2)));
+      last = m.index + t.length;
+    }
+    if (last < str.length) frag.append(str.slice(last));
+    return frag;
+  }
+  function renderDoc(text) {
+    const box = h('div', { class: 'doc' });
+    for (const raw of String(text).split('\n')) {
+      const line = raw.replace(/\s+$/, '');
+      let m;
+      if (!line.trim()) box.append(h('div', { class: 'sp' }));
+      else if ((m = /^(#{1,3})\s+(.*)$/.exec(line))) box.append(h('div', { class: 'dh dh' + m[1].length }, inlineDoc(m[2])));
+      else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) box.append(h('div', { class: 'li' }, '• ', inlineDoc(m[1])));
+      else if (/^\s*\|/.test(line)) {
+        if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) continue;
+        box.append(h('div', { class: 'tr' }, line.trim().split('|').slice(1, -1).map((c) => h('span', {}, inlineDoc(c.trim())))));
+      } else box.append(h('div', { class: 'p' }, inlineDoc(line)));
+    }
+    return box;
+  }
+  async function openFile(l, f) {
+    viewing = { landing: l.id, path: f.name, state: 'loading' };
+    renderApprovals();
+    const r = await office.api('GET', '/api/landings/' + encodeURIComponent(l.id) + '/file?path=' + encodeURIComponent(f.name));
+    if (!viewing || viewing.landing !== l.id || viewing.path !== f.name) return;
+    viewing = r.ok ? { landing: l.id, path: f.name, state: 'ok', data: r.data } : { landing: l.id, path: f.name, state: 'err' };
+    renderApprovals();
+  }
+  function viewer(l) {
+    if (!viewing || viewing.landing !== l.id) return null;
+    const head = h('div', { class: 'vhead' }, h('b', {}, viewing.path.split('/').pop()), h('button', { class: 'link', onclick: () => { viewing = null; renderApprovals(); } }, tr('review.close')));
+    if (viewing.state === 'loading') return h('div', { class: 'viewer' }, head, h('div', { class: 'dim small' }, tr('review.loading')));
+    if (viewing.state === 'err') return h('div', { class: 'viewer' }, head, h('div', { class: 'dim small' }, tr('review.error')));
+    const d = viewing.data;
+    if (d.binary) return h('div', { class: 'viewer' }, head, h('div', { class: 'dim small' }, tr('review.binary')));
+    return h('div', { class: 'viewer' }, head, renderDoc(d.text), d.truncated ? h('div', { class: 'dim small' }, tr('review.truncated')) : null);
+  }
+
+  // ------------------------------------------------------------------ first-run tour and the "what do the characters mean" sheet
+  function modal(content) {
+    closeModal();
+    const m = h('div', { class: 'modal', id: 'modal', role: 'dialog', 'aria-modal': 'true' }, content);
+    document.body.append(m);
+    return m;
+  }
+  function closeModal() { const m = $('modal'); if (m) m.remove(); }
+  function spriteRow(items) {
+    return h('div', { class: 'srow' }, items.map(([spec, state, label]) => {
+      const cv = h('canvas', { width: S.W, height: S.H });
+      S.draw(cv.getContext('2d'), S.look(spec.id || 'x', spec), state, 3, 1, 3);
+      return h('div', { class: 'sitem' }, cv, h('span', {}, label));
+    }));
+  }
+  function showTour(step) {
+    step = step || 0;
+    const slides = [
+      { art: () => spriteRow([[{ id: 'chief', gender: 'f', look: { style: 'bun', suit: '#2f2f3a', glasses: true } }, 'idle', ''], [{ id: 'l1', lead: true, gender: 'm', look: { style: 'side' } }, 'working', ''], [{ id: 's1', gender: 'f', look: { style: 'long', prop: 1 } }, 'working', ''], [{ id: 's2', gender: 'm', look: { style: 'beard', prop: 4 } }, 'coffee', '']]) },
+      { art: () => h('div', { class: 'mini' }, h('div', { class: 'bubble me' }, tr('onb.2.me')), h('div', { class: 'bubble them' }, tr('onb.2.them'),
+        h('div', { class: 'plan' }, h('b', {}, tr('plan.title')), h('div', { class: 'dim small' }, 'Helena · ' + tr('role.docs'))))) },
+      { art: () => spriteRow([[{ id: 'alert1', gender: 'f' }, 'alert', ''], [{ id: 'chief', gender: 'f', look: { style: 'bun' } }, 'cheer', '']]) },
+    ];
+    const sl = slides[step], last = step === slides.length - 1;
+    const dots = h('div', { class: 'dots' }, slides.map((_, i) => h('i', { class: i === step ? 'on' : '' })));
+    const finish = async () => { cfg.onboarded = true; await office.setConfig({ onboarded: true }); closeModal(); if (tab !== 'chat') { tab = 'chat'; } render(); };
+    modal(h('div', { class: 'sheet' }, sl.art(), h('h3', {}, tr('onb.' + (step + 1) + '.title')), h('p', {}, tr('onb.' + (step + 1) + '.text')), dots,
+      h('div', { class: 'actions' }, last ? null : h('button', { class: 'btn ghost', onclick: finish }, tr('onb.skip')),
+        h('button', { class: 'btn acc', onclick: () => (last ? finish() : showTour(step + 1)) }, tr(last ? 'onb.start' : 'onb.next')))));
+  }
+  function showHelp() {
+    modal(h('div', { class: 'sheet' }, h('h3', {}, tr('help.title')),
+      spriteRow([[{ id: 'h1', gender: 'f', look: { prop: 1 } }, 'working', tr('help.working')], [{ id: 'h2', gender: 'm' }, 'alert', tr('help.alert')], [{ id: 'h3', gender: 'f' }, 'coffee', tr('help.idle')], [{ id: 'chief', gender: 'f', look: { style: 'bun' } }, 'idle', tr('help.badge')]]),
+      h('p', { class: 'dim' }, tr('help.click')),
+      h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { closeModal(); showTour(0); } }, tr('onb.again')), h('button', { class: 'btn acc', onclick: closeModal }, tr('help.close')))));
+  }
+
   // ------------------------------------------------------------------ approvals
   function renderApprovals() {
     const s = $('s-approvals'); clear(s);
@@ -402,7 +498,9 @@
         h('div', { class: 'label' }, tr('approvals.what')),
         h('div', { class: 'said' }, cleanSummary(l.summary) || tr('team.noresult')),
         files.length ? [h('div', { class: 'label' }, tr('approvals.changes')),
-          h('ul', { class: 'files' }, files.map((f) => h('li', {}, h('span', { class: 'tagf ' + f.k }, tr('file.' + f.k)), h('span', {}, f.name))))] : null,
+          h('ul', { class: 'files' }, files.map((f) => h('li', { class: 'fileli' }, h('span', { class: 'tagf ' + f.k }, tr('file.' + f.k)),
+            h('span', { class: 'fname' }, f.name.split('/').pop()), f.k === 'D' ? null : h('button', { class: 'link', onclick: () => openFile(l, f) }, tr('review.open'))))),
+          viewer(l)] : null,
         h('div', { class: 'after' }, tr('approvals.after')));
       if (confirmDeny.has(l.id)) {
         card.append(h('div', { class: 'confirm' }, h('p', {}, tr('approvals.confirmdeny')), h('div', { class: 'actions' },
@@ -421,7 +519,8 @@
     const r = await office.api('POST', '/api/landings/' + encodeURIComponent(l.id) + '/' + kind, {});
     busy.delete(l.id); confirmDeny.delete(l.id);
     if (r.ok) {
-      toast(tr(kind === 'approve' ? 'approvals.done' : 'approvals.denied'));
+      toast(tr(kind === 'approve' ? 'approvals.saved' : 'approvals.denied'));
+      viewing = null;
       if (kind === 'approve' && office.broadcast) office.broadcast({ type: 'approved', id: l.id, specialist: l.specialist || 'chief' });
     } else toast(tr('approvals.failed', { why: (r.data && r.data.error) || r.error || r.status }), true);
     await refresh(true);
@@ -432,6 +531,7 @@
     const s = $('s-settings'); clear(s);
     const seg = h('div', { class: 'seg' }, [['pt-BR', 'Português'], ['en', 'English']].map(([v, label]) =>
       h('button', { class: cfg.lang === v ? 'on' : '', onclick: async () => { cfg = { ...cfg, ...(await office.setConfig({ lang: v })) }; render(); } }, label)));
+    const notifyBox = h('input', { type: 'checkbox', onchange: async (e) => { cfg = { ...cfg, ...(await office.setConfig({ notify: e.target.checked })) }; } }); notifyBox.checked = cfg.notify !== false;
     const sound = h('input', { type: 'checkbox', onchange: async (e) => { cfg = { ...cfg, ...(await office.setConfig({ sound: e.target.checked })) }; } }); sound.checked = !!cfg.sound;
     const url = h('input', { type: 'text', value: cfg.url || '', 'aria-label': tr('settings.url'), onchange: async (e) => { cfg = { ...cfg, ...(await office.setConfig({ url: e.target.value.trim() })) }; toast(tr('settings.saved')); refresh(true); } });
     const keyPill = h('span', { class: 'pill' + (cfg.hasToken ? '' : ' off') }, h('i'), tr(cfg.hasToken ? 'settings.keyok' : 'settings.keymissing'));
@@ -449,8 +549,11 @@
       h('div', { class: 'field' }, h('label', {}, tr('settings.key')), h('div', { class: 'keyrow' }, keyPill, fetchKey)),
       h('div', { class: 'field' }, h('label', {}, tr('settings.url')), url),
       h('div', { class: 'field' }, h('label', {}, tr('settings.height')), heightRow, h('div', { class: 'note' }, tr('settings.heightHint'))),
+      h('div', { class: 'field' }, h('label', {}, tr('settings.exports')), h('div', { class: 'keyrow' }, h('button', { class: 'btn ghost', onclick: () => office.openExports() }, tr('settings.openexports'))), h('div', { class: 'note' }, tr('settings.exportshint'))),
+      h('div', { class: 'field' }, h('label', { class: 'switch' }, notifyBox, tr('settings.notify'))),
       h('div', { class: 'note' }, tr('settings.hotkey')),
       h('div', { class: 'stack' },
+        h('button', { class: 'btn ghost', onclick: () => showTour(0) }, tr('onb.again')),
         h('button', { class: 'btn ghost', onclick: () => office.openFarm() }, tr('settings.openfarm')),
         h('button', { class: 'btn ghost', onclick: () => office.togglePets() }, tr(cfg.hidden ? 'settings.show' : 'settings.hide')),
         h('button', { class: 'btn danger', onclick: () => office.quit() }, tr('settings.exit')),
@@ -471,6 +574,8 @@
     focusId = tab === 'team' ? (o.id || '') : '';
   }
   $('close').addEventListener('click', () => window.close());
+  $('help').addEventListener('click', showHelp);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
   async function init() {
     cfg = { ...cfg, ...(await office.getConfig()) };
     dicts = await office.dicts();
@@ -480,6 +585,7 @@
     if (q.get('kind') === 'member' || tab === 'chat') route({ tab, id: focusId, kind: q.get('kind') });
     await refresh(true);
     render();
+    if (cfg.onboarded === false) showTour(0);
     setInterval(() => refresh(false), 3000);
   }
   init();

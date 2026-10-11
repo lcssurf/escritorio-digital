@@ -275,10 +275,24 @@ class FarmUI:
             status = t.get("status")
             if status == "done":
                 waiting = t.get("landing") == "awaiting"
-                text = chat.clean_reply(t.get("result")) or "(sem resposta)"
-                self.chat.add_reply(member, m["id"], text, ok=True, waiting=waiting)
+                text, plan = chat.clean_reply(t.get("result")), None
+                if m.get("mode") == "plan":
+                    text, plan = chat.split_plan(text, {x["id"] for x in self.team.all() if x["id"] != member})
+                self.chat.add_reply(member, m["id"], text or ("(veja o plano abaixo)" if plan else "(sem resposta)"), ok=True,
+                                    waiting=waiting, plan=plan)
             elif status in ("failed", "cancelled", "denied") or (m.get("task") and not t):
                 self.chat.add_reply(member, m["id"], chat.clean_reply(t.get("result")) or "(não consegui responder)", ok=False)
+        for m in self.chat.history(member):   # an approved plan that has been carried out
+            plan = m.get("plan") or {}
+            if m["role"] == "assistant" and plan.get("status") == "started" and not plan.get("done"):
+                t = self.store.get_task(plan.get("task") or "") or {}
+                if t.get("status") == "done":
+                    self.chat.add_reply(member, m["id"], chat.clean_reply(t.get("result")) or "(concluído)", ok=True,
+                                        waiting=t.get("landing") == "awaiting", kind="done")
+                    self.chat.update_plan(member, m["id"], done=True)
+                elif t.get("status") in ("failed", "cancelled", "denied") or not t:
+                    self.chat.add_reply(member, m["id"], chat.clean_reply(t.get("result")) or "(não consegui concluir)", ok=False, kind="done")
+                    self.chat.update_plan(member, m["id"], done=True)
 
     def chat_view(self, member: str) -> dict:
         self.chat_settle(member)
@@ -293,13 +307,47 @@ class FarmUI:
             raise ValueError("write something")
         if len(self.chat.pending(member)) >= chat.MAX_PENDING:
             raise ValueError("wait for the earlier answers before sending more")
-        t = self.store.add_task("Conversa: " + text.replace("\n", " ")[:60], self.chat.prompt(m, text), created_by="overlay",
+        plan = member == team.CHIEF   # the chief proposes who does what and waits for the lawyer's OK before starting
+        t = self.store.add_task("Conversa: " + text.replace("\n", " ")[:60], self.chat.prompt(m, text, plan=plan), created_by="overlay",
                                 owner=self.cfg.name, specialist=member)
         try:
-            self.chat.add_user(member, text, t["id"])
+            self.chat.add_user(member, text, t["id"], mode="plan" if plan else "direct")
         except chat.ChatError as e:
             raise ValueError(str(e)) from e
         return self.chat_view(member)
+
+    def chat_plan(self, member: str, msg_id: int, start: bool) -> dict:
+        """The lawyer says yes (the plan runs as a job for the chief) or no (it is dropped)."""
+        msg = self.chat.get(member, msg_id)
+        plan = (msg or {}).get("plan")
+        if not plan or plan.get("status") != "proposed":
+            raise ValueError("that plan was decided already")
+        if not start:
+            self.chat.update_plan(member, msg_id, status="cancelled")
+            return self.chat_view(member)
+        asked = next((u for u in self.chat.history(member) if u["id"] == msg.get("reply_to")), {})
+        steps = "\n".join(f"- {self.team.get(s['who'])['name']} ({s['who']}): {s['task']}" for s in plan["steps"] if self.team.get(s["who"]))
+        prompt = (f"O advogado pediu: {asked.get('text', '')}\n\nVocê propôs este plano e o advogado APROVOU:\n{steps}\n\n"
+                  "Execute o plano agora: entregue cada passo a quem ele cita com `clodfarm spawn --specialist <id>` (em rodadas, se "
+                  "um passo depende do outro), junte o resultado e entregue um resumo claro do que foi feito.")
+        t = self.store.add_task("Plano: " + str(asked.get("text", ""))[:60].replace("\n", " "), prompt, created_by="overlay",
+                                owner=self.cfg.name, specialist=member)
+        self.chat.update_plan(member, msg_id, status="started", task=t["id"])
+        return self.chat_view(member)
+
+    def landing_file(self, tid: str, path: str) -> dict:
+        """One file of work that waits for approval, so it can be read before it is approved."""
+        t = self.store.get_task(tid) or {}
+        if t.get("landing") != "awaiting":
+            raise ValueError("nothing waits for approval under that id")
+        allowed = {line.split("\t")[-1] for line in gitops.changed_files(self.cfg.repo_dir, t.get("landing_branch") or "", 500)}
+        if path not in allowed:
+            raise ValueError("that file is not part of this work")
+        try:
+            text, truncated, binary = gitops.show_file(self.cfg.repo_dir, t["landing_branch"], path)
+        except gitops.GitError as e:
+            raise ValueError(str(e)) from e
+        return {"path": path, "text": text, "truncated": truncated, "binary": binary}
 
     def landings(self) -> list[dict]:
         """Finished work waiting for a person's OK before it lands on main."""
@@ -320,11 +368,19 @@ class FarmUI:
             raise ValueError("nothing waits for approval under that id (decided already?)")
         branch, cwd = t.get("landing_branch") or "", t.get("landing_cwd") or ""
         if approve:
+            files = [line.split("\t")[-1] for line in gitops.changed_files(self.cfg.repo_dir, branch, 500) if not line.startswith("D")]
             try:
                 out = gitops.merge(self.cfg.repo_dir, cwd, branch, push=self.cfg.push)
             except gitops.GitError as e:
                 self.store.event("landing.conflict", f"{tid}: {str(e)[:300]}", task=tid, by=by)
                 raise ValueError(f"could not land: {str(e)[:300]}") from e
+            if self.cfg.export_dir and files:   # also hand the files to the lawyer, in a folder on their computer
+                dest = os.path.join(self.cfg.export_dir, time.strftime("%Y-%m-%d-%H%M") + "-" + team.slug(t.get("title") or "trabalho"))
+                try:
+                    n = gitops.export_files(self.cfg.repo_dir, gitops.main_branch(self.cfg.repo_dir), files, dest)
+                    self.store.event("landing.exported", f"{tid}: {n} file(s) copied to {os.path.basename(dest)}", task=tid, by=by)
+                except OSError as e:
+                    self.store.event("landing.export_failed", f"{tid}: {str(e)[:200]}", task=tid, by=by)
             gitops.remove_worktree(self.cfg.repo_dir, cwd, branch)
             self.store.update_task(tid, landing="approved", landing_by=by)
             self.store.event("landing.approved", f"{tid}: {out}", task=tid, by=by)
@@ -1188,6 +1244,15 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a Claude's person approves its missions")
                     return self._json(self._approvals(who))
+                m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/file", path)
+                if m:  # read one file of work that waits for approval
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm approves work")
+                    q = {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
+                    try:
+                        return self._json(ui.landing_file(m.group(1), q.get("path") or ""))
+                    except ValueError as e:
+                        return self._err(400, str(e))
                 m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})", path)
                 if m:  # the conversation with one member of the team
                     if not who.manager:
@@ -1550,6 +1615,11 @@ def make_handler(ui: FarmUI):
                     raise
                 store.event("owner.account", f"{who.owner}'s person set a username to sign in with", by="ui")
                 return self._json({"username": acct[0]})
+            m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})/plan/(\d{1,9})/(start|cancel)", path)
+            if m:
+                if not who.manager:
+                    return self._err(403, "only the farm's person talks to the team from here")
+                return self._json(ui.chat_plan(m.group(1), int(m.group(2)), m.group(3) == "start"))
             m = re.fullmatch(r"/api/chat/([a-z0-9-]{1,31})", path)
             if m:
                 if not who.manager:

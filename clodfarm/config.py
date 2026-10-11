@@ -48,6 +48,7 @@ class Config:
     seat: str  # FARM_SEAT: override the seat id derived from the login ("" = derive it)
     resume_affinity: int  # seconds a resumed task waits for the box that holds its conversation
     effort: str  # --effort for every agent run ("" = Claude Code's default)
+    export_dir: str  # approved work is also copied here (a folder on the person's computer); "" = nowhere
     approve_landing: bool  # a human approves before a top-level task lands on main (digital office)
     verify_cmd: str  # shell command that must pass before a top-level task lands on main ("" = none)
     verify_timeout: int
@@ -157,6 +158,7 @@ def load() -> Config:
         effort=_env("FARM_EFFORT", ""),
         seat=_env("FARM_SEAT", ""),
         resume_affinity=int(_env("FARM_RESUME_AFFINITY", "600")),
+        export_dir=_env("FARM_EXPORT_DIR", ""),
         approve_landing=_bool("FARM_APPROVE_LANDING", False),
         verify_cmd=_env("FARM_VERIFY_CMD", ""),
         verify_timeout=int(_env("FARM_VERIFY_TIMEOUT", "900")),

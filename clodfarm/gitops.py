@@ -229,6 +229,38 @@ def changed_files(repo: str, branch: str, limit: int = 40) -> list[str]:
     return out.splitlines()[:limit]
 
 
+def show_file(repo: str, ref: str, path: str, limit: int = 60000) -> tuple[str, bool, bool]:
+    """A file as it is on ``ref`` (a branch): (text, truncated, binary). For reviewing work before it lands."""
+    p = subprocess.run(["git", "-C", repo, "show", f"{ref}:{path}"], capture_output=True)
+    if p.returncode != 0:
+        raise GitError(f"no such file on {ref}: {path}")
+    data = p.stdout
+    if b"\0" in data[:8000]:
+        return "", False, True
+    return data[:limit].decode("utf-8", errors="replace"), len(data) > limit, False
+
+
+def safe_relpath(path: str) -> bool:
+    return bool(path) and not os.path.isabs(path) and ".." not in path.replace("\\", "/").split("/") and "\0" not in path
+
+
+def export_files(repo: str, ref: str, paths: list[str], dest: str) -> int:
+    """Copy ``paths`` as they are on ``ref`` into the folder ``dest`` (the lawyer's folder on their computer)."""
+    n = 0
+    for rel in paths:
+        if not safe_relpath(rel):
+            continue
+        p = subprocess.run(["git", "-C", repo, "show", f"{ref}:{rel}"], capture_output=True)
+        if p.returncode != 0:
+            continue
+        target = os.path.join(dest, *rel.replace("\\", "/").split("/"))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as f:
+            f.write(p.stdout)
+        n += 1
+    return n
+
+
 def remove_worktree(repo: str, path: str, branch: str | None = None):
     """Remove a finished task's worktree; delete its branch too when given."""
     with _locked(repo):

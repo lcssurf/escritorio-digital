@@ -69,7 +69,9 @@
       p.el.classList.toggle('alert', s.state === 'alert');
     }
     const alerts = new Set(specs.filter((s) => s.state === 'alert').map((s) => s.id));
-    if (started && cfg.sound && [...alerts].some((id) => !lastAlertIds.has(id))) beep();
+    const fresh = [...alerts].filter((id) => !lastAlertIds.has(id));
+    if (started && cfg.sound && fresh.length) beep();
+    if (started && office.notify) for (const id of fresh) { const p = pets.get(id); office.notify({ title: tr('notif.approval'), body: (p && p.label) || '', target: { tab: 'approvals' } }); }
     lastAlertIds = alerts; started = true;
   }
 
@@ -127,7 +129,7 @@
     const l1 = document.createElement('div'); l1.className = 'l1';
     l1.append(dot, document.createTextNode(w.name + (w.role ? ' · ' + w.role : '')));
     const l2 = document.createElement('div'); l2.className = 'l2';
-    l2.textContent = p.status === 'alert' ? tr('tag.review') + (p.count > 1 ? ' (' + p.count + ')' : '') : p.status === 'working' && p.label ? p.label : tr('state.' + (p.status || 'idle'));
+    l2.textContent = p.status === 'alert' ? tr('tag.review') + (p.count > 1 ? ' (' + p.count + ')' : '') : p.status === 'working' && p.label ? p.label : p.persona && p.persona.role === 'chief' && p.status === 'idle' ? tr('tag.chat') : tr('state.' + (p.status || 'idle'));
     tag.append(l1, l2);
   }
 
@@ -162,6 +164,8 @@
     const now = performance.now();
     for (const r of (cl.ok && Array.isArray(cl.data) ? cl.data : [])) {   // a team member answered: a speech bubble over them
       sinceChat = Math.max(sinceChat, r.at);
+      const who = (members || []).find((x) => x.id === r.member);
+      if (office.notify) office.notify({ title: tr('notif.reply', { name: who ? who.name : '' }), body: String(r.text).slice(0, 160), target: { tab: 'chat', id: r.member, kind: 'member' } });
       sayLater.set(r.member, r.text); lastActive.set(r.member, now);
     }
     const keep = new Set([...lastActive].filter(([, t]) => now - t < LINGER).map(([id]) => id));

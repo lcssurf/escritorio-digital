@@ -28,6 +28,8 @@
   .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--ok-soft); color: var(--ok); font-weight: 600; }
   .pill.off { background: var(--bad-soft); color: var(--bad); }
   .pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  #help { -webkit-app-region: no-drag; background: var(--surface2); border: 0; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; color: var(--acc); font-weight: 800; font-size: 14px; margin-right: 4px; }
+  #help:hover { background: var(--acc-soft); }
   #close { -webkit-app-region: no-drag; background: none; border: 0; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; color: var(--dim); font-size: 18px; line-height: 1; }
   #close:hover { background: var(--surface2); color: var(--fg); }
 
@@ -128,6 +130,25 @@
   .strip { display: none; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
   .chipw { display: inline-flex; align-items: center; gap: 5px; background: var(--ok-soft); color: var(--ok); border-radius: 99px; padding: 3px 9px; font-size: 12px; font-weight: 600; }
   .chipw i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: blink 1.2s infinite; }
+  .fileli { align-items: center; } .fileli .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .viewer { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 8px 0; }
+  .vhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .doc { font-size: 13px; line-height: 1.5; max-height: 320px; overflow: auto; }
+  .doc .dh { font-weight: 800; margin: 8px 0 3px; } .doc .dh1 { font-size: 15px; } .doc .dh2 { font-size: 14px; } .doc .dh3 { font-size: 13px; color: var(--dim); }
+  .doc .sp { height: 6px; } .doc .li { padding-left: 4px; } .doc .p { margin: 2px 0; }
+  .doc .tr { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; } .doc .tr span { flex: 1; min-width: 0; word-break: break-word; }
+  .mark { background: var(--warn-soft); color: var(--warn); font-weight: 800; font-size: 11px; padding: 0 6px; border-radius: 5px; letter-spacing: .03em; }
+  .mark.fill { background: var(--acc-soft); color: var(--acc); letter-spacing: 0; }
+  .plan { background: var(--acc-soft); border-radius: 12px; padding: 10px 12px; margin-top: 8px; } .plan b { font-size: 13px; }
+  .plan ol { margin: 6px 0 0; padding-left: 18px; } .plan li { margin: 4px 0; font-size: 13px; } .plan .pw { display: block; font-weight: 700; color: var(--acc); font-size: 12px; }
+  .plan .ask { font-weight: 700; margin-top: 8px; font-size: 13px; }
+  .modal { position: fixed; inset: 0; background: rgba(15, 12, 30, .55); display: grid; place-items: center; z-index: 20; padding: 14px; animation: in .15s ease; }
+  .sheet { background: var(--bg); border-radius: 18px; padding: 16px; width: 100%; max-height: 92vh; overflow: auto; box-shadow: var(--shadow); }
+  .sheet h3 { margin: 6px 0 4px; font-size: 17px; } .sheet p { margin: 0 0 12px; font-size: 13.5px; color: var(--dim); }
+  .srow { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; background: var(--acc-soft); border-radius: 14px; padding: 8px 4px 2px; margin-bottom: 10px; }
+  .sitem { display: flex; flex-direction: column; align-items: center; width: 92px; text-align: center; font-size: 11px; color: var(--dim); } .sitem canvas { width: 84px; height: 69px; image-rendering: pixelated; }
+  .mini { background: var(--acc-soft); border-radius: 14px; padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin: 4px 0 10px; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--acc); width: 18px; border-radius: 99px; }
   .addrow { display: flex; gap: 8px; margin: 2px 0 12px; } .addrow .btn { flex: 1; }
   .intro { color: var(--dim); font-size: 13px; margin: 0 2px 10px; }
   .preview { display: grid; place-items: center; background: var(--acc-soft); border-radius: 14px; margin-bottom: 12px; padding: 6px 0 0; }
@@ -146,6 +167,7 @@
   <div class="logo"><canvas id="logo" width="56" height="46"></canvas></div>
   <h1 id="title"></h1>
   <span class="pill" id="conn"><i></i><span></span></span>
+  <button id="help" aria-label="Help" title="?">?</button>
   <button id="close" aria-label="Close">×</button>
 </header>
 <div class="tiles" id="tiles"></div>

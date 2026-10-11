@@ -1,9 +1,7 @@
-# A nossa parte (o código do escritório) em cima da imagem do clodfarm original, em segundos.
-#   node scripts/escritorio.mjs construir          (é o que a instalação usa)
+# Para quem desenvolve: só o nosso código Python por cima da nossa imagem completa, em segundos (sem refazer o resto).
 #   docker build -f Dockerfile.dev -t escritorio-digital:dev .
-# A base já traz o Claude Code, o Node, o Chromium e o resto, na versão em que a nossa cópia se baseia (fixada, para uma
-# atualização deles não quebrar o nosso código). Para montar tudo do zero (mais lento): docker build -t escritorio-digital:dev .
-ARG BASE=ghcr.io/matank001/clodfarm:1.12.0
+# A base é a nossa própria imagem (a que a instalação baixa). Para trocar: --build-arg BASE=...
+ARG BASE=ghcr.io/lcssurf/escritorio-digital:1.0.0
 FROM ${BASE}
 USER root
 COPY pyproject.toml README.md /src/

@@ -8,3 +8,14 @@ dist
 assets/*.mp4
 assets/*.webp
 node_modules
+**/node_modules
+overlay
+docs
+tests
+scripts
+deploy
+plugins
+.claude-plugin
+INSTALAR.md
+CLAUDE.md
+.pytest_cache

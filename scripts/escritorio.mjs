@@ -6,7 +6,7 @@
 //
 // Os passos, se você quiser um por vez:
 //   verificar    o que está pronto e o que falta, com a correção de cada item
-//   construir    baixa a imagem do escritório (de 2 a 4 minutos; --completo monta tudo do zero, 5 a 15 min)
+//   construir    baixa a nossa imagem do GitHub (de 2 a 4 minutos); --completo monta tudo do zero (5 a 15 min) [--ca arquivo.pem]
 //   iniciar      liga (ou recria) o escritório      [--ca arquivo.pem] [--entregas pasta]
 //   equipe       instala a equipe pronta (5 coordenações e 16 especialistas)
 //   abrir        abre os bonecos na barra
@@ -25,10 +25,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OVERLAY = path.join(ROOT, 'overlay');
-const IMAGE = process.env.ESCRITORIO_IMAGE || 'escritorio-digital:dev';
-// A imagem do clodfarm original, na versão em que a nossa cópia se baseia: já traz o Claude Code, o Node, o Chromium...
-// A nossa parte (poucos MB) entra por cima em segundos. Fixar a versão evita que uma atualização deles quebre o nosso código.
-const BASE = process.env.ESCRITORIO_BASE || 'ghcr.io/matank001/clodfarm:1.12.0';
+// A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
+// Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
+const IMAGE = process.env.ESCRITORIO_IMAGE || 'ghcr.io/lcssurf/escritorio-digital:1.0.0';
+const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';
 const PORT = 8080;
 const URL_BASE = `http://localhost:${PORT}`;
@@ -110,19 +110,39 @@ async function verificar() {
 function fim(all) { say(all ? '\nTudo certo.' : '\nHá itens para resolver (acima).'); return all; }
 
 // ---------------------------------------------------------------- construir
+// O pacote é privado enquanto o projeto for: o Docker precisa estar "logado" no GitHub com uma conta que o enxergue.
+function loginRegistro() {
+  const tok = run('gh', ['auth', 'token']);
+  if (tok.status !== 0 || !tok.stdout.trim()) return false;
+  const who = run('gh', ['api', 'user', '-q', '.login']);
+  const user = who.status === 0 && who.stdout.trim() ? who.stdout.trim() : REGISTRY_USER;
+  return run('docker', ['login', 'ghcr.io', '-u', user, '--password-stdin'], { input: tok.stdout.trim() }).status === 0;
+}
+
 function construir() {
   if (!dockerUp()) return bad('O Docker não está rodando', 'Abra o Docker Desktop e tente de novo.');
   if (flag('completo')) {
     say('Montando tudo do zero (de 5 a 15 minutos)...');
-    const r = run('docker', ['build', '-t', IMAGE, '.'], { cwd: ROOT, stdio: 'inherit' });
-    if (r.status !== 0) { say('\nO build falhou. Se o erro falou de "certificate", "SSL" ou "self-signed", veja INSTALAR.md, seção "Antivírus que inspeciona HTTPS".'); return false; }
+    const args = ['build', '-t', IMAGE];
+    const ca = flag('ca');
+    if (typeof ca === 'string') args.push('--secret', `id=extra_ca,src=${path.resolve(ca)}`);   // só vale durante a montagem; não fica na imagem
+    const r = run('docker', [...args, '.'], { cwd: ROOT, stdio: 'inherit' });
+    if (r.status !== 0) { say('\nA montagem falhou. Se o erro falou de "certificate", "SSL" ou "self-signed", repita com: construir --completo --ca caminho/do/certificado.pem (veja INSTALAR.md, "Antivírus que inspeciona HTTPS").'); return false; }
     return ok('Imagem pronta: ' + IMAGE);
   }
-  say(`Baixando a imagem do escritório (de 2 a 4 minutos na primeira vez; guardo o que já baixei)...`);
-  const pull = run('docker', ['pull', BASE], { stdio: 'inherit' });
-  if (pull.status !== 0) return bad('Não consegui baixar a imagem base', 'Confira a internet. Se o erro falar de "certificate", veja INSTALAR.md ("Antivírus que inspeciona HTTPS"). Alternativa: construir --completo');
-  const r = run('docker', ['build', '-f', path.join(ROOT, 'Dockerfile.dev'), '--build-arg', `BASE=${BASE}`, '-t', IMAGE, ROOT], { stdio: 'inherit' });
-  if (r.status !== 0) return bad('Não consegui montar a nossa parte por cima da imagem', 'Rode de novo; se persistir, tente: construir --completo');
+  say('Baixando a imagem do escritório (de 2 a 4 minutos na primeira vez; guardo o que já baixei)...');
+  let pull = run('docker', ['pull', IMAGE], { encoding: 'utf8' });
+  if (pull.status !== 0 && /unauthorized|denied|authentication required|not found|manifest unknown/i.test((pull.stderr || '') + (pull.stdout || ''))) {
+    say('O pacote é privado: entrando no GitHub pelo Docker...');
+    if (loginRegistro()) pull = run('docker', ['pull', IMAGE], { encoding: 'utf8' });
+  }
+  if (pull.status !== 0) {
+    const out = ((pull.stderr || '') + (pull.stdout || '')).trim().split('\n').slice(-3).join(' | ');
+    return bad('Não consegui baixar a imagem: ' + out,
+      'Se for acesso: rode "gh auth login" e depois "gh auth refresh -h github.com -s read:packages", e repita. Se for certificado: veja INSTALAR.md. Alternativa: construir --completo');
+  }
+  const info = docker(['image', 'inspect', IMAGE, '--format', '{{.Id}}']);
+  if (info.status !== 0) return bad('A imagem não apareceu depois do download', 'Rode de novo.');
   return ok('Imagem pronta: ' + IMAGE);
 }
 

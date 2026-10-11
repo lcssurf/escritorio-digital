@@ -63,10 +63,19 @@ WORKDIR /workspace
 # Claude Code native build (https://docs.claude.com/en/docs/claude-code/setup). CI passes a new CLAUDE_FRESH on every
 # build, so a cached layer never ships an old "latest".
 ARG CLAUDE_FRESH=
-RUN echo "claude code $CLAUDE_VERSION ${CLAUDE_FRESH}" \
+# Optional build secret `extra_ca`: the public certificate of an antivirus or proxy that re-signs HTTPS (see INSTALAR.md).
+# It is used only inside this one command to download Claude Code and is never written into the image:
+#   docker build --secret id=extra_ca,src=ca-antivirus.pem -t escritorio-digital .
+RUN --mount=type=secret,id=extra_ca,required=false,uid=1000 \
+    if [ -s /run/secrets/extra_ca ]; then \
+      cat /etc/ssl/certs/ca-certificates.crt /run/secrets/extra_ca > /tmp/ca-extra.pem; \
+      export CURL_CA_BUNDLE=/tmp/ca-extra.pem SSL_CERT_FILE=/tmp/ca-extra.pem; \
+    fi; \
+    echo "claude code $CLAUDE_VERSION ${CLAUDE_FRESH}" \
     && curl -fsSL https://claude.ai/install.sh | bash -s -- "$CLAUDE_VERSION" && claude --version \
     && git config --global user.name "clodfarm" && git config --global user.email "clodfarm@localhost" \
-    && git config --global init.defaultBranch main
+    && git config --global init.defaultBranch main \
+    && rm -f /tmp/ca-extra.pem
 
 VOLUME ["/home/farm/.claude", "/workspace"]
 EXPOSE 8080

@@ -70,7 +70,7 @@ node scripts/escritorio.mjs instalar
 
 Ele faz, nesta ordem (e mostra cada passo):
 1. confere o Docker;
-2. **baixa a imagem do escritório** (de 2 a 4 minutos na primeira vez);
+2. **baixa a nossa imagem do escritório** (de 2 a 4 minutos na primeira vez);
 3. **liga o escritório** e cria a pasta de entregas (`Documentos/Escritório Digital`);
 4. confere a **conta Claude** (veja 🧍 abaixo);
 5. instala a **equipe** (a chefe, 5 coordenações e 16 especialistas) e **abre os bonecos** sobre a barra de tarefas (ou o Dock).
@@ -121,7 +121,7 @@ Alguns antivírus (Kaspersky, ESET, Avast, Bitdefender...) e proxies de empresa 
   ```
 - **macOS:** `security find-certificate -a -c "Nome do antivírus" -p /Library/Keychains/System.keychain > ~/ca-antivirus.pem`
 
-Depois: `node scripts/escritorio.mjs iniciar --ca ~/ca-antivirus.pem` (e rode `instalar` de novo). Se o **download da imagem** falhar por isso, a pessoa pode pausar temporariamente a verificação de conexões criptografadas do antivírus: **a decisão é dela, você não faz**.
+Depois: `node scripts/escritorio.mjs iniciar --ca ~/ca-antivirus.pem` (e rode `instalar` de novo). Se for **montar do zero** (`construir --completo`), use `--ca ~/ca-antivirus.pem` também: o certificado vale só durante a montagem e não fica na imagem. Se o **download da imagem** falhar por isso, a pessoa pode pausar temporariamente a verificação de conexões criptografadas do antivírus: **a decisão é dela, você não faz**.
 
 ## Desinstalar
 
@@ -132,4 +132,4 @@ Depois: `node scripts/escritorio.mjs iniciar --ca ~/ca-antivirus.pem` (e rode `i
 - Testado no **Windows**. O caminho do **macOS** foi escrito com cuidado, mas ainda **não foi testado num Mac de verdade**: se algo falhar lá, conte o erro e ajuste.
 - O escritório roda **dentro do Docker**; não enxerga o resto do computador. Arquivos chegam por conectores liberados e saem pela pasta de entregas.
 - Os arquivos entregues são texto (`.md`); a entrega em Word (`.docx`) ainda não existe.
-- A imagem base vem do projeto original (`ghcr.io/matank001/clodfarm`, versão fixada). Se ela sair do ar, use `construir --completo` (mais lento).
+- A imagem é a **nossa**, publicada em `ghcr.io/lcssurf/escritorio-digital` (privada enquanto o projeto for privado). O `instalar` entra no GitHub pelo Docker usando o `gh`. Se faltar permissão: `gh auth login` e depois `gh auth refresh -h github.com -s read:packages` (🧍 a pessoa aprova no navegador). Alternativa sem o pacote: `construir --completo` (monta tudo do zero, mais lento).

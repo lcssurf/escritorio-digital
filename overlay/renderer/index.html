@@ -10,6 +10,13 @@
   .pet { position: absolute; bottom: 0; cursor: pointer; transition: transform .12s ease; will-change: left; }
   .pet canvas { display: block; image-rendering: pixelated; width: 168px; height: 138px; filter: drop-shadow(0 2px 0 rgba(0,0,0,.18)); }
   .pet:hover { transform: translateY(-3px); }
+  /* who is who at a glance: the team's colour under the feet and on a name plate; the chief and the coordinators a little bigger */
+  .pet .ring { position: absolute; left: 50%; bottom: -2px; width: 78px; height: 11px; transform: translateX(-50%); border-radius: 50%; pointer-events: none; z-index: -1;
+               background: radial-gradient(ellipse at center, color-mix(in srgb, var(--team, #4a5568) 85%, transparent) 0 52%, transparent 74%); }
+  .pet .pill { position: absolute; left: 50%; top: -9px; transform: translateX(-50%); max-width: 112px; padding: 0 8px; border-radius: 9px; font: 700 11px/15px "Segoe UI", system-ui, sans-serif; color: #fff;
+               background: var(--team, #4a5568); box-shadow: 0 1px 0 rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.28); text-shadow: 0 1px 0 rgba(0,0,0,.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  .pet.alert .pill, .pet.saying .pill { display: none; }
+  .pet.chief canvas { transform: scale(1.14); transform-origin: 50% 100%; } .pet.lead canvas { transform: scale(1.07); transform-origin: 50% 100%; }
   .pet:hover canvas { filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
   .pet.dragging { cursor: grabbing; transform: translateY(-6px); }
   .pet.pop { animation: pop .5s cubic-bezier(.2,1.4,.4,1); }

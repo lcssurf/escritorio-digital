@@ -13,7 +13,7 @@ const DICTS = { 'pt-BR': require('./i18n/pt-BR.json'), en: require('./i18n/en.js
 const SCALE = 3, PET_H = 46 * SCALE, WIN_H = PET_H + 64; // pets plus room for the name tag
 const FEET_PAD = 6;       // transparent canvas pixels under the soles (2 sprite rows x 3)
 const AUTOHIDE_BAR = 48;  // assumed taskbar height when it hides itself (Windows 11 default, in DIP)
-const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {}, panelPos: {}, exportFormats: [], updateCheck: true, updateSkipped: '', legalAccepted: false };
+const DEFAULTS = { url: 'http://localhost:8080', token: '', lang: '', sound: true, hidden: false, container: 'clodfarm', yoffset: 0, onboarded: false, notify: true, panelSize: {}, panelPos: {}, exportFormats: [], updateCheck: true, updateSkipped: '', legalAccepted: false, characters: 'people' };
 
 let cfg = { ...DEFAULTS }, overlay = null, panel = null, tray = null;
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -32,7 +32,7 @@ function saveCfg(patch) {
 const exportDir = () => path.join(app.getPath('documents'), 'Escrit\u00f3rio Digital');   // where approved work is copied (the start script mounts it into the container)
 const appVersion = () => { try { return fs.readFileSync(path.join(__dirname, '..', 'VERSION'), 'utf8').trim(); } catch (_) { return ''; } };
 let updateInfo = null;   // { version, url, notes } when a newer release exists and the person has not skipped it
-const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, onboarded: cfg.onboarded, notify: cfg.notify, exportDir: exportDir(), exportFormats: cfg.exportFormats, updateCheck: cfg.updateCheck !== false, version: appVersion(), update: updateInfo, legalAccepted: !!cfg.legalAccepted, floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
+const publicCfg = () => ({ url: cfg.url, lang: cfg.lang, sound: cfg.sound, hasToken: !!cfg.token, hidden: cfg.hidden, yoffset: cfg.yoffset, onboarded: cfg.onboarded, notify: cfg.notify, exportDir: exportDir(), exportFormats: cfg.exportFormats, updateCheck: cfg.updateCheck !== false, version: appVersion(), update: updateInfo, legalAccepted: !!cfg.legalAccepted, characters: cfg.characters === 'animals' ? 'animals' : 'people', floor: lastPlace && lastPlace.floor, bar: lastPlace && lastPlace.bar });
 const t = (k, v) => I18N.make(DICTS, cfg.lang)(k, v);
 
 // The farm's secret for this PC: the container wrote it into its volume. It never leaves this machine.
@@ -215,10 +215,11 @@ ipcMain.handle('api', (_e, method, p, body) => {
 ipcMain.handle('config:get', () => publicCfg());
 ipcMain.handle('config:set', (_e, patch) => {
   const allowed = {};
-  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset', 'onboarded', 'notify', 'updateCheck', 'updateSkipped', 'legalAccepted']) if (k in patch) allowed[k] = patch[k];
+  for (const k of ['url', 'lang', 'sound', 'token', 'yoffset', 'onboarded', 'notify', 'updateCheck', 'updateSkipped', 'legalAccepted', 'characters']) if (k in patch) allowed[k] = patch[k];
   if ('exportFormats' in patch) allowed.exportFormats = [...new Set((Array.isArray(patch.exportFormats) ? patch.exportFormats : []).filter((f) => ['docx', 'pdf', 'html', 'rtf', 'txt'].includes(f)))];
   if ('updateCheck' in allowed) allowed.updateCheck = !!allowed.updateCheck;
   if ('legalAccepted' in allowed) allowed.legalAccepted = !!allowed.legalAccepted;
+  if ('characters' in allowed) allowed.characters = allowed.characters === 'animals' ? 'animals' : 'people';
   if ('updateSkipped' in allowed) allowed.updateSkipped = String(allowed.updateSkipped || '').slice(0, 40);
   if ('yoffset' in allowed) allowed.yoffset = Math.max(-60, Math.min(60, Math.round(Number(allowed.yoffset) || 0)));
   // the key only ever goes to this PC: refuse any address that is not local

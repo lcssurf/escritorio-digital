@@ -77,7 +77,9 @@ for (const m of Cat.entries) {
   assert.ok(['m', 'f'].includes(m.gender));
   assert.ok((m.gender === 'f' ? Sprites.STYLE_F : Sprites.STYLE_M).includes(m.look.style), 'hair style fits the gender: ' + m.name);
   assert.ok(m.look.prop == null || (m.look.prop >= 0 && m.look.prop <= 4));
-  for (const k of ['hair', 'skin', 'suit']) assert.ok(/^#[0-9a-fA-F]{6}$/.test(m.look[k]), k + ' colour: ' + m.name);
+  for (const k of ['hair', 'skin']) assert.ok(/^#[0-9a-fA-F]{6}$/.test(m.look[k]), k + ' colour: ' + m.name);
+  assert.ok(!m.look.suit, 'the team paints the uniform, a model does not set one: ' + m.name);
+  assert.ok(Number.isInteger(m.look.kit) && m.look.kit >= 0 && m.look.kit < Sprites.KITS.length, 'a valid role accessory: ' + m.name);
   assert.ok(!/senha|login/i.test(m.instructions) || /nunca|não|nao/i.test(m.instructions), 'no model is told to log in: ' + m.name);
 }
 assert.ok(specs.filter((m) => m.gender === 'f').length >= 6 && specs.filter((m) => m.gender === 'm').length >= 6, 'a mixed team');

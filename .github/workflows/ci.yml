@@ -49,5 +49,8 @@ jobs:
       - name: Conversor de documentos
         run: node test/exporter.test.js
         working-directory: overlay
+      - name: Personagens (cores da equipe, acessórios, pessoas e animais)
+        run: node test/sprites.test.js
+        working-directory: overlay
       - name: O instalador abre
         run: node --check scripts/escritorio.mjs && node scripts/escritorio.mjs

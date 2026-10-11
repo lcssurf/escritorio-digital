@@ -19,6 +19,20 @@
 
   const PRIORITY = { alert: 0, working: 1, idle: 2, sofa: 3 };
 
+  // Which team colour each person wears: every coordinator opens a colour (in the order of the team), and the people who
+  // report to them wear it too. The chief and the RH have their own look; whoever reports straight to the chief gets the
+  // neutral slate. Returns Map(member id -> { index }) (the sprites turn the index into a colour and a badge pattern).
+  const LEAD_SLOTS = [0, 1, 2, 3, 4, 5, 7], NEUTRAL = 6;
+  function teamsOf(members) {
+    const out = new Map(), leads = (members || []).filter((m) => m.lead && m.id !== 'chief' && m.id !== 'rh');
+    const slot = new Map(leads.map((l, i) => [l.id, LEAD_SLOTS[i % LEAD_SLOTS.length]]));
+    for (const m of members || []) {
+      if (m.id === 'chief' || m.id === 'rh') continue;
+      out.set(m.id, { index: m.lead ? slot.get(m.id) : slot.has(m.parent) ? slot.get(m.parent) : NEUTRAL });
+    }
+    return out;
+  }
+
   // The characters on the taskbar. With a team (members from /api/team) every member is always there: working when a job
   // is running for them, asking for you when finished work of theirs waits for approval, otherwise at ease. Jobs that
   // belong to nobody on the team still get a generic character, so nothing is ever invisible.
@@ -29,7 +43,7 @@
     const subs = ((state && state.subagents) || []).filter((s) => s.status === 'running' || s.status === 'waiting');   // waiting = coordinating its team
     const pets = [];
     if (members && members.length) {
-      const known = new Set(members.map((m) => m.id));
+      const known = new Set(members.map((m) => m.id)), teams = teamsOf(members);
       for (const m of members) {
         const wait = landings.filter((l) => (l.specialist || 'chief') === m.id);
         const run = subs.filter((t) => (t.specialist || 'chief') === m.id);
@@ -37,7 +51,7 @@
         const standing = m.id === 'chief' || m.lead || m.pinned || (keep && keep.has(m.id));
         if (st === 'idle' && !standing) continue;   // an idle specialist is not on the bar: they appear when called
         const t = wait[0] || run[0];
-        pets.push({ id: 'S:' + m.id, kind: 'member', member: m, memberId: m.id, taskId: t && t.id, state: st, status: st,
+        pets.push({ id: 'S:' + m.id, kind: 'member', member: { ...m, viz: teams.get(m.id) || null }, memberId: m.id, taskId: t && t.id, state: st, status: st,
           count: wait.length || run.length, label: wait.length > 1 ? '' : (t && t.title) || '',
           persona: { name: m.name, title: m.title, role: m.id === 'chief' ? 'chief' : 'member' } });
       }
@@ -80,6 +94,6 @@
     return start;
   }
 
-  root.Office = { buildPets, nextIdleMode, freeSlot, persona, ROLES, MAX_PETS };
+  root.Office = { buildPets, nextIdleMode, freeSlot, persona, teamsOf, ROLES, MAX_PETS };
   if (typeof module === 'object' && module.exports) module.exports = root.Office;
 })(typeof self !== 'undefined' ? self : this);

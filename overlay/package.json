@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "test": "node test/i18n.test.js"
+    "test": "node test/i18n.test.js && node test/exporter.test.js && node test/sprites.test.js"
   },
   "devDependencies": {
     "electron": "^33.2.0"

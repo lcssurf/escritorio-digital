@@ -1,6 +1,6 @@
 # Overlay do Escritório Digital
 
-Os agentes do escritório aparecem como funcionários pequenos em pixel-art, em pé sobre a barra de tarefas do Windows, sem fundo.
+Os agentes do escritório aparecem como funcionários pequenos em pixel-art (pessoas ou animais, à escolha em Ajustes), em pé sobre a barra de tarefas do Windows, sem fundo.
 
 | Estado | O que o funcionário faz |
 |---|---|

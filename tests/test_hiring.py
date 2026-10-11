@@ -255,3 +255,28 @@ def test_the_hiring_routes_are_for_the_farms_person_only(ui):  # noqa: F811
     assert call(url + f"/api/hiring/{pid}/approve", {"items": [5]})[0] == 400
     code, v, _ = call(url + f"/api/hiring/{pid}/approve", {"items": [0]})
     assert code == 200 and v["pending"] == [] and any(m["name"] == "Gabi" for m in f.team.all())
+
+
+# ------------------------------------------------------------------------------------------------ the look of a hire
+def test_the_rh_method_travels_with_every_run_and_the_look_fields_are_checked(fui):
+    brief = fui.team.briefing({"specialist": "rh"})
+    for must in ("Entreviste antes de desenhar", "o que já tentaram e não", "Não defina `suit`", "kit", "passagem de bastão", "Confira a proposta antes de mostrar"):
+        assert must in brief, must
+    assert "viseira verde" in rh.KIT_TABLE and "coroa (só a chefe)" in rh.KIT_TABLE
+    # the member's own instructions stay short and editable; the method is not stored there
+    assert len(fui.team.get("rh")["instructions"]) < 2500 and "Entreviste antes de desenhar" not in fui.team.get("rh")["instructions"]
+    good = hire("Nova")
+    good["aparencia"] = {"style": "braid", "kit": 6, "build": 1, "prop": 2, "skin": "#6b4129", "hair": "#141418", "species": "owl"}
+    rh_says(fui, block([good]))
+    p = fui.hiring_view()["pending"][0]
+    assert p["items"][0]["fields"]["look"] == {"skin": "#6b4129", "hair": "#141418", "style": "braid", "prop": 2, "kit": 6, "build": 1, "species": "owl"}
+    fui.hiring_decide(p["id"], True)
+    assert fui.team.get("nova")["look"]["kit"] == 6
+
+
+@pytest.mark.parametrize("bad", [{"kit": 11}, {"kit": -1}, {"kit": "x"}, {"build": 2}, {"build": "broad"}, {"species": "dragon"}, {"style": "mohawk"}])
+def test_a_bad_look_drops_the_hire(fui, bad):
+    item = hire("Ruim")
+    item["aparencia"] = bad
+    rh_says(fui, block([item, hire("Boa")]))
+    assert [i["fields"]["name"] for i in fui.hiring_view()["pending"][0]["items"]] == ["Boa"]

@@ -20,15 +20,23 @@
   function mockOffice() {
     const state = { agents: [{ id: 'clodfarm', name: 'Chefe', loggedIn: true, running: 1 }, { id: 'ana', name: 'Ana', loggedIn: true, running: 0 }, { id: 'rui', name: 'Rui', loggedIn: true, running: 0 }],
       subagents: [{ id: 'task-docs', title: 'Organizar documentos do caso Exemplo', status: 'running' }, { id: 'task-draft', title: 'Minuta da inicial (fictícia)', status: 'running' }] };
-    const members = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', look: { style: 'bun', suit: '#2f2f3a', glasses: true } },
-      { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', look: { style: 'long', prop: 1 } }, { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', look: { style: 'beard', prop: 4 } },
-      { id: 'davi', name: 'Davi', title: 'Peças', gender: 'm', look: { style: 'side', prop: 2 } }, { id: 'elisa', name: 'Elisa', title: 'Revisão', gender: 'f', look: { style: 'pony', prop: 3 } }];
+    const members = [{ id: 'chief', name: 'Marina', title: 'Chefe do escritório', gender: 'f', lead: true, look: { style: 'bun', glasses: true } },
+      { id: 'rh', name: 'Helena', title: 'Recursos Humanos', gender: 'f', pinned: true, parent: 'chief', look: { style: 'wavy', skin: '#a86b45' } },
+      { id: 'c-inss', name: 'Sofia', title: 'Coordenação INSS', gender: 'f', lead: true, parent: 'chief', look: { style: 'braid', skin: '#f6d0a4' } },
+      { id: 'c-docs', name: 'Beatriz', title: 'Coordenação Documentos', gender: 'f', lead: true, parent: 'chief', look: { style: 'curly', skin: '#8d5a3a' } },
+      { id: 'c-cli', name: 'Fernando', title: 'Coordenação Cliente', gender: 'm', lead: true, parent: 'chief', look: { style: 'mustache', skin: '#e8b685' } },
+      { id: 'bruno', name: 'Bruno', title: 'Prazos', gender: 'm', parent: 'c-inss', look: { style: 'buzz', prop: 4, skin: '#c98f5c', build: 1 } },
+      { id: 'ana', name: 'Ana', title: 'Documentos', gender: 'f', parent: 'c-docs', look: { style: 'bob', prop: 1, kit: 6, skin: '#e8b685' } },
+      { id: 'davi', name: 'Davi', title: 'Peças', gender: 'm', parent: 'c-docs', look: { style: 'afro', prop: 2, kit: 3, skin: '#6b4129' } },
+      { id: 'elisa', name: 'Elisa', title: 'Revisão', gender: 'f', parent: 'c-docs', look: { style: 'pony', prop: 3, kit: 4, skin: '#fae0c8' } },
+      { id: 'carla', name: 'Carla', title: 'Atendimento', gender: 'f', parent: 'c-cli', look: { style: 'long', kit: 1, skin: '#a86b45', hair: '#141418' } }];
     state.subagents = [{ id: 'r1', title: 'Organizar documentos do caso Exemplo', status: 'running', specialist: 'ana' }, { id: 'r2', title: 'Conferir prazos da semana', status: 'running', specialist: 'bruno' },
-      { id: 'r3', title: 'Revisar a minuta da inicial', status: 'running', specialist: 'elisa' }, { id: 'r4', title: 'Plano do caso Exemplo', status: 'running', specialist: 'chief' }];
+      { id: 'r3', title: 'Revisar a minuta da inicial', status: 'running', specialist: 'elisa' }, { id: 'r4', title: 'Plano do caso Exemplo', status: 'running', specialist: 'chief' },
+      { id: 'r5', title: 'Responder o cliente', status: 'running', specialist: 'carla' }];
     const landings = [{ id: 'l1', title: 'Petição inicial (rascunho)', commits: 2, at: Date.now() / 1000, specialist: 'davi', files: ['A	peticao.md'] }];
     return {
       api: async (m, p) => ({ ok: true, status: 200, data: p.startsWith('/api/state') ? state : p.startsWith('/api/landings') ? landings : p.startsWith('/api/team') ? members : {} }),
-      getConfig: async () => ({ lang: params.get('lang') || 'pt-BR', sound: false }),
+      getConfig: async () => ({ lang: params.get('lang') || 'pt-BR', sound: false, characters: params.get('characters') || 'people' }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       clickThrough() {}, openPanel(o) { console.log('openPanel', JSON.stringify(o)); }, on() {},
     };
@@ -47,10 +55,12 @@
     tag.className = 'tag';
     const say = document.createElement('div');
     say.className = 'say';
-    el.append(cv, tag, say);
+    const ring = document.createElement('div'); ring.className = 'ring';
+    const pill = document.createElement('div'); pill.className = 'pill';
+    el.append(ring, cv, pill, tag, say);
     stage.append(el);
     const taken = [...pets.values()].map((q) => q.x);
-    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, say, sayUntil: 0, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, Math.max(105, Math.min(170, Math.floor((innerWidth - 140) / Math.max(5, crowd)))), 70),
+    p = { id: spec.id, el, cv, ctx: cv.getContext('2d'), tag, say, pill, sayUntil: 0, look: S.look(spec.id, spec.member), lookKey: JSON.stringify(spec.member || null), x: O.freeSlot(taken, Math.max(105, Math.min(170, Math.floor((innerWidth - 140) / Math.max(5, crowd)))), 70),
           facing: 1, state: 'walk', mode: 'walk', modeUntil: 0, drawn: '', tagKey: '' };
     bindPet(p);
     pets.set(spec.id, p);
@@ -67,8 +77,12 @@
       const p = ensurePet(s);
       if (p.cheerUntil > now) continue;
       Object.assign(p, { kind: s.kind, taskId: s.taskId, agentId: s.agentId, memberId: s.memberId, status: s.status, label: s.label, persona: s.persona, want: s.state, count: s.count });
-      const lk = JSON.stringify(s.member || null);
-      if (lk !== p.lookKey) { p.lookKey = lk; p.look = S.look(s.id, s.member); p.drawn = ''; }   // the team member was edited
+      const lk = S.getMode() + JSON.stringify(s.member || null);
+      if (lk !== p.lookKey) { p.lookKey = lk; p.look = S.look(s.id, s.member); p.drawn = ''; }   // the team member was edited (or the style changed)
+      const nm = String((s.persona && s.persona.name) || '').trim().split(/\s+/)[0] || '';
+      p.pill.textContent = nm; p.pill.style.display = nm ? '' : 'none';
+      p.el.style.setProperty('--team', p.look.team || '#4a5568');
+      p.el.classList.toggle('chief', s.memberId === 'chief'); p.el.classList.toggle('lead', !!(s.member && s.member.lead) && s.memberId !== 'chief');
       p.el.classList.toggle('alert', s.state === 'alert');
     }
     const alerts = new Set(specs.filter((s) => s.state === 'alert').map((s) => s.id));
@@ -185,8 +199,9 @@
 
   async function init() {
     cfg = await office.getConfig();
+    S.setMode(cfg.characters);
     dicts = await office.dicts();
-    office.on('config', (c) => { cfg = c; });
+    office.on('config', (c) => { cfg = c; S.setMode(c.characters); });
     office.on('event', (e) => { // the panel tells us what the person decided: celebrate an approval
       const p = e && e.type === 'approved' && (pets.get('L:' + e.id) || pets.get('S:' + (e.specialist || 'chief')));
       if (p) { p.cheerUntil = performance.now() + 3600; p.el.classList.remove('alert'); p.status = 'working'; }

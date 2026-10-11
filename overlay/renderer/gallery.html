@@ -1,30 +1,52 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Galeria</title>
-<style>body{margin:0;background:linear-gradient(#6c8cc0 0 55%,#2a2a38 55%);font:12px monospace;color:#fff;padding:12px}
-.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.c{text-align:center}canvas{display:block;image-rendering:pixelated;width:168px;height:138px}</style></head>
-<body><div id="g"></div>
-<script src="sprites.js"></script>
+<html><head><meta charset="utf-8"><title>Galeria dos funcionários</title>
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<!-- Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital) -->
+<!-- Developer page: every kind of character, in the people and the animals sets. Open it with ?mode=animals, ?s=working, ?f=2 to freeze a frame. -->
+<style>body{margin:0;background:linear-gradient(#6c8cc0 0 40%,#2a2a38 40%);font:11px monospace;color:#fff;padding:10px}
+.grid{display:flex;gap:2px;flex-wrap:wrap}.c{text-align:center;width:calc(60px*var(--z,2))}canvas{display:block;image-rendering:pixelated;width:calc(56px*var(--z,2));height:calc(46px*var(--z,2))}
+.c b{display:block;font-size:11px}.c span{opacity:.75}</style></head>
+<body><div id="g" class="grid"></div>
+<script src="sprites.js"></script><script src="office.js"></script>
 <script>
-const S = window.Sprites, g = document.getElementById('g');
-const states = ['walk','coffee','sofa','working','alert','cheer'];
-const people = [
-  ['ana', { gender: 'f', look: { style: 'long' } }], ['bia', { gender: 'f', look: { style: 'bun', glasses: true, suit: '#7a4568' } }],
-  ['clara', { gender: 'f', look: { style: 'pony', hair: '#d1a43a', skin: '#8d5a3a', suit: '#2f7364' } }],
-  ['davi', { gender: 'm', look: { style: 'short' } }], ['edu', { gender: 'm', look: { style: 'side', hair: '#5b3a29' } }],
-  ['fabio', { gender: 'm', look: { style: 'beard', glasses: true, hair: '#2a2230', skin: '#c98f5c' } }],
-  ['chief', { id: 'chief', gender: 'f', look: { style: 'bun', suit: '#2f2f3a', glasses: true } }],
+const S = window.Sprites, O = window.Office, q = new URLSearchParams(location.search);
+document.documentElement.style.setProperty('--z', q.get('z') || 2);
+S.setMode(q.get('mode') === 'animals' ? 'animals' : 'people');
+const sel = q.get('s') || 'idle';
+// a whole office: the chief, the RH, five coordinators and three people under each
+const M = [
+  { id: 'chief', name: 'Marina', title: 'Chefe', gender: 'f', lead: true, look: { style: 'bun', glasses: true } },
+  { id: 'rh', name: 'Helena', title: 'RH', gender: 'f', look: { style: 'wavy', skin: '#a86b45' } },
 ];
-const cvs = [];
-const row = document.createElement('div'); row.className = 'row'; g.append(row);
-const sel = new URLSearchParams(location.search).get('s') || 'walk';
-for (const [seed, spec] of people) {
+const teams = [
+  ['inss', 'INSS', ['Acompanhamento', 'Viabilidade', 'Requerimentos', 'Protocolo']],
+  ['jud', 'Judicial', ['Publicações', 'Janelas', 'Prazos']],
+  ['docs', 'Documentos', ['Documentos', 'Peças', 'Revisão']],
+  ['cli', 'Cliente', ['Atendimento', 'Avisos', 'Agenda']],
+  ['ges', 'Gestão', ['Fila do dia', 'Financeiro', 'Recrutamento']],
+];
+const kitFor = { Acompanhamento: 0, Viabilidade: 4, Requerimentos: 3, Protocolo: 7, 'Publicações': 10, Janelas: 0, Prazos: 0, Documentos: 6, 'Peças': 3, 'Revisão': 4, Atendimento: 1, Avisos: 1, Agenda: 0, 'Fila do dia': 2, Financeiro: 2, Recrutamento: 8 };
+const MS = ['short', 'side', 'beard', 'buzz', 'curly', 'bald', 'mustache', 'afro'], FS = ['long', 'bun', 'pony', 'bob', 'braid', 'wavy', 'curly', 'afro'];
+let n = 0;
+for (const [key, name, roles] of teams) {
+  M.push({ id: 'c-' + key, name: 'Coord. ' + name, title: 'Coordenação ' + name, gender: n % 2 ? 'm' : 'f', lead: true, look: { style: (n % 2 ? MS : FS)[n] } });
+  for (const r of roles) {
+    n++;
+    const g = n % 3 === 0 ? 'm' : n % 2 ? 'f' : 'm';
+    M.push({ id: key + '-' + n, name: r.split(' ')[0], title: r, gender: g, parent: 'c-' + key, look: { style: (g === 'f' ? FS : MS)[n % 8], kit: kitFor[r] || 0, build: n % 4 === 0 ? 1 : 0, skin: S.SKINS[(n * 3) % 8], hair: S.HAIRS[(n * 5) % S.HAIRS.length] } });
+  }
+}
+const teamOf = O.teamsOf(M);
+const g = document.getElementById('g');
+let f = Number(q.get('f') || 0);
+const cvs = M.map((m) => {
   const d = document.createElement('div'); d.className = 'c';
   const cv = document.createElement('canvas'); cv.width = S.W; cv.height = S.H;
-  d.append(cv, document.createTextNode(seed + ' ' + sel)); row.append(d);
-  cvs.push({ cv, ctx: cv.getContext('2d'), look: S.look(seed, spec), st: sel });
-}
-let f = Number(new URLSearchParams(location.search).get('f') || 0);
-function paint(){ for (const p of cvs) S.draw(p.ctx, p.look, p.st, p.st === 'walk' ? f : f, 1, f); }
+  const lk = S.look(m.id, { ...m, viz: teamOf.get(m.id) || null });
+  d.append(cv); const b = document.createElement('b'); b.textContent = m.name; const s = document.createElement('span'); s.textContent = m.title; d.append(b, s); g.append(d);
+  return { ctx: cv.getContext('2d'), lk };
+});
+const paint = () => { for (const p of cvs) S.draw(p.ctx, p.lk, sel, f, 1, f); };
 paint();
-if (!new URLSearchParams(location.search).has('f')) setInterval(() => { f++; paint(); }, 220);
+if (!q.has('f')) setInterval(() => { f++; paint(); }, 220);
 </script></body></html>

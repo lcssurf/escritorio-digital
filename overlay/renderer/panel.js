@@ -59,7 +59,7 @@
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
       api: async (m, p, b) => p.startsWith('/api/hiring/import') ? { ok: true, status: 200, data: { id: 'x' } } : p.startsWith('/api/hiring') ? { ok: true, status: 200, data: { recent: [], pending: q.has('hiring') ? [HIRE] : [] } } : /\/api\/landings\/[^/]+\/(revise|save)$/.test(p) ? mockReview(m, p, b) : p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
-      getConfig: async () => ({ ...cfg, onboarded: !q.has('tour'), legalAccepted: !q.has('legal'), version: '1.0.3', exportFormats: ['docx'], update: q.has('update') ? { version: '1.1.0', notes: 'Novidades de teste', url: 'https://github.com/lcssurf/escritorio-digital/releases/latest' } : null }),
+      getConfig: async () => ({ ...cfg, characters: q.get('characters') || 'people', onboarded: !q.has('tour'), legalAccepted: !q.has('legal'), version: '1.0.3', exportFormats: ['docx'], update: q.has('update') ? { version: '1.1.0', notes: 'Novidades de teste', url: 'https://github.com/lcssurf/escritorio-digital/releases/latest' } : null }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
       setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, setWide(w) { document.body.classList.toggle('wide', !!w); },
       exportDoc: async (r) => ({ ok: true, path: 'C:\\Documentos\\Escritório Digital\\' + r.title + '.' + r.format }), exportApproved: async () => ({ ok: true, made: 2 }), saveBackup: async () => ({ ok: true, people: 3 }), restoreBackup: async () => ({ ok: true, restored: 3 }), checkUpdate: async () => ({ ok: true, current: '1.0.3', latest: '1.0.3', update: null }), runUpdate: async () => ({ ok: true }), openRelease() {}, quit() {}, togglePets() {}, broadcast() {},
@@ -101,7 +101,7 @@
   async function refresh(force) {
     const [ld, st, tm, pg, hr] = await Promise.all([office.api('GET', '/api/landings'), office.api('GET', '/api/state'), office.api('GET', '/api/team'), office.api('GET', '/api/progress'), office.api('GET', '/api/hiring')]);
     if (hr.ok && hr.data && Array.isArray(hr.data.pending)) hiringData = hr.data;
-    if (tm.ok && Array.isArray(tm.data)) members = tm.data;
+    if (tm.ok && Array.isArray(tm.data)) { const tz = O.teamsOf(tm.data); members = tm.data.map((m) => ({ ...m, viz: tz.get(m.id) || null })); }
     if (pg.ok && pg.data) prog = pg.data;
     if (progOpen && prog && prog.jobs.concat(prog.recent || []).some((j) => j.id === progOpen)) loadDetail(progOpen);
     offline = !st.ok && st.status === 0;
@@ -441,7 +441,8 @@
   }
   function renderEditor(s) {
     const e = editing, d = e.data, isChief = e.id === 'chief';
-    const look = () => S.look(e.id || 'novo', d);
+    const vizNow = () => { const tz = O.teamsOf(members.filter((m) => m.id !== e.id).concat([{ ...d, id: e.id || 'novo' }])); return tz.get(e.id || 'novo') || null; };
+    const look = () => S.look(e.id || 'novo', { ...d, id: e.id || d.id, viz: vizNow() });
     const preview = h('canvas', { width: S.W, height: S.H });
     S.draw(preview.getContext('2d'), look(), 'idle', 3, 1, 3);
     const stylesNow = () => (d.gender === 'f' ? S.STYLE_F : S.STYLE_M);
@@ -465,6 +466,10 @@
     parentSel.value = d.parent && (d.parent === 'chief' || leadsList.some((m) => m.id === d.parent)) ? d.parent : 'chief';
     const pinBox = h('input', { type: 'checkbox', onchange: (ev) => { d.pinned = ev.target.checked; } });
     pinBox.checked = !!d.pinned;
+    const kitOpts = h('div', { class: 'opts' }, S.KITS.map((k, i) => h('button', { class: (d.look.kit != null ? d.look.kit : look().kit) === i ? 'on' : '', onclick: () => { d.look.kit = i; keepScroll(); } }, tr('kit.' + k))));
+    const buildSeg = h('div', { class: 'seg' }, [0, 1].map((b) => h('button', { class: (d.look.build || 0) === b ? 'on' : '', onclick: () => { d.look.build = b; keepScroll(); } }, tr('build.' + b))));
+    const speciesOpts = h('div', { class: 'opts' }, [null, ...S.SPECIES].map((sp) => h('button', { class: (d.look.species || null) === sp ? 'on' : '', onclick: () => { if (sp) d.look.species = sp; else delete d.look.species; keepScroll(); } }, tr(sp ? 'species.' + sp : 'species.auto'))));
+    const teamSuit = h('button', { class: 'btn ghost', style: 'margin-top:6px;padding:5px 10px', onclick: () => { delete d.look.suit; keepScroll(); } }, tr('edit.teamcolor'));
     const propOpts = h('div', { class: 'opts' }, PROPS.map((k) => h('button', { class: (d.look.prop != null ? d.look.prop : look().role) === k ? 'on' : '', onclick: () => { d.look.prop = k; keepScroll(); } }, tr('prop.' + k))));
     const glassBox = h('input', { type: 'checkbox', onchange: (ev) => { d.look.glasses = ev.target.checked; keepScroll(); } });
     glassBox.checked = d.look.glasses != null ? !!d.look.glasses : look().glasses;
@@ -502,7 +507,10 @@
       field(tr('edit.hairstyle'), styleOpts),
       field(tr('edit.haircolor'), swatches('hair', S.HAIRS)),
       field(tr('edit.skin'), swatches('skin', S.SKINS)),
-      field(tr('edit.suit'), swatches('suit', S.SUITS)),
+      field(tr('edit.suit'), h('div', {}, swatches('suit', S.SUITS.concat(S.TEAM_COLORS)), teamSuit), tr('edit.suithint')),
+      isChief ? null : field(tr('edit.kit'), kitOpts, tr('edit.kithint')),
+      field(tr('edit.build'), buildSeg),
+      cfg.characters === 'animals' ? field(tr('edit.species'), speciesOpts) : null,
       h('div', { class: 'field' }, glasses),
       isChief ? null : field(tr('edit.prop'), propOpts),
       field(tr('edit.instr'), h('div', {}, instr, cnt), tr(isChief ? 'edit.chiefhint' : 'edit.instrhint')),
@@ -984,6 +992,10 @@
       } }, tr('update.check'))),
       h('div', { class: 'field', style: 'margin-top:8px' }, h('label', { class: 'switch' }, auto, tr('update.auto'))), h('div', { class: 'note' }, tr('update.privacy')));
   }
+  function charactersCard() {
+    const seg = h('div', { class: 'seg' }, ['people', 'animals'].map((v) => h('button', { class: (cfg.characters || 'people') === v ? 'on' : '', onclick: async () => { cfg = { ...cfg, ...(await office.setConfig({ characters: v })) }; S.setMode(cfg.characters); render(); } }, tr('characters.' + v))));
+    return h('div', { class: 'card' }, h('b', {}, tr('settings.characters')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('characters.hint')), seg);
+  }
   function legalCard() {
     return h('details', { class: 'how card' }, h('summary', {}, tr('legal.title')), h('ul', { class: 'legal-list' }, [1, 2, 3, 4].map((n) => h('li', {}, tr('legal.p' + n)))));
   }
@@ -1007,6 +1019,7 @@
       h('button', { class: 'btn ghost', onclick: nudge(0) }, tr('settings.auto')));
     s.append(h('h2', {}, tr('nav.settings')),
       speedPicker(prog && prog.pace),
+      charactersCard(),
       connectorsCard(),
       h('div', { class: 'card' }, h('b', {}, tr('settings.exports')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('settings.exportshint')),
         h('div', { class: 'note', style: 'margin:0 0 6px' }, h('b', {}, tr('export.set.title')), ' ', tr('export.set.text')),
@@ -1048,8 +1061,8 @@
   async function init() {
     cfg = { ...cfg, ...(await office.getConfig()) };
     dicts = await office.dicts();
-    document.documentElement.lang = cfg.lang;
-    office.on('config', (c) => { cfg = { ...cfg, ...c }; document.documentElement.lang = cfg.lang; render(); });
+    document.documentElement.lang = cfg.lang; S.setMode(cfg.characters);
+    office.on('config', (c) => { cfg = { ...cfg, ...c }; document.documentElement.lang = cfg.lang; S.setMode(cfg.characters); render(); });
     office.on('focus', (o) => { route(o); refresh(true); render(); });
     if (q.get('kind') === 'member' || tab === 'chat') route({ tab, id: focusId, kind: q.get('kind') });
     await refresh(true);

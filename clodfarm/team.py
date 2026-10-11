@@ -22,7 +22,9 @@ CHIEF = "chief"
 MAX_MEMBERS = 40
 ID_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 HEX = re.compile(r"#[0-9a-fA-F]{6}")
-STYLES = ("short", "side", "beard", "long", "bun", "pony")
+STYLES = ("short", "side", "beard", "buzz", "curly", "bald", "mustache", "afro", "long", "bun", "pony", "bob", "braid", "wavy")
+KITS = 11     # 0 none, 1 headset, 2 visor, 3 pencil, 4 round glasses, 5 bow tie, 6 scarf, 7 cap, 8 heart pin, 9 crown, 10 monocle
+SPECIES = ("cat", "dog", "rabbit", "fox", "owl", "bear", "panda", "raccoon")
 LOOK_COLORS = ("skin", "hair", "suit")
 
 OFFICE_RULES = (
@@ -67,6 +69,22 @@ def _clean_look(raw) -> dict:
         out["style"] = raw["style"]
     if "glasses" in raw:
         out["glasses"] = bool(raw["glasses"])
+    if raw.get("kit") is not None:
+        try:
+            k = int(raw["kit"])
+        except (TypeError, ValueError):
+            raise TeamError(f"look.kit must be a number from 0 to {KITS - 1}") from None
+        if not 0 <= k < KITS:
+            raise TeamError(f"look.kit must be a number from 0 to {KITS - 1}")
+        out["kit"] = k
+    if raw.get("build") is not None:
+        if raw["build"] not in (0, 1):
+            raise TeamError("look.build must be 0 (regular) or 1 (broad)")
+        out["build"] = raw["build"]
+    if raw.get("species"):
+        if raw["species"] not in SPECIES:
+            raise TeamError("look.species must be one of " + ", ".join(SPECIES))
+        out["species"] = raw["species"]
     if raw.get("prop") is not None:
         try:
             p = int(raw["prop"])

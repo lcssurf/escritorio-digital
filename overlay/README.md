@@ -1,22 +1,22 @@
 # Overlay do Escritório Digital
 
-Os agentes do escritório aparecem como bonecos pequenos em pixel-art, em pé sobre a barra de tarefas do Windows, sem fundo.
+Os agentes do escritório aparecem como funcionários pequenos em pixel-art, em pé sobre a barra de tarefas do Windows, sem fundo.
 
-| Estado | O que o boneco faz |
+| Estado | O que o funcionário faz |
 |---|---|
 | Trabalhando | Sentado numa mesa, digitando no notebook |
 | Ocioso | Anda pela barra, toma café ou cochila no sofá |
 | Aguardando você | Balão com "!" e acenando: há trabalho pronto esperando a sua aprovação |
 | Fora do ar | Dormindo no sofá (o escritório não responde) |
 
-- **Clique** no boneco abre o painel (detalhes, aprovar/recusar, novo trabalho, ajustes).
-- **Arraste** o boneco para a esquerda ou direita para reposicioná-lo.
-- **Ícone da bandeja:** abrir painel, esconder os bonecos, sair.
+- **Clique** no funcionário abre o painel (detalhes, aprovar/recusar, novo trabalho, ajustes).
+- **Arraste** o funcionário para a esquerda ou direita para reposicioná-lo.
+- **Ícone da bandeja:** abrir painel, esconder os funcionários, sair.
 - **Idiomas:** português (Brasil) e inglês, trocáveis em Ajustes.
 
 ## Equipe
 
-Você cria os **especialistas** (nome, função, gênero, aparência e instruções) na aba Equipe do painel, ou parte de um modelo pronto (Agenda, Documentos, Peças, Revisão, Prazos). Há sempre um **Chefe**, que recebe os pedidos e entrega cada parte ao especialista certo (`clodfarm spawn --specialist <id>`). Cada especialista é um boneco na barra, sempre presente: trabalhando, ocioso ou chamando você para aprovar. Todos trabalham sob as regras do escritório (sem dados reais, a IA rascunha, o advogado decide).
+Você cria os **especialistas** (nome, função, gênero, aparência e instruções) na aba Equipe do painel, ou parte de um modelo pronto (Agenda, Documentos, Peças, Revisão, Prazos). Há sempre um **Chefe**, que recebe os pedidos e entrega cada parte ao especialista certo (`clodfarm spawn --specialist <id>`). Cada especialista é um funcionário na barra, sempre presente: trabalhando, ocioso ou chamando você para aprovar. Todos trabalham sob as regras do escritório (sem dados reais, a IA rascunha, o advogado decide).
 
 ## Rodar
 
@@ -42,4 +42,4 @@ npm test
 
 ## Arte
 
-Todos os bonecos são desenhados por código (`renderer/sprites.js`), sem imagens. A aparência de cada um (pele, cabelo, terno, gravata) vem do id do agente, então cada agente tem a sua.
+Todos os personagens são desenhados por código (`renderer/sprites.js`), sem imagens. A aparência de cada um (pele, cabelo, terno, gravata) vem do id do agente, então cada agente tem a sua.

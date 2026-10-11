@@ -30,8 +30,8 @@ jobs:
       - name: Testes
         run: python -m pytest -q -x
 
-  bonecos:
-    name: Bonecos e instalador (Node)
+  app:
+    name: App de mesa e instalador (Node)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -4,14 +4,14 @@
 // Escritório Digital: uma ferramenta só, igual no Windows, no Mac e no Linux (precisa só do Node 18+).
 // Pensada para uma IA (o Claude) instalar e cuidar do escritório, mas serve para qualquer pessoa.
 //
-//   node scripts/escritorio.mjs instalar         TUDO: prepara, liga, instala a equipe e abre os bonecos (pode repetir)
+//   node scripts/escritorio.mjs instalar         TUDO: prepara, liga, instala a equipe e mostra os funcionários (pode repetir)
 //
 // Os passos, se você quiser um por vez:
 //   verificar    o que está pronto e o que falta, com a correção de cada item
 //   construir    baixa a nossa imagem do GitHub (de 2 a 4 minutos); --completo monta tudo do zero (5 a 15 min) [--ca arquivo.pem]
 //   iniciar      liga (ou recria) o escritório      [--ca arquivo.pem] [--entregas pasta]
 //   equipe       instala a equipe pronta (5 coordenações e 16 especialistas)
-//   abrir        abre os bonecos na barra
+//   abrir        abre os funcionários na barra
 //   inicio on|off   abrir sozinho quando o computador ligar
 //   status       resumo
 //   desinstalar --sim   remove o escritório (os dados ficam, salvo --apagar-dados)
@@ -30,7 +30,7 @@ const OVERLAY = path.join(ROOT, 'overlay');
 // A nossa imagem completa (Claude Code, Node, Chromium e o nosso código), publicada no GitHub. A instalação só baixa isso.
 // Para montar do zero no próprio computador: construir --completo (usa o Dockerfile deste projeto).
 // A versão do projeto (arquivo VERSION) é também a etiqueta da imagem: código e imagem andam sempre juntos.
-const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.1.0'; } })();
+const VERSION = (() => { try { return fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim(); } catch (_) { return '1.1.1'; } })();
 const IMAGE = process.env.ESCRITORIO_IMAGE || `ghcr.io/lcssurf/escritorio-digital:${VERSION}`;
 const REGISTRY_USER = 'lcssurf';
 const NAME = 'clodfarm';
@@ -108,7 +108,7 @@ async function verificar() {
       `Algo no computador está refazendo o HTTPS (${iss.trim().replace(/^issuer=\s*/, '')})`,
       'Exporte o certificado desse programa (só a parte pública) e rode: node scripts/escritorio.mjs iniciar --ca caminho/do/certificado.pem');
   }
-  check(fs.existsSync(path.join(OVERLAY, 'node_modules')), 'Bonecos instalados (overlay)', 'O overlay ainda não foi instalado', 'Rode: node scripts/escritorio.mjs abrir');
+  check(fs.existsSync(path.join(OVERLAY, 'node_modules')), 'Aplicativo dos funcionários instalado (overlay)', 'O overlay ainda não foi instalado', 'Rode: node scripts/escritorio.mjs abrir');
   return fim(all);
 }
 function fim(all) { say(all ? '\nTudo certo.' : '\nHá itens para resolver (acima).'); return all; }
@@ -228,14 +228,14 @@ async function equipe() {
 // ---------------------------------------------------------------- abrir / início automático
 function abrir() {
   if (!fs.existsSync(path.join(OVERLAY, 'node_modules'))) {
-    say('Instalando os bonecos (primeira vez, de 1 a 2 minutos)...');
+    say('Instalando o aplicativo dos funcionários (primeira vez, de 1 a 2 minutos)...');
     const r = run('npm install --no-audit --no-fund', [], { cwd: OVERLAY, stdio: 'inherit', shell: true });
     if (r.status !== 0) return bad('npm install falhou', 'Confira a internet e rode de novo.');
   }
   // o próprio Node abre o Electron (sem passar por um shell): igual em qualquer sistema
   const p = spawn(process.execPath, [path.join(OVERLAY, 'node_modules', 'electron', 'cli.js'), '.'], { cwd: OVERLAY, detached: true, stdio: 'ignore', env: ENV, windowsHide: true });
   p.unref();
-  return ok('Bonecos abertos: procure-os sobre a barra de tarefas (ou o Dock) e o ícone perto do relógio.');
+  return ok('Funcionários na tela: procure-os sobre a barra de tarefas (ou o Dock) e o ícone perto do relógio.');
 }
 
 function inicio(modo) {
@@ -281,7 +281,7 @@ async function instalar() {
   const lg = login();
   if (lg !== true) return lg === NEEDS_PERSON ? NEEDS_PERSON : false;
 
-  say('\n5/5  Equipe e bonecos');
+  say('\n5/5  Equipe na barra de tarefas');
   if (!(await equipe())) return false;
   if (!abrir()) return false;
   say('\nPronto! Clique na Marina (a chefe) para conversar. Um tour de 3 telas aparece na primeira vez.');
@@ -291,8 +291,8 @@ async function instalar() {
 
 // ---------------------------------------------------------------- atualizar: baixa o que mudou e religa, sem perder login nem trabalhos
 // Dois tempos: o primeiro só baixa o código novo (git pull) e chama este mesmo script de novo, já na versão nova
-// (é ela que sabe qual imagem do Docker usar). O segundo atualiza a imagem, religa o escritório e os bonecos.
-function fecharBonecos() {
+// (é ela que sabe qual imagem do Docker usar). O segundo atualiza a imagem, religa o escritório e os funcionários.
+function fecharFuncionarios() {
   // só os processos do Electron que vêm DESTA pasta (nunca outros programas feitos em Electron)
   const exe = path.join(OVERLAY, 'node_modules', 'electron', 'dist');
   if (win) {
@@ -329,12 +329,12 @@ async function atualizar() {
     if (antes && antes !== depois) say('  (versão nova da imagem baixada)');
     if (!(await iniciar())) return false;
   }
-  say('\n3/3  Bonecos');
+  say('\n3/3  Funcionários na tela');
   if (fs.existsSync(path.join(OVERLAY, 'package.json'))) {
     const r = run('npm install --no-audit --no-fund', [], { cwd: OVERLAY, stdio: 'inherit', shell: true });
     if (r.status !== 0) return bad('npm install falhou', 'Confira a internet e rode de novo.');
   }
-  fecharBonecos(); await sleep(1500);
+  fecharFuncionarios(); await sleep(1500);
   if (!abrir()) return false;
   say('\nAtualizado. A equipe que você editou não foi alterada. A sua equipe nunca é alterada pela atualização. Para trazer só os especialistas novos do pacote padrão: node scripts/escritorio.mjs equipe --completar');
   return true;
@@ -346,7 +346,7 @@ async function status() {
   say(`Docker/escritório: ${st}`);
   try { const t = await api('/api/team', { token: overlayToken() }); say(`Equipe: ${t.length} pessoas`); } catch (_) { say('Equipe: indisponível'); }
   say(`Entregas: ${exportDir()}`);
-  say(`Bonecos instalados: ${fs.existsSync(path.join(OVERLAY, 'node_modules')) ? 'sim' : 'não'}`);
+  say(`Aplicativo dos funcionários instalado: ${fs.existsSync(path.join(OVERLAY, 'node_modules')) ? 'sim' : 'não'}`);
   return true;
 }
 

@@ -73,11 +73,11 @@ Ele faz, nesta ordem (e mostra cada passo):
 2. **baixa a nossa imagem do escritório** (de 2 a 4 minutos na primeira vez);
 3. **liga o escritório** e cria a pasta de entregas (`Documentos/Escritório Digital`);
 4. confere a **conta Claude** (veja 🧍 abaixo);
-5. monta a **equipe padrão** na primeira vez (a chefe, 5 coordenações e 16 especialistas; se a pessoa já tem equipe, ela é mantida) e **abre os bonecos** sobre a barra de tarefas (ou o Dock).
+5. monta a **equipe padrão** na primeira vez (a chefe, 5 coordenações e 16 especialistas; se a pessoa já tem equipe, ela é mantida) e **mostra os funcionários** sobre a barra de tarefas (ou o Dock).
 
 **🧍 Conta Claude.** O escritório usa o **plano Claude da própria pessoa** (Pro ou Max). Se faltar o login, o comando para com o código **3** e mostra o que fazer: a pessoa roda `docker exec -it clodfarm clodfarm login`, abre o endereço que aparece, aprova e **cola o código de volta**. (Se o terminal for interativo, o comando já abre isso sozinho.) Depois **rode `instalar` de novo**: ele continua de onde parou. Avise que os agentes gastam o plano dela e que o sistema para em 80% do uso semanal e 85% das 5 horas.
 
-Na primeira vez o `npm install` dos bonecos leva de 1 a 2 minutos, e um tour de 3 telas aparece sozinho.
+Na primeira vez o `npm install` do aplicativo dos funcionários leva de 1 a 2 minutos, e um tour de 3 telas aparece sozinho.
 - **macOS:** se aparecer um aviso de segurança, explique e peça para permitir em Ajustes do Sistema → Privacidade e Segurança. Para abrir de novo depois: duplo clique em `overlay/Escritorio-Digital.command`.
 - **Windows:** para abrir de novo depois: duplo clique em `overlay/Escritorio-Digital.vbs`.
 
@@ -86,9 +86,9 @@ Na primeira vez o `npm install` dos bonecos leva de 1 a 2 minutos, e um tour de 
 ## 4. Conferir e entregar
 
 1. `node scripts/escritorio.mjs verificar`: tudo precisa estar ✔.
-2. **Teste curto com dados fictícios:** clique na Marina (a chefe) e peça *"Organize um índice de documentos de um caso fictício"*. Ela mostra um plano; a pessoa clica **Começar**; ao terminar, o boneco chama com "!"; ela lê e **aprova**. Confira que o arquivo apareceu na pasta de entregas.
+2. **Teste curto com dados fictícios:** clique na Marina (a chefe) e peça *"Organize um índice de documentos de um caso fictício"*. Ela mostra um plano; a pessoa clica **Começar**; ao terminar, o funcionário chama com "!"; ela lê e **aprova**. Confira que o arquivo apareceu na pasta de entregas.
 3. Explique em poucas linhas:
-   - Clique em qualquer boneco para conversar; a chefe encaminha para quem sabe.
+   - Clique em qualquer funcionário para conversar; a chefe encaminha para quem sabe.
    - **Nada é enviado a ninguém e nada entra no projeto sem a aprovação dela.**
    - Os conectores do Google (Drive, Gmail, Agenda) vêm **desligados**; dá para liberar em Ajustes, só leitura.
    - Por enquanto, só **dados fictícios**; dados reais exigem decidir sobre sigilo e LGPD.
@@ -105,8 +105,8 @@ Na primeira vez o `npm install` dos bonecos leva de 1 a 2 minutos, e um tour de 
 | `loggedIn: False`, ou o painel avisa "A conta Claude saiu do escritório" | 🧍 login (passo 3): `docker exec -it clodfarm clodfarm login`. O painel tem o botão "Mostrar como". |
 | O painel avisa que o plano chegou no limite de uso | Nada a consertar: o escritório espera e volta sozinho quando o limite renovar. |
 | A equipe sumiu ou ficou errada | Ajustes > "Cópia de segurança da equipe" > Restaurar (o escritório também guarda as 10 últimas equipes). |
-| Bonecos não aparecem | Ícone perto do relógio → "Mostrar bonecos". Sem ícone: `node scripts/escritorio.mjs abrir`. |
-| Bonecos dão erro de conexão | `verificar` e seguir a correção. No Mac, abrir o Docker Desktop. |
+| Os funcionários não aparecem | Ícone perto do relógio → "Mostrar funcionários". Sem ícone: `node scripts/escritorio.mjs abrir`. |
+| Os funcionários dão erro de conexão | `verificar` e seguir a correção. No Mac, abrir o Docker Desktop. |
 | Porta 8080 ocupada | Fechar o programa que a usa: o escritório usa `127.0.0.1:8080`. |
 | `instalar` demorou e parou no download | Rode de novo: o Docker reaproveita o que já baixou. |
 
@@ -127,7 +127,7 @@ Depois: `node scripts/escritorio.mjs iniciar --ca ~/ca-antivirus.pem` (e rode `i
 
 ## Atualizar (quando a pessoa pedir "atualize o Escritório Digital")
 
-Rode na pasta do projeto: `node scripts/escritorio.mjs atualizar`. Ele baixa o código novo (`git pull`, só se a pasta estiver sem alterações), atualiza a imagem do Docker, religa o escritório e reabre os bonecos. **Login, trabalhos e a equipe editada ficam.** Se houver trabalho em andamento ele para e avisa: espere terminar (ou use `--forcar` só se a pessoa mandar). Se avisar que há arquivos alterados, **não** desfaça nada sem perguntar. **A equipe da pessoa nunca é alterada** (nem na atualização, nem se o `instalar` rodar de novo): o comando `equipe` só monta a equipe padrão quando ainda não existe ninguém além da chefe. Para trazer só os especialistas novos de versões futuras: `node scripts/escritorio.mjs equipe --completar` (só cria os que faltam). Sobrescrever é `equipe --redefinir --sim` e só se a pessoa pedir, avisando que as edições dela nesses nomes se perdem.
+Rode na pasta do projeto: `node scripts/escritorio.mjs atualizar`. Ele baixa o código novo (`git pull`, só se a pasta estiver sem alterações), atualiza a imagem do Docker, religa o escritório e reabre os funcionários. **Login, trabalhos e a equipe editada ficam.** Se houver trabalho em andamento ele para e avisa: espere terminar (ou use `--forcar` só se a pessoa mandar). Se avisar que há arquivos alterados, **não** desfaça nada sem perguntar. **A equipe da pessoa nunca é alterada** (nem na atualização, nem se o `instalar` rodar de novo): o comando `equipe` só monta a equipe padrão quando ainda não existe ninguém além da chefe. Para trazer só os especialistas novos de versões futuras: `node scripts/escritorio.mjs equipe --completar` (só cria os que faltam). Sobrescrever é `equipe --redefinir --sim` e só se a pessoa pedir, avisando que as edições dela nesses nomes se perdem.
 
 ## Desinstalar
 

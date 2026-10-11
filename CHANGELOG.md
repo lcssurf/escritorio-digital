@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.1.1
+- Os personagens que andam na barra de tarefas agora se chamam **funcionários** (antes, "bonecos"), no painel, no instalador e nos textos do projeto.
+
 ## 1.1.0
 - **Salvar em Word, PDF e outros formatos.** No leitor de documentos, o botão "Salvar como…" gera Word (.docx), PDF, página web, RTF ou texto simples. Em Ajustes dá para escolher formatos extras que o escritório gera sozinho, na sua pasta, a cada aprovação. Os trechos `[CONFERIR]` e `{{preencher}}` saem marcados em amarelo.
 - **Cópia de segurança da equipe.** Em Ajustes: salve a equipe (nomes, instruções, aparência) e a velocidade num arquivo e restaure quando precisar. A equipe de antes da restauração fica guardada dentro do escritório.

@@ -1,6 +1,6 @@
 # Escritório Digital: guia para quem abrir este projeto
 
-Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © Duke Security, Inc.; a nossa parte é PolyForm Shield, veja `LICENSE`): um escritório de advocacia com agentes de IA, bonecos em pixel-art sobre a barra de tarefas e **aprovação humana antes de qualquer entrega**.
+Cópia modificada do [clodfarm](https://github.com/matank001/clodfarm) (MIT, © Duke Security, Inc.; a nossa parte é PolyForm Shield, veja `LICENSE`): um escritório de advocacia com agentes de IA, funcionários em pixel-art sobre a barra de tarefas e **aprovação humana antes de qualquer entrega**.
 
 ## Se pediram para INSTALAR
 Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/escritorio.mjs <instalar|verificar|construir|iniciar|equipe|abrir|inicio|status|desinstalar>`; o `instalar` faz tudo e pula o que já está pronto.
@@ -16,7 +16,7 @@ Siga o [INSTALAR.md](INSTALAR.md) à risca. Ferramenta única: `node scripts/esc
 
 ## Mapa
 - `clodfarm/` motor (Python). Nosso: `team.py` (chefe, coordenações, especialistas), `chat.py` (conversa e plano), `web.py` (API do overlay: `/api/team`, `/api/chat/*`, `/api/landings/*`, `/api/claude-connectors`), `policy.py` (filtro de ferramentas), `supervisor.py` (`land()` espera a aprovação).
-- `overlay/` app de desktop (Electron): bonecos (`renderer/sprites.js`), painel (`renderer/panel.js`), textos em `i18n/` (pt-BR e en).
+- `overlay/` app de desktop (Electron): funcionários (`renderer/sprites.js`), painel (`renderer/panel.js`), textos em `i18n/` (pt-BR e en).
 - `scripts/escritorio.mjs` instalação e manutenção (Windows, macOS, Linux). `scripts/sync-plugin.sh` é do projeto original (um teste cita).
 - `Dockerfile` monta a imagem completa (é ela que publicamos em `ghcr.io/lcssurf/escritorio-digital`); `Dockerfile.dev` só põe o nosso código Python por cima dessa imagem, para desenvolver rápido. Nada depende da imagem do projeto original.
 - `docs/clodfarm/` tudo o que veio do projeto original e não usamos no dia a dia (README, changelog, compose, scripts de operação).

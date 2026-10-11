@@ -159,5 +159,14 @@
   "chat.empty": "Diga olá! Você pode fazer uma pergunta ou pedir um trabalho.",
   "chat.waiting": "Há um trabalho aguardando a sua aprovação.",
   "chat.review": "Revisar",
-  "chat.error": "Não foi possível enviar: {why}"
+  "chat.error": "Não foi possível enviar: {why}",
+  "nav.chat": "Conversa",
+  "tray.chat": "Falar com a chefe",
+  "chat.talkto": "Falar com",
+  "chat.chiefhint": "Não sabe com quem falar? Escreva aqui: {name} encaminha para quem sabe.",
+  "chat.directhint": "Conversa direta com {name}.",
+  "chat.hello.chief": "Oi! Eu sou {name}. Me conte o que você precisa e eu encaminho para a pessoa certa da equipe.",
+  "chat.hello": "Oi! Eu sou {name} ({role}). Em que posso ajudar?",
+  "chat.working": "Equipe trabalhando:",
+  "settings.hotkey": "Atalho para falar com a chefe de qualquer lugar: Ctrl + Alt + E."
 }

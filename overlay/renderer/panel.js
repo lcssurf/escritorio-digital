@@ -5,7 +5,7 @@
   const mock = q.has('mock');
   let office = window.office, dicts = null, cfg = { lang: q.get('lang') || 'pt-BR', sound: true, url: 'http://localhost:8080', hasToken: true };
   let tab = q.get('tab') || '', focusId = q.get('id') || '';
-  let chatOpen = null; const chatDraft = {};
+  let chatWith = 'chief'; const chatDraft = {};
   let landings = [], farm = null, members = [], editing = null, offline = false, authErr = false, lastSig = '';
   const confirmDeny = new Set(), busy = new Set();
   const $ = (id) => document.getElementById(id);
@@ -45,7 +45,7 @@
   const ICONS = {
     team: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.2a3 3 0 0 0-2.2-2.9"/><path d="M15.5 5.2a3.2 3.2 0 0 1 0 5.6"/>',
     approvals: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.3 9.5"/>',
-    new: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   };
   function icon(name) { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = ICONS[name]; return s; }
@@ -74,8 +74,8 @@
     const sig = JSON.stringify([landings.map((l) => l.id), farm && farm.agents, farm && farm.subagents, farm && (farm.events || []).slice(0, 3), members, offline, authErr, [...confirmDeny], [...busy]]);
     if (!force && sig === lastSig) return;
     lastSig = sig;
-    if (!tab) tab = landings.length ? 'approvals' : 'team';
-    if (tab === 'new' || tab === 'settings' || editing || chatOpen) { renderChrome(); return; } // never wipe what is being typed
+    if (!tab) tab = 'chat';
+    if (tab === 'chat' || tab === 'settings' || editing) { renderChrome(); if (tab === 'chat') paintStrip(); return; } // never wipe what is being typed
     render();
   }
   const tasksById = () => {
@@ -98,12 +98,12 @@
       h('div', { class: 'tile' }, h('b', {}, running), h('span', {}, tr('sum.working'))),
       h('div', { class: 'tile' }, h('b', {}, team), h('span', {}, tr('sum.team'))));
     const nav = $('nav'); clear(nav);
-    for (const [id, key] of [['team', 'nav.team'], ['approvals', 'nav.approvals'], ['new', 'nav.new'], ['settings', 'nav.settings']]) {
+    for (const [id, key] of [['chat', 'nav.chat'], ['team', 'nav.team'], ['approvals', 'nav.approvals'], ['settings', 'nav.settings']]) {
       const b = h('button', { class: id === tab ? 'on' : '', onclick: () => { tab = id; focusId = ''; render(); }, 'aria-label': tr(key) }, icon(id), tr(key));
       if (id === 'approvals' && landings.length) b.append(h('span', { class: 'badge' }, landings.length));
       nav.append(b);
     }
-    for (const id of ['team', 'approvals', 'new', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
+    for (const id of ['chat', 'team', 'approvals', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
   }
   function banner() {
     if (cfg.hidden) return h('div', { class: 'banner' }, tr('banner.hidden'), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => office.togglePets() }, tr('settings.show')));
@@ -132,8 +132,6 @@
   function renderTeam() {
     const s = $('s-team'); clear(s);
     if (editing) return renderEditor(s);
-    if (chatOpen) return renderChat(s);
-    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
     const b = banner(); if (b) s.append(b);
     s.append(h('h2', {}, tr('team.title')));
     const states = memberStates();
@@ -215,14 +213,34 @@
     return h('div', { class: 'card' }, h('b', {}, tr('team.pack.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('team.pack.text')), btn);
   }
 
-  // ------------------------------------------------------------------ chat with a team member
-  let chatTimer = null, chatSig = '';
-  function closeChat() { chatOpen = null; chatSig = ''; if (chatTimer) { clearInterval(chatTimer); chatTimer = null; } render(); }
-  function openChat(id) { chatOpen = id; chatSig = ''; tab = 'team'; render(); }
+  // ------------------------------------------------------------------ conversation (the first tab: the chief by default)
+  let chatTimer = null, chatSig = '', stripEl = null;
+  function openChat(id) { chatWith = id || 'chief'; chatSig = ''; tab = 'chat'; render(); }
+  function activeTeam() {   // who is working right now (so the lawyer sees who the chief called)
+    const names = new Map();
+    for (const t of ((farm && farm.subagents) || [])) {
+      if (t.status !== 'running' && t.status !== 'waiting') continue;
+      const m = memberOf(t.specialist);
+      if (m && m.id !== chatWith) names.set(m.id, m);
+    }
+    return [...names.values()];
+  }
+  function paintStrip() {
+    if (!stripEl) return;
+    const act = activeTeam();
+    clear(stripEl);
+    if (!act.length) { stripEl.style.display = 'none'; return; }
+    stripEl.style.display = 'flex';
+    stripEl.append(h('span', { class: 'dim small' }, tr('chat.working')));
+    for (const m of act) stripEl.append(h('span', { class: 'chipw' }, h('i'), m.name + (m.title ? ' · ' + m.title : '')));
+  }
+  function renderChatTab() { const s = $('s-chat'); clear(s); if (tab === 'chat') renderChat(s); }
   function renderChat(s) {
-    const m = memberOf(chatOpen);
-    if (!m) { chatOpen = null; return renderTeam(); }
+    let m = memberOf(chatWith);
+    if (!m) { chatWith = 'chief'; m = memberOf('chief'); }
+    if (!m) { s.append(h('div', { class: 'banner' }, tr('error.offline', { url: cfg.url || '' }))); return; }
     const st = memberStates().get(m.id) || { status: 'idle' };
+    const isChief = m.id === 'chief';
     const list = h('div', { class: 'chat' });
     const typing = h('div', { class: 'bubble them typing', style: 'display:none' }, h('span'), h('span'), h('span'));
     const ta = h('textarea', { class: 'chatin', rows: '2', placeholder: tr('chat.placeholder', { name: m.name }), 'aria-label': tr('chat.placeholder', { name: m.name }) });
@@ -239,16 +257,22 @@
     };
     send.addEventListener('click', doSend);
     ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); doSend(); } });
+    const hello = () => {
+      const box = h('div', {}, h('div', { class: 'bubble them' }, tr(isChief ? 'chat.hello.chief' : 'chat.hello', { name: m.name, role: roleOf(m) })),
+        h('div', { class: 'chips' }, ['docs', 'draft', 'deadlines', 'summary'].map((k) =>
+          h('button', { onclick: () => { ta.value = tr('job.chip.' + k) + ' - '; chatDraft[m.id] = ta.value; ta.focus(); } }, tr('job.chip.' + k)))));
+      return box;
+    };
     const paint = (view) => {
       const sig = JSON.stringify([view.messages.map((x) => x.id), view.pending]);
       if (sig === chatSig) return;
       chatSig = sig; clear(list);
-      if (!view.messages.length) list.append(h('div', { class: 'empty' }, tr('chat.empty')));
+      if (!view.messages.length) list.append(hello());
       for (const msg of view.messages) {
         if (msg.role === 'user') list.append(h('div', { class: 'bubble me' }, msg.text));
         else {
           const b = h('div', { class: 'bubble them' + (msg.ok === false ? ' bad' : '') }, msg.text);
-          if (msg.waiting) b.append(h('div', { class: 'waitrow' }, tr('chat.waiting'), ' ', h('button', { class: 'link', onclick: () => { tab = 'approvals'; chatOpen = null; render(); } }, tr('chat.review'))));
+          if (msg.waiting) b.append(h('div', { class: 'waitrow' }, tr('chat.waiting'), ' ', h('button', { class: 'link', onclick: () => { tab = 'approvals'; render(); } }, tr('chat.review'))));
           list.append(b);
         }
       }
@@ -256,16 +280,23 @@
       list.append(typing);
       list.scrollTop = list.scrollHeight;
     };
-    const poll = async () => { const r = await office.api('GET', '/api/chat/' + encodeURIComponent(m.id)); if (r.ok && r.data) paint(r.data); };
+    const poll = async () => { const r = await office.api('GET', '/api/chat/' + encodeURIComponent(m.id)); if (r.ok && r.data) paint(r.data); paintStrip(); };
     if (chatTimer) clearInterval(chatTimer);
     chatTimer = setInterval(poll, 1500);
     poll();
+    const opt = (x) => h('option', { value: x.id }, x.name + (x.id === 'chief' ? ' · ' + tr('pet.chief') : x.title ? ' · ' + x.title : ''));
+    const picker = h('select', { class: 'picker', 'aria-label': tr('chat.talkto'), onchange: (ev) => openChat(ev.target.value) },
+      opt(memberOf('chief') || m),
+      h('optgroup', { label: tr('job.group.leads') }, members.filter((x) => x.lead && x.id !== 'chief').map(opt)),
+      h('optgroup', { label: tr('job.group.specialists') }, members.filter((x) => !x.lead && x.id !== 'chief').map(opt)));
+    picker.value = m.id;
+    stripEl = h('div', { class: 'strip' });
     s.append(
-      h('div', { class: 'backrow' }, h('button', { onclick: closeChat }, '‹ ' + tr('nav.team'))),
-      h('div', { class: 'agent', style: 'margin-bottom:10px;cursor:default' }, avatar(m, st.status === 'working' ? 'working' : 'idle'),
-        h('div', { class: 'who' }, h('div', { class: 'name' }, m.name, m.id === 'chief' ? h('span', { class: 'badge-chief' }, tr('team.chief')) : m.lead ? h('span', { class: 'badge-lead' }, tr('team.lead')) : null),
-          h('div', { class: 'task' }, roleOf(m) || '')), h('span', { class: 'chip ' + st.status }, tr('state.' + st.status))),
-      list, h('div', { class: 'chatbar' }, ta, send));
+      h('div', { class: 'agent', style: 'margin-bottom:6px;cursor:default' }, avatar(m, st.status === 'working' ? 'working' : 'idle'),
+        h('div', { class: 'who' }, picker, h('div', { class: 'task', style: 'margin-top:2px;white-space:normal;line-height:1.3' }, tr(isChief ? 'chat.chiefhint' : 'chat.directhint', { name: m.name }))),
+        h('span', { class: 'chip ' + st.status }, tr('state.' + st.status))),
+      list, stripEl, h('div', { class: 'chatbar' }, ta, send));
+    paintStrip();
     setTimeout(() => ta.focus(), 50);
   }
 
@@ -396,28 +427,6 @@
     await refresh(true);
   }
 
-  // ------------------------------------------------------------------ new job
-  function renderNew() {
-    const s = $('s-new'); clear(s);
-    const b = banner(); if (b) s.append(b);
-    s.append(h('h2', {}, tr('job.title')), h('div', { class: 'sub' }, tr('job.sub')));
-    const opt = (m) => h('option', { value: m.id }, m.name + (m.title ? ' · ' + m.title : ''));
-    const who = h('select', { 'aria-label': tr('job.who') }, h('option', { value: 'chief' }, tr('job.chief')),
-      h('optgroup', { label: tr('job.group.leads') }, members.filter((m) => m.lead && m.id !== 'chief').map(opt)),
-      h('optgroup', { label: tr('job.group.specialists') }, members.filter((m) => !m.lead).map(opt)));
-    const ta = h('textarea', { placeholder: tr('job.placeholder'), 'aria-label': tr('job.title') });
-    const chips = h('div', { class: 'chips' }, ['docs', 'draft', 'deadlines', 'summary'].map((k) =>
-      h('button', { onclick: () => { ta.value = tr('job.chip.' + k) + ' - '; ta.focus(); } }, tr('job.chip.' + k))));
-    const go = h('button', { class: 'btn acc', onclick: async () => {
-      const text = ta.value.trim(); if (!text) { ta.focus(); return; }
-      go.disabled = true;
-      const r = await office.api('POST', '/api/tasks/new', { title: text.split('\n')[0].slice(0, 120), prompt: text, specialist: who.value });
-      go.disabled = false;
-      if (r.ok) { ta.value = ''; toast(tr('job.sent')); refresh(true); } else toast((r.data && r.data.error) || r.error || String(r.status), true);
-    } }, tr('job.send'));
-    s.append(h('div', { class: 'field' }, h('label', {}, tr('job.who')), who), ta, chips, h('div', { class: 'actions', style: 'margin-top:0' }, go), h('div', { class: 'note' }, tr('job.safety')));
-  }
-
   // ------------------------------------------------------------------ settings
   function renderSettings() {
     const s = $('s-settings'); clear(s);
@@ -440,6 +449,7 @@
       h('div', { class: 'field' }, h('label', {}, tr('settings.key')), h('div', { class: 'keyrow' }, keyPill, fetchKey)),
       h('div', { class: 'field' }, h('label', {}, tr('settings.url')), url),
       h('div', { class: 'field' }, h('label', {}, tr('settings.height')), heightRow, h('div', { class: 'note' }, tr('settings.heightHint'))),
+      h('div', { class: 'note' }, tr('settings.hotkey')),
       h('div', { class: 'stack' },
         h('button', { class: 'btn ghost', onclick: () => office.openFarm() }, tr('settings.openfarm')),
         h('button', { class: 'btn ghost', onclick: () => office.togglePets() }, tr(cfg.hidden ? 'settings.show' : 'settings.hide')),
@@ -448,17 +458,26 @@
   }
 
   function render() {
-    renderChrome(); renderTeam(); renderApprovals(); renderNew(); renderSettings();
+    if (tab !== 'chat' && chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+    renderChrome(); renderChatTab(); renderTeam(); renderApprovals(); renderSettings();
   }
 
+  // where a request to open the panel lands: approvals when asked, the conversation for a character, else the tab named
+  function route(o) {
+    if (o.tab === 'approvals') tab = 'approvals';
+    else if (o.kind === 'member' && o.id) { chatWith = o.id; tab = 'chat'; chatSig = ''; }
+    else if (o.tab === 'chat') { chatWith = o.id || 'chief'; tab = 'chat'; chatSig = ''; }
+    else if (o.tab) tab = o.tab;
+    focusId = tab === 'team' ? (o.id || '') : '';
+  }
   $('close').addEventListener('click', () => window.close());
   async function init() {
     cfg = { ...cfg, ...(await office.getConfig()) };
     dicts = await office.dicts();
     document.documentElement.lang = cfg.lang;
     office.on('config', (c) => { cfg = { ...cfg, ...c }; document.documentElement.lang = cfg.lang; render(); });
-    office.on('focus', (o) => { tab = o.tab || tab; focusId = o.id || ''; if (o.kind === 'member' && o.id && o.tab !== 'approvals') { chatOpen = o.id; tab = 'team'; } refresh(true); render(); });
-    if (q.get('kind') === 'member' && focusId && tab !== 'approvals') { chatOpen = focusId; tab = 'team'; }
+    office.on('focus', (o) => { route(o); refresh(true); render(); });
+    if (q.get('kind') === 'member' || tab === 'chat') route({ tab, id: focusId, kind: q.get('kind') });
     await refresh(true);
     render();
     setInterval(() => refresh(false), 3000);

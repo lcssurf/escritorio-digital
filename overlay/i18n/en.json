@@ -159,5 +159,14 @@
   "chat.empty": "Say hello! You can ask a question or request a job.",
   "chat.waiting": "A job is waiting for your approval.",
   "chat.review": "Review",
-  "chat.error": "Could not send: {why}"
+  "chat.error": "Could not send: {why}",
+  "nav.chat": "Chat",
+  "tray.chat": "Talk to the chief",
+  "chat.talkto": "Talk to",
+  "chat.chiefhint": "Not sure who to talk to? Write here: {name} sends it to whoever knows.",
+  "chat.directhint": "Direct conversation with {name}.",
+  "chat.hello.chief": "Hi! I'm {name}. Tell me what you need and I'll hand it to the right person on the team.",
+  "chat.hello": "Hi! I'm {name} ({role}). How can I help?",
+  "chat.working": "Team at work:",
+  "settings.hotkey": "Shortcut to talk to the chief from anywhere: Ctrl + Alt + E."
 }

@@ -1,5 +1,5 @@
 // Escritório Digital overlay: little office workers standing on the Windows taskbar.
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, nativeTheme, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, nativeTheme, shell, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -132,12 +132,14 @@ function rebuildTray() {
   if (!tray) return;
   tray.setToolTip(t('app.name'));
   tray.setContextMenu(Menu.buildFromTemplate([
+    { label: t('tray.chat'), click: () => talkToChief() },
     { label: t('tray.show'), click: () => openPanel({ tab: 'approvals' }) },
     { label: cfg.hidden ? t('tray.showpets') : t('tray.hide'), click: () => togglePets() },
     { type: 'separator' },
     { label: t('tray.quit'), click: () => app.quit() },
   ]));
 }
+function talkToChief() { openPanel({ tab: 'chat', id: 'chief', kind: 'member' }); }
 function togglePets() {
   cfg.hidden = !cfg.hidden; saveCfg({}); // saveCfg also tells the panel, so its button follows
   if (overlay) cfg.hidden ? overlay.hide() : overlay.showInactive();
@@ -179,9 +181,10 @@ app.whenReady().then(async () => {
   loadCfg();
   if (!cfg.token) { const tok = await fetchToken(); if (tok) saveCfg({ token: tok }); }
   createOverlay();
+  try { globalShortcut.register('Control+Alt+E', talkToChief); } catch (_) { /* the shortcut is a convenience */ }
   try {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
-    tray.on('click', () => openPanel({ tab: 'approvals' }));
+    tray.on('click', () => talkToChief());
     tray.on('double-click', () => togglePets());
     rebuildTray();
   } catch (_) { /* no tray icon: the characters still work */ }
@@ -189,4 +192,5 @@ app.whenReady().then(async () => {
   for (const ev of ['display-metrics-changed', 'display-added', 'display-removed']) screen.on(ev, refreshTaskbar);
   setInterval(refreshTaskbar, 3000); // taskbar moved, resized or set to auto-hide while we run
 });
+app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('window-all-closed', (e) => e.preventDefault());

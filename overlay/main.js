@@ -32,7 +32,9 @@ const t = (k, v) => I18N.make(DICTS, cfg.lang)(k, v);
 // The farm's secret for this PC: the container wrote it into its volume. It never leaves this machine.
 function fetchToken() {
   return new Promise((resolve) => {
-    execFile('docker', ['exec', cfg.container, 'cat', '/workspace/.farm/overlay.token'], { timeout: 15000 }, (err, out) => {
+    // on the Mac an app opened from the Finder does not get the terminal's PATH: look for Docker where it usually is
+    const env = { ...process.env, PATH: [process.env.PATH || '', '/usr/local/bin', '/opt/homebrew/bin', '/Applications/Docker.app/Contents/Resources/bin'].join(path.delimiter) };
+    execFile('docker', ['exec', cfg.container, 'cat', '/workspace/.farm/overlay.token'], { timeout: 15000, env }, (err, out) => {
       const tok = String(out || '').trim();
       resolve(!err && tok ? tok : '');
     });
@@ -99,7 +101,7 @@ function createOverlay() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true },
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
-  overlay.setVisibleOnAllWorkspaces(true);
+  overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlay.setIgnoreMouseEvents(true, { forward: true });
   placeOverlay();
   overlay.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -188,6 +190,7 @@ ipcMain.on('open-farm', () => shell.openExternal(cfg.url));
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAppUserModelId('com.escritoriodigital.overlay');
+if (process.platform === 'darwin' && app.dock) app.dock.hide();   // a menu-bar utility: no Dock icon of its own
 app.whenReady().then(async () => {
   loadCfg();
   if (!cfg.token) { const tok = await fetchToken(); if (tok) saveCfg({ token: tok }); }
@@ -195,7 +198,9 @@ app.whenReady().then(async () => {
   if (!cfg.onboarded) setTimeout(talkToChief, 1500);   // first run: the panel opens with the tour
   try { globalShortcut.register('Control+Alt+E', talkToChief); } catch (_) { /* the shortcut is a convenience */ }
   try {
-    tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
+    let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'));
+    if (process.platform === 'darwin') icon = icon.resize({ width: 18, height: 18 });   // the menu bar wants a small icon
+    tray = new Tray(icon);
     tray.on('click', () => talkToChief());
     tray.on('double-click', () => togglePets());
     rebuildTray();

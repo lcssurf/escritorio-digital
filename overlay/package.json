@@ -10,5 +10,9 @@
   },
   "devDependencies": {
     "electron": "^33.2.0"
+  },
+  "dependencies": {
+    "docx": "9.0.2",
+    "marked": "12.0.2"
   }
 }

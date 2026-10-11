@@ -15,8 +15,13 @@ A imagem do escritório inclui o **Claude Code**, software da **Anthropic PBC** 
 
 "Claude" e "Claude Code" são marcas da Anthropic. Este projeto **não é feito, apoiado nem afiliado** à Anthropic.
 
+## Papel deste projeto, e de quem usa
+Este projeto **só facilita a instalação e o uso** do Claude Code (junto de uma equipe de agentes, painel e bonecos). **Não faz uso exclusivo nem comercial do Claude**: o Claude, a marca e todos os direitos sobre ele continuam sendo da Anthropic. Cada pessoa usa a própria conta Claude, sob os termos dela com a Anthropic.
+
+**Tudo o que é produzido aqui é responsabilidade de quem usa.** Os agentes rascunham; quem usa confere, corrige e decide o que fazer com o resultado. Isso inclui o conteúdo dos documentos, o sigilo profissional, o cumprimento da LGPD e de qualquer outra lei, os dados que a pessoa decide colocar no escritório e os conectores (Google Drive, Gmail, Agenda) que ela decide liberar. Os autores do projeto não respondem por esses usos nem pelos resultados.
+
 ## Outros componentes dentro da imagem
-Cada um mantém a sua licença: Debian e suas ferramentas, Node.js (MIT), Chromium (BSD), AWS CLI (Apache-2.0), noVNC, Playwright MCP (Apache-2.0), Python e as bibliotecas instaladas por `pip`. A imagem guarda estes avisos e as licenças em `/usr/share/doc/escritorio-digital/`.
+Cada um mantém a sua licença: Debian e suas ferramentas, Node.js (MIT), as bibliotecas `marked` e `docx` do aplicativo de mesa (MIT), o Electron (MIT), Chromium (BSD), AWS CLI (Apache-2.0), noVNC, Playwright MCP (Apache-2.0), Python e as bibliotecas instaladas por `pip`. A imagem guarda estes avisos e as licenças em `/usr/share/doc/escritorio-digital/`.
 
 ## Sem garantia, sem aconselhamento jurídico
 O software é fornecido "como está", sem garantia. Ele **rascunha**; o advogado confere e decide, e a responsabilidade pelo uso é de quem usa. Sigilo profissional e a LGPD precisam ser avaliados por quem for usar com dados reais de clientes. Nada aqui é aconselhamento jurídico.

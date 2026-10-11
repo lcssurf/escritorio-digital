@@ -39,7 +39,8 @@
       return { ok: true, status: 200, data: { path: b.path, text: b.text, truncated: false, binary: false, changed: true } };
     };
     const NOW = Date.now() / 1000;
-    const PROG = { now: NOW, pace: { limited: true, code: 'week', workers: 1, max: 3, speed: 'balanced', speeds: ['balanced', 'fast', 'max'], week_used: 0.18, week_allowed: 0.14 },
+    const ALERTS = q.has('alerts') ? [{ kind: 'login' }, { kind: 'limit' }] : [];
+    const PROG = { now: NOW, alerts: ALERTS, pace: { limited: true, code: 'week', workers: 1, max: 3, speed: 'balanced', speeds: ['balanced', 'fast', 'max'], week_used: 0.18, week_allowed: 0.14 },
       jobs: [{ id: 'jobA1', title: 'Plano: Analisar a viabilidade do caso fictício da dona Maria', status: 'waiting', specialist: 'chief', created: NOW - 400, started: NOW - 390, finished: null, landing: null,
         nodes: [{ id: 'jobA1', title: 'Plano', status: 'waiting', specialist: 'chief', started: NOW - 390, depth: 0, name: 'Marina', title_role: 'Chefe do escritório' },
           { id: 'k1', title: 'Documentos', status: 'done', specialist: 'ana', started: NOW - 380, finished: NOW - 290, depth: 1, name: 'Ana', title_role: 'Documentos' },
@@ -51,9 +52,10 @@
     const CH = [{ id: 1, role: 'user', text: 'Oi Ana, o que falta no caso Exemplo?', at: 1 }, { id: 2, role: 'assistant', text: 'Faltam a procuração assinada e um comprovante de residência atual. Quer que eu escreva a mensagem de cobrança?', at: 2, ok: true, reply_to: 1, waiting: true }];
     return {
       api: async (m, p, b) => /\/api\/landings\/[^/]+\/(revise|save)$/.test(p) ? mockReview(m, p, b) : p.startsWith('/api/progress') ? { ok: true, status: 200, data: p.indexOf('/api/progress/') === 0 ? { now: NOW, pace: PROG.pace, job: PROG.jobs[0] } : PROG } : p.startsWith('/api/speed') ? { ok: true, status: 200, data: { speed: b && b.mode } } : p.startsWith('/api/claude-connectors') ? { ok: true, status: 200, data: { url: 'https://claude.ai', connectors: [{ id: 'claude_ai_Google_Drive', name: 'Google Drive', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Drive') : false }, { id: 'claude_ai_Gmail', name: 'Gmail', connected: false, allowed: false }, { id: 'claude_ai_Google_Calendar', name: 'Google Calendar', connected: true, allowed: b && b.allow ? b.allow.includes('claude_ai_Google_Calendar') : false }] } } : /\/api\/landings\/[^/]+\/file/.test(p) ? { ok: true, status: 200, data: { path: 'requerimento.md', binary: false, truncated: false, text: '# Requerimento de salário-maternidade\n\n**Requerente:** Maria Exemplo da Silva (CPF {{preencher}})\n\n## Fatos\n- Gestante, 30ª semana [CONFERIR]\n- Trabalha na roça há 4 anos\n\n| Documento | Situação |\n|---|---|\n| RG | Recebido |\n| Procuração | **Falta** |\n\nRequer o benefício nos termos da Lei 8.213/91 [CONFERIR].' } } : p.startsWith('/api/chat/') ? { ok: true, status: 200, data: { messages: CH, pending: false } } : ({ ok: true, status: 200, data: p.startsWith('/api/landings') ? L : p.startsWith('/api/state') ? st : p.startsWith('/api/team') ? M : p.startsWith('/api/tasks/') ? { summary: 'Conferi 4 prazos. Um vence amanhã.' } : {} }),
-      getConfig: async () => ({ ...cfg, onboarded: !q.has('tour') }),
+      getConfig: async () => ({ ...cfg, onboarded: !q.has('tour'), legalAccepted: !q.has('legal'), version: '1.0.3', exportFormats: ['docx'], update: q.has('update') ? { version: '1.1.0', notes: 'Novidades de teste', url: 'https://github.com/lcssurf/escritorio-digital/releases/latest' } : null }),
       dicts: async () => ({ 'pt-BR': await (await fetch('../i18n/pt-BR.json?v=' + Date.now())).json(), en: await (await fetch('../i18n/en.json?v=' + Date.now())).json() }),
-      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, setWide(w) { document.body.classList.toggle('wide', !!w); }, quit() {}, togglePets() {}, broadcast() {},
+      setConfig: async (p) => ({ ...cfg, ...p }), autoToken: async () => true, on() {}, openFarm() {}, openExports() {}, openConnectors() {}, notify() {}, setWide(w) { document.body.classList.toggle('wide', !!w); },
+      exportDoc: async (r) => ({ ok: true, path: 'C:\\Documentos\\Escritório Digital\\' + r.title + '.' + r.format }), exportApproved: async () => ({ ok: true, made: 2 }), saveBackup: async () => ({ ok: true, people: 3 }), restoreBackup: async () => ({ ok: true, restored: 3 }), checkUpdate: async () => ({ ok: true, current: '1.0.3', latest: '1.0.3', update: null }), runUpdate: async () => ({ ok: true }), openRelease() {}, quit() {}, togglePets() {}, broadcast() {},
     };
   }
 
@@ -120,6 +122,7 @@
     const lc = $('logo').getContext('2d'); S.draw(lc, S.look('clodfarm'), 'idle', 3, 1, 3);
     const running = ((farm && farm.subagents) || []).filter((s) => s.status === 'running').length;
     const team = ((farm && farm.agents) || []).filter((a) => a.loggedIn !== false).length;
+    const nt = $('notices'); clear(nt); for (const n of notices()) nt.append(n);
     const tiles = $('tiles'); clear(tiles);
     tiles.append(
       h('div', { class: 'tile' + (landings.length ? ' hot' : '') }, h('b', {}, landings.length), h('span', {}, tr('sum.waiting'))),
@@ -134,11 +137,37 @@
     }
     for (const id of ['chat', 'progress', 'team', 'approvals', 'settings']) $('s-' + id).className = id === tab ? 'on' : '';
   }
+  // a notice that needs the person: a new version, the Claude account signed out, or the plan's limit
+  function notices() {
+    const out = [];
+    const u = cfg.update;
+    if (u && !offline) out.push(h('div', { class: 'banner upd' }, h('b', {}, tr('update.banner', { v: u.version })),
+      h('div', { class: 'actions', style: 'margin-top:8px' },
+        h('button', { class: 'btn acc', onclick: async () => { const r = await office.runUpdate(); if (r && r.ok) toast(tr('update.running')); } }, tr('update.now')),
+        h('button', { class: 'btn ghost', onclick: () => office.openRelease() }, tr('update.notes')),
+        h('button', { class: 'btn ghost', onclick: async () => { cfg = { ...cfg, ...(await office.setConfig({ updateSkipped: 'v' + u.version })) }; cfg.update = null; render(); } }, tr('update.skip')))));
+    const al = (prog && prog.alerts) || [];
+    if (al.some((a) => a.kind === 'login') && !offline) out.push(h('div', { class: 'banner alert' }, h('b', {}, tr('alert.login')),
+      h('div', { class: 'actions', style: 'margin-top:8px' }, h('button', { class: 'btn acc', onclick: showLoginHelp }, tr('alert.login.how')))));
+    if (al.some((a) => a.kind === 'limit') && !offline) out.push(h('div', { class: 'banner pace' }, h('b', {}, tr('alert.limit')),
+      tab === 'progress' ? null : h('div', { class: 'actions', style: 'margin-top:8px' }, h('button', { class: 'btn ghost', onclick: () => { tab = 'progress'; render(); } }, tr('alert.limit.see')))));
+    return out;
+  }
+  function showLoginHelp() {
+    const cmd = 'docker exec -it clodfarm clodfarm login';
+    modal(h('div', { class: 'sheet' }, h('h3', {}, tr('alert.login.title')),
+      h('ol', { class: 'steps' }, [1, 2, 3, 4].map((n) => h('li', {}, tr('alert.login.s' + n)))),
+      h('pre', { class: 'cmd' }, cmd),
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn ghost', onclick: () => { try { navigator.clipboard.writeText(cmd); toast(tr('alert.copied')); } catch (_) { /* the command is on screen */ } } }, tr('alert.copy')),
+        h('button', { class: 'btn acc', onclick: closeModal }, tr('help.close')))));
+  }
   function banner() {
-    if (cfg.hidden) return h('div', { class: 'banner' }, tr('banner.hidden'), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => office.togglePets() }, tr('settings.show')));
-    if (offline) return h('div', { class: 'banner' }, tr('error.offline', { url: cfg.url || '' }), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => refresh(true) }, tr('error.retry')));
-    if (authErr) return h('div', { class: 'banner' }, tr('error.auth'));
-    return null;
+    const list = [];
+    if (cfg.hidden) list.unshift(h('div', { class: 'banner' }, tr('banner.hidden'), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => office.togglePets() }, tr('settings.show'))));
+    else if (offline) list.unshift(h('div', { class: 'banner' }, tr('error.offline', { url: cfg.url || '' }), ' ', h('button', { class: 'btn ghost', style: 'flex:none;padding:5px 10px;margin-left:6px', onclick: () => refresh(true) }, tr('error.retry'))));
+    else if (authErr) list.unshift(h('div', { class: 'banner' }, tr('error.auth')));
+    return list.length ? h('div', { class: 'banners' }, list) : null;
   }
   function toast(text, err) {
     const t = h('div', { class: 'toast' + (err ? ' err' : '') }, text);
@@ -578,6 +607,17 @@
     if (view.pending) box.append(h('div', { class: 'bubble them typing' }, h('span'), h('span'), h('span')), h('div', { class: 'dim small' }, tr('reader.asking', { name: who ? who.name : '' })));
     box.scrollTop = box.scrollHeight;
   }
+  const FORMATS = ['docx', 'pdf', 'html', 'rtf', 'txt'];
+  function exportMenu(v) {
+    const sel = h('select', { class: 'exp', 'aria-label': tr('export.btn'), disabled: v.state !== 'ok' || (v.data && v.data.binary), onchange: async () => {
+      const format = sel.value; sel.value = '';
+      const text = v.mode === 'edit' && v.draft != null ? v.draft : ((v.preview && v.preview.text) || (v.data && v.data.text) || '');
+      const r = await office.exportDoc({ title: friendly(v.path), text, format });
+      if (r && r.ok) toast(tr('export.saved', { path: r.path })); else if (r && !r.canceled) toast(tr('export.failed', { why: (r && r.error) || '' }), true);
+    } }, h('option', { value: '' }, tr('export.btn')), FORMATS.map((f) => h('option', { value: f }, tr('export.fmt.' + f))));
+    sel.value = '';
+    return sel;
+  }
   function renderReader() {
     const r = $('reader'); if (!r) return;
     clear(r);
@@ -585,6 +625,7 @@
     const v = viewing, l = landingOf(v.landing), who = authorOf(l);
     r.append(h('div', { class: 'rd-head' },
       h('div', { class: 'rd-title' }, h('b', {}, friendly(v.path)), folderOf(v.path) ? h('span', { class: 'fold' }, folderOf(v.path)) : null, v.dirty ? h('span', { class: 'chip idle' }, tr('reader.unsavedtag')) : null),
+      exportMenu(v),
       h('div', { class: 'seg rd-seg' }, ['read', 'edit'].map((m) => h('button', { class: v.mode === m && !v.preview ? 'on' : '', disabled: v.state !== 'ok' || (v.data && v.data.binary), onclick: () => { if (v.preview && m === 'edit') { toast(tr('reader.dismissfirst'), true); return; } v.mode = m; v.preview = null; renderReader(); } }, tr('reader.' + m)))),
       h('button', { class: 'rd-x', 'aria-label': tr('review.close'), onclick: () => closeReader(false) }, '×')));
     const body = h('div', { class: 'rd-body' });
@@ -636,6 +677,13 @@
       S.draw(cv.getContext('2d'), S.look(spec.id || 'x', spec), state, 3, 1, 3);
       return h('div', { class: 'sitem' }, cv, h('span', {}, label));
     }));
+  }
+  // The first thing a new person sees: what this program is and is not, and whose responsibility things are. Shown once.
+  function showLegal(then) {
+    const ok = async () => { cfg.legalAccepted = true; await office.setConfig({ legalAccepted: true }); closeModal(); if (then) then(); };
+    modal(h('div', { class: 'sheet legal' }, h('h3', {}, tr('legal.title')),
+      h('ul', { class: 'legal-list' }, [1, 2, 3, 4].map((n) => h('li', {}, tr('legal.p' + n)))),
+      h('div', { class: 'actions' }, h('button', { class: 'btn acc', onclick: ok }, tr('legal.ok')))));
   }
   function showTour(step) {
     step = step || 0;
@@ -793,13 +841,35 @@
       s.append(card);
     }
   }
+  async function readConvertible(l) {
+    const out = [];
+    for (const line of (l.files || []).slice(0, 30)) {
+      if (line.startsWith('D')) continue;
+      const p = line.split('\t').pop();
+      if (!/\.(md|markdown|txt)$/i.test(p)) continue;
+      const r = await office.api('GET', '/api/landings/' + encodeURIComponent(l.id) + '/file?path=' + encodeURIComponent(p));
+      if (r.ok && r.data && !r.data.binary && !r.data.truncated && typeof r.data.text === 'string') out.push({ path: p, text: r.data.text });
+    }
+    return out;
+  }
+  async function makeExtraFormats(id, files) {
+    const ex = await office.api('GET', '/api/landings/' + encodeURIComponent(id) + '/exported');
+    if (!ex.ok || !ex.data || !ex.data.folder) return;
+    const done = new Set(ex.data.files || []);
+    const res = await office.exportApproved({ folder: ex.data.folder, files: files.filter((f) => done.has(f.path)) });
+    if (res && res.ok && res.made) toast(tr('export.made', { n: res.made }));
+    else if (res && !res.ok) toast(tr('export.failed', { why: res.error || '' }), true);
+  }
   async function decide(l, kind) {
     if (viewing && viewing.landing === l.id && viewing.dirty) { toast(tr('reader.approve.blocked'), true); return; }
     busy.add(l.id); renderApprovals();
+    // the text of the documents must be read BEFORE the approval: afterwards the work is no longer waiting
+    const wanted = kind === 'approve' && (cfg.exportFormats || []).length ? await readConvertible(l) : [];
     const r = await office.api('POST', '/api/landings/' + encodeURIComponent(l.id) + '/' + kind, {});
     busy.delete(l.id); confirmDeny.delete(l.id);
     if (r.ok) {
       toast(tr(kind === 'approve' ? 'approvals.saved' : 'approvals.denied'));
+      if (wanted.length) makeExtraFormats(l.id, wanted);
       if (viewing && viewing.landing === l.id) closeReader(true);
       if (kind === 'approve' && office.broadcast) office.broadcast({ type: 'approved', id: l.id, specialist: l.specialist || 'chief' });
     } else toast(tr('approvals.failed', { why: (r.data && r.data.error) || r.error || r.status }), true);
@@ -836,6 +906,28 @@
       h('details', { class: 'how' }, h('summary', {}, tr('conn.how')), steps), h('div', { class: 'note' }, tr('conn.privacy')));
   }
 
+  // ------------------------------------------------------------------ backup, version, legal
+  function backupCard() {
+    const say = (r, okKey, vars) => { if (r && r.ok) toast(tr(okKey, vars || {})); else if (r && !r.canceled) toast(tr('backup.failed', { why: (r && r.error) || '' }), true); };
+    return h('div', { class: 'card' }, h('b', {}, tr('backup.title')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('backup.text')),
+      h('div', { class: 'actions', style: 'margin-top:0' },
+        h('button', { class: 'btn ghost', onclick: async () => { const r = await office.saveBackup(); say(r, 'backup.saved', { n: r && r.people }); } }, tr('backup.save')),
+        h('button', { class: 'btn ghost', onclick: async () => { const r = await office.restoreBackup(); say(r, 'backup.restored', { n: r && r.restored }); if (r && r.ok) refresh(true); } }, tr('backup.restore'))));
+  }
+  function versionCard() {
+    const line = h('div', { class: 'note' }, cfg.version ? tr('update.version', { v: cfg.version }) : '');
+    const auto = h('input', { type: 'checkbox', onchange: async (e) => { cfg = { ...cfg, ...(await office.setConfig({ updateCheck: e.target.checked })) }; } }); auto.checked = cfg.updateCheck !== false;
+    return h('div', { class: 'card' }, h('b', {}, tr('update.card')), line,
+      h('div', { class: 'actions', style: 'margin-top:8px' }, h('button', { class: 'btn ghost', onclick: async () => {
+        const r = await office.checkUpdate();
+        if (!r || !r.ok) toast(tr('update.checkfail'), true); else if (r.update) { cfg.update = r.update; render(); } else toast(tr('update.uptodate'));
+      } }, tr('update.check'))),
+      h('div', { class: 'field', style: 'margin-top:8px' }, h('label', { class: 'switch' }, auto, tr('update.auto'))), h('div', { class: 'note' }, tr('update.privacy')));
+  }
+  function legalCard() {
+    return h('details', { class: 'how card' }, h('summary', {}, tr('legal.title')), h('ul', { class: 'legal-list' }, [1, 2, 3, 4].map((n) => h('li', {}, tr('legal.p' + n)))));
+  }
+
   // ------------------------------------------------------------------ settings
   function renderSettings() {
     const s = $('s-settings'); clear(s);
@@ -857,7 +949,10 @@
       speedPicker(prog && prog.pace),
       connectorsCard(),
       h('div', { class: 'card' }, h('b', {}, tr('settings.exports')), h('div', { class: 'note', style: 'margin:4px 0 10px' }, tr('settings.exportshint')),
-        h('div', { class: 'actions', style: 'margin-top:0' }, h('button', { class: 'btn ghost', onclick: () => office.openExports() }, tr('settings.openexports')))),
+        h('div', { class: 'note', style: 'margin:0 0 6px' }, h('b', {}, tr('export.set.title')), ' ', tr('export.set.text')),
+        h('div', { class: 'fmts' }, FORMATS.map((f) => { const b = h('input', { type: 'checkbox', onchange: async () => { const cur = new Set(cfg.exportFormats || []); if (b.checked) cur.add(f); else cur.delete(f); cfg = { ...cfg, ...(await office.setConfig({ exportFormats: [...cur] })) }; } }); b.checked = (cfg.exportFormats || []).includes(f); return h('label', { class: 'switch' }, b, tr('export.fmt.' + f)); })),
+        h('div', { class: 'actions', style: 'margin-top:8px' }, h('button', { class: 'btn ghost', onclick: () => office.openExports() }, tr('settings.openexports')))),
+      backupCard(), versionCard(), legalCard(),
       h('div', { class: 'field' }, h('label', {}, tr('settings.language')), seg),
       h('div', { class: 'field' }, h('label', { class: 'switch' }, notifyBox, tr('settings.notify'))),
       h('div', { class: 'field' }, h('label', { class: 'switch' }, sound, tr('settings.sound'))),
@@ -899,7 +994,8 @@
     if (q.get('kind') === 'member' || tab === 'chat') route({ tab, id: focusId, kind: q.get('kind') });
     await refresh(true);
     render();
-    if (cfg.onboarded === false) showTour(0);
+    if (!cfg.legalAccepted) showLegal(() => { if (cfg.onboarded === false) showTour(0); });
+    else if (cfg.onboarded === false) showTour(0);
     setInterval(() => refresh(false), 3000);
   }
   init();

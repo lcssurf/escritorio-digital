@@ -330,6 +330,28 @@ class FarmUI:
                 "created": top.get("created"), "started": top.get("started"), "finished": top.get("finished"),
                 "landing": top.get("landing"), "nodes": nodes, "steps": st}
 
+    # What a failed run says when the Claude account is signed out, or the plan's limit was hit. Narrow on purpose: a wrong
+    # alarm is worse than none, and anything else is shown as the job's own failure.
+    AUTH_RE = re.compile(r"not logged in|run /login|invalid api key|oauth token (has )?(expired|been revoked)|authentication_error|invalid bearer token", re.I)
+    LIMIT_RE = re.compile(r"usage limit|limit reached|hit your limit|rate_limit_error|credit balance is too low", re.I)
+
+    def alerts(self) -> list[dict]:
+        """Things the lawyer can fix and the office cannot: sign in to Claude again, or wait for the plan's limit to reset."""
+        st = self.state()
+        agents = [a for a in st.get("agents", []) if not str(a.get("id", "")).startswith("bot-")]
+        login = bool(agents) and all(a.get("loggedIn") is False for a in agents)
+        limit, cutoff = False, now() - 1800
+        # a run that failed is retried (it is "queued" with its failure as the result) before it is "failed" for good
+        for t in self.store.list_tasks("failed", 20) + self.store.list_tasks("queued", 50):
+            if float(t.get("finished") or 0) < cutoff:
+                continue
+            res = str(t.get("result") or "")
+            if self.AUTH_RE.search(res):
+                login = True
+            elif self.LIMIT_RE.search(res):
+                limit = True
+        return ([{"kind": "login"}] if login else []) + ([{"kind": "limit"}] if limit else [])
+
     def progress(self) -> dict:
         """The jobs in progress (and a few that just finished), each with the people it called and its latest steps."""
         tops = []
@@ -338,7 +360,7 @@ class FarmUI:
         tops.sort(key=lambda t: float(t.get("created") or 0))
         recent = [t for t in self.store.list_tasks("done", 30) if not t.get("parent")
                   and now() - float(t.get("finished") or t.get("updated") or 0) < 3 * 3600][:4]
-        return {"now": now(), "pace": self._pace(), "jobs": [self._job_view(t, 25) for t in tops],
+        return {"now": now(), "pace": self._pace(), "alerts": self.alerts(), "jobs": [self._job_view(t, 25) for t in tops],
                 "recent": [self._job_view(t, 8) for t in recent]}
 
     def progress_detail(self, tid: str, limit: int) -> dict:
@@ -514,6 +536,64 @@ class FarmUI:
                 self.chat.add_reply(key, m["id"], chat.clean_reply(t.get("result")) or "(não consegui ajustar)", ok=False)
         return {"messages": self.chat.history(key), "pending": bool(self.chat.pending(key))}
 
+    def exported_view(self, tid: str) -> dict:
+        """Where an approved job's files were copied (a folder name under the lawyer's folder) and which ones."""
+        t = self.store.get_task(tid) or {}
+        files = [f for f in (t.get("export_files") or []) if isinstance(f, str)]
+        return {"folder": t.get("export_folder") or "", "files": files}
+
+    # ------------------------------------------------------------ backup of the team and the settings the person made
+    BACKUP_KIND = "escritorio-digital-backup"
+
+    def backup_view(self) -> dict:
+        """What the person made and would hate to lose: the team (names, instructions, looks) and the office speed.
+        Never a secret, never a login, never the connector permissions (those are decided again on the new computer)."""
+        return {"kind": self.BACKUP_KIND, "version": 1, "app": __version__, "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "team": self.team.all(), "settings": {"speed": self.store.settings().get("speed")}}
+
+    def _keep_backup(self, why: str) -> str:
+        """A copy kept inside the office before something replaces the team (the last ten are kept)."""
+        d = os.path.join(self.cfg.workspace, ".farm", "backups")
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, f"team-{time.strftime('%Y%m%d-%H%M%S')}-{why}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.backup_view(), f, ensure_ascii=False, indent=1)
+        old = sorted(x for x in os.listdir(d) if x.startswith("team-"))
+        for x in old[:-10]:
+            try:
+                os.remove(os.path.join(d, x))
+            except OSError:
+                pass
+        return os.path.basename(path)
+
+    def restore_backup(self, data: dict) -> dict:
+        if not isinstance(data, dict) or data.get("kind") != self.BACKUP_KIND:
+            raise ValueError("this is not an Escritório Digital backup file")
+        if data.get("version") != 1:
+            raise ValueError("this backup was made by a newer version: update the office first")
+        members = data.get("team")
+        # check first on a scratch copy: a bad file must change nothing (not even leave a copy of the current team behind)
+        scratch = team.Team(os.path.join(self.cfg.workspace, ".farm", "team-check.json"))
+        try:
+            scratch.restore(members)
+        except team.TeamError as e:
+            raise ValueError(str(e)) from e
+        finally:
+            try:
+                os.remove(scratch.path)
+            except OSError:
+                pass
+        kept = self._keep_backup("before-restore")
+        n = self.team.restore(members)
+        speed = ((data.get("settings") or {}).get("speed"))
+        from .governor import SPEEDS
+        if speed in SPEEDS:
+            self.store.set_settings(speed=speed)
+        self.office_guide()
+        self._views.clear()
+        self.store.event("team.restored", f"team restored from a backup ({n} people); the previous one is kept as {kept}", by="ui")
+        return {"restored": n, "kept": kept}
+
     def landings(self) -> list[dict]:
         """Finished work waiting for a person's OK before it lands on main."""
         out = []
@@ -543,6 +623,7 @@ class FarmUI:
                 dest = os.path.join(self.cfg.export_dir, time.strftime("%Y-%m-%d-%H%M") + "-" + team.slug(t.get("title") or "trabalho"))
                 try:
                     n = gitops.export_files(self.cfg.repo_dir, gitops.main_branch(self.cfg.repo_dir), files, dest)
+                    self.store.update_task(tid, export_folder=os.path.basename(dest), export_files=files[:200])
                     self.store.event("landing.exported", f"{tid}: {n} file(s) copied to {os.path.basename(dest)}", task=tid, by=by)
                 except OSError as e:
                     self.store.event("landing.export_failed", f"{tid}: {str(e)[:200]}", task=tid, by=by)
@@ -1471,6 +1552,15 @@ def make_handler(ui: FarmUI):
                     if not (who.manager or who.owner):
                         return self._err(403, "only a person of this farm sees the team")
                     return self._json(ui.team.all())
+                if path == "/api/backup":  # the team and the speed, to save as a file
+                    if not who.manager:
+                        return self._err(403, "only the farm's person saves a backup")
+                    return self._json(ui.backup_view())
+                m = re.fullmatch(r"/api/landings/([A-Za-z0-9]{6,40})/exported", path)
+                if m:
+                    if not (who.manager or who.owner):
+                        return self._err(403, "only a person of this farm sees this")
+                    return self._json(ui.exported_view(m.group(1)))
                 if path == "/api/landings":  # finished work waiting for a person's OK
                     if not (who.manager or who.owner):
                         return self._err(403, "only a person of this farm approves work")
@@ -1835,6 +1925,10 @@ def make_handler(ui: FarmUI):
                     raise ValueError(str(e)) from e
                 ui.office_guide()
                 return self._json(ui.team.all())
+            if path == "/api/restore":
+                if not who.manager:
+                    return self._err(403, "only the farm's person restores a backup")
+                return self._json(ui.restore_backup(data))
             if path == "/api/claude-connectors":
                 if not who.manager:
                     return self._err(403, "only the farm's person manages connectors")

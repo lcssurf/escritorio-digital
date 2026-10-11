@@ -182,6 +182,43 @@ class Team:
             self._write(members)
             return member
 
+    def restore(self, raw: list) -> int:
+        """Replace the whole team with the one in a backup. Everything is validated as if typed by hand, the hierarchy
+        must hold (the chief on top, leads under the chief, specialists under the chief or a lead), and nothing is
+        written unless the whole list is good."""
+        if not isinstance(raw, list) or not raw:
+            raise TeamError("the backup has no team")
+        if len(raw) > MAX_MEMBERS + 1:
+            raise TeamError(f"the team is limited to {MAX_MEMBERS} people")
+        out: list[dict] = []
+        seen: set[str] = set()
+        for item in raw:
+            if not isinstance(item, dict):
+                raise TeamError("expected an object for each member")
+            mid = str(item.get("id") or "")
+            if mid != CHIEF and not ID_RE.fullmatch(mid):
+                raise TeamError("a member has an invalid id")
+            if mid in seen:
+                raise TeamError("the same id appears twice")
+            seen.add(mid)
+            fields = clean_member(item)
+            if mid == CHIEF:
+                fields = {**fields, "lead": True, "parent": None, "pinned": True}
+            out.append({"id": mid, **fields})
+        if CHIEF not in seen:
+            out.insert(0, default_chief())
+        leads = {m["id"] for m in out if m.get("lead")}
+        for m in out:
+            if m["id"] == CHIEF:
+                continue
+            parent = m.get("parent") or CHIEF
+            if parent != CHIEF and (parent not in leads or parent == m["id"] or m.get("lead")):
+                raise TeamError("the backup has a member reporting to someone who is not a lead")
+            m["parent"] = parent
+        with self._lock:
+            self._write(sorted(out, key=lambda m: m["id"] != CHIEF))
+        return len(out)
+
     def delete(self, mid: str):
         if mid == CHIEF:
             raise TeamError("the chief cannot be removed")

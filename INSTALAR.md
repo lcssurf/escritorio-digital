@@ -102,7 +102,9 @@ Na primeira vez o `npm install` dos bonecos leva de 1 a 2 minutos, e um tour de 
 | `docker` não encontrado ou "não está rodando" | Passo 1. Abrir o Docker Desktop e esperar "Engine running". |
 | Falha com "certificate" / "self-signed" | Veja "Antivírus que inspeciona HTTPS" abaixo. |
 | Painel não abre em `localhost:8080` | `docker logs clodfarm`; depois `node scripts/escritorio.mjs iniciar`. |
-| `loggedIn: False` | 🧍 login (passo 3). |
+| `loggedIn: False`, ou o painel avisa "A conta Claude saiu do escritório" | 🧍 login (passo 3): `docker exec -it clodfarm clodfarm login`. O painel tem o botão "Mostrar como". |
+| O painel avisa que o plano chegou no limite de uso | Nada a consertar: o escritório espera e volta sozinho quando o limite renovar. |
+| A equipe sumiu ou ficou errada | Ajustes > "Cópia de segurança da equipe" > Restaurar (o escritório também guarda as 10 últimas equipes). |
 | Bonecos não aparecem | Ícone perto do relógio → "Mostrar bonecos". Sem ícone: `node scripts/escritorio.mjs abrir`. |
 | Bonecos dão erro de conexão | `verificar` e seguir a correção. No Mac, abrir o Docker Desktop. |
 | Porta 8080 ocupada | Fechar o programa que a usa: o escritório usa `127.0.0.1:8080`. |

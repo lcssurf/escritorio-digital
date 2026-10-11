@@ -17,6 +17,9 @@
 | **Andamento claro** | Veja quem chamou quem, o que cada um está fazendo e por que alguém está esperando. |
 | **Aprovação antes de tudo** | O trabalho pronto chega como rascunho. Você lê, edita ali mesmo ou pede ao autor um ajuste, e só então aprova. |
 | **Janela sua** | O painel se redimensiona, se move e abre mais largo para ler documentos. |
+| **Word, PDF e mais** | Salve qualquer documento em Word (.docx), PDF, página web, RTF ou texto, e escolha formatos extras para vir junto a cada aprovação. |
+| **Cópia de segurança** | Guarde a sua equipe num arquivo e restaure quando precisar. |
+| **Avisos claros** | Se a conta Claude sair, ou o plano chegar no limite, o painel explica o que fazer. |
 | **Conectores sob controle** | Drive, Gmail e Agenda vêm desligados. Dá para liberar, somente leitura. |
 | **Português e inglês** | Interface completa nos dois idiomas. |
 
@@ -47,7 +50,7 @@ Quando sair versão nova, peça ao Claude: *"Atualize o Escritório Digital"* (e
 node scripts/escritorio.mjs atualizar
 ```
 
-Baixa o código novo, atualiza a imagem do Docker e religa o escritório e os bonecos. **O login, os trabalhos e a sua equipe editada ficam como estão.** Se houver trabalho em andamento, ele avisa e espera (use `--forcar` para religar mesmo assim). Se você mexeu em arquivos da pasta do projeto, ele não sobrescreve: guarde as mudanças primeiro.
+O painel também avisa quando há versão nova (Ajustes > Versão e atualizações) e atualiza com um clique; a consulta vai só ao GitHub e pode ser desligada. O comando baixa o código novo, atualiza a imagem do Docker e religa o escritório e os bonecos. **O login, os trabalhos e a sua equipe editada ficam como estão.** Se houver trabalho em andamento, ele avisa e espera (use `--forcar` para religar mesmo assim). Se você mexeu em arquivos da pasta do projeto, ele não sobrescreve: guarde as mudanças primeiro.
 
 ## Como funciona
 - **Conversa:** clique em qualquer boneco (ou no ícone perto do relógio). Se não souber com quem falar, fale com a chefe.
@@ -55,8 +58,11 @@ Baixa o código novo, atualiza a imagem do Docker e religa o escritório e os bo
 - **Aprovação:** quando um trabalho fica pronto, o boneco chama você. Leia o rascunho no painel e aprove ou recuse. O que você aprova também é copiado para a pasta `Documentos > Escritório Digital`.
 - **Ajustes:** no leitor, edite o texto ou escreva o que quer mudar. O autor devolve uma proposta e você decide se aplica.
 
-## Regras do projeto
-Nenhum dado de cliente real em testes. A IA rascunha, o advogado confere e envia. Sigilo e LGPD são decisão sua antes de usar dados reais.
+## Quem responde pelo quê
+- **O Claude é da Anthropic.** Ele e todos os direitos sobre ele continuam sendo dela. Este projeto só facilita instalar e usar, sem fazer uso exclusivo nem comercial do Claude. Cada pessoa entra com a própria conta.
+- **Tudo é responsabilidade de quem usa.** A IA rascunha; você confere, corrige e decide. Sigilo profissional, LGPD, os dados que você coloca no escritório e os conectores que você libera são decisão e responsabilidade sua.
+- **Em testes, só dados fictícios.** Nenhum dado de cliente real.
+- O programa é fornecido como está, sem garantia. Detalhes em [NOTICE.md](NOTICE.md).
 
 ## Licença e avisos legais
 Use à vontade, inclusive no seu escritório, **menos para vender um produto ou serviço que concorra com este**: a nossa parte é [PolyForm Shield 1.0.0](LICENSES/PolyForm-Shield-1.0.0.md), e a parte herdada do clodfarm continua MIT (o [LICENSE](LICENSE) mostra quem é quem). Nome e bonecos: [TRADEMARKS.md](TRADEMARKS.md). O Claude Code é software da Anthropic, sob os termos dela, e cada pessoa entra com a própria conta: leia o [NOTICE.md](NOTICE.md).

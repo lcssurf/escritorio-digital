@@ -158,6 +158,13 @@
   .how { margin-top: 10px; font-size: 13px; } .how summary { cursor: pointer; font-weight: 700; color: var(--acc); }
   .steps { margin: 8px 0 0; padding-left: 20px; color: var(--dim); } .steps li { margin: 5px 0; }
   nav .badge.info { background: var(--acc); }
+  .notices { padding: 0 14px; } .notices:empty { display: none; } .notices .banner { margin: 0 0 8px; } .banner.upd { background: var(--acc-soft); color: var(--fg); } .banner.alert { background: var(--bad-soft, #3a1d22); color: var(--bad, #ff8a8f); }
+  .banner .actions { display: flex; gap: 6px; flex-wrap: wrap; } .banner .actions .btn { flex: none; padding: 6px 12px; font-size: 12.5px; }
+  select.exp { width: auto; max-width: 150px; padding: 6px 8px; font-size: 12.5px; border-radius: 9px; cursor: pointer; }
+  .fmts { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 2px; }
+  pre.cmd { background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: Consolas, "SF Mono", monospace; font-size: 12.5px; white-space: pre-wrap; word-break: break-all; user-select: all; }
+  .sheet.legal { max-width: 440px; } .legal-list { margin: 8px 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.5; } .legal-list li { margin-bottom: 8px; }
+  details.how.card summary { font-weight: 700; }
   .banner.pace { background: var(--warn-soft); color: var(--warn); } .banner.pace b { display: block; margin-bottom: 3px; }
   .jobhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; } .jt { min-width: 0; } .jt b { display: block; }
   .card.recent { opacity: .85; }
@@ -206,6 +213,7 @@
   <button id="help" aria-label="Help" title="?">?</button>
   <button id="close" aria-label="Close">×</button>
 </header>
+<div id="notices" class="notices"></div>
 <div class="tiles" id="tiles"></div>
 <main>
   <section id="s-chat"></section>

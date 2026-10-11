@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0
+# Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital)
+# Tests on every push and pull request (and when the release workflow asks for them).
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  motor:
+    name: Motor (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar
+        run: pip install pytest "moto[server]" -e .
+      - name: Testes
+        run: python -m pytest -q -x
+
+  bonecos:
+    name: Bonecos e instalador (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: overlay/package-lock.json
+      - name: Instalar
+        run: npm ci --no-audit --no-fund
+        working-directory: overlay
+      - name: Textos (pt-BR e en têm as mesmas chaves)
+        run: node test/i18n.test.js
+        working-directory: overlay
+      - name: Conversor de documentos
+        run: node test/exporter.test.js
+        working-directory: overlay
+      - name: O instalador abre
+        run: node --check scripts/escritorio.mjs && node scripts/escritorio.mjs

@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.5.1
+- **Quando os funcionários não abrem, o instalador agora diz.** Antes, se o programa dos funcionários falhasse ao abrir (visto num Mac), o instalador dizia que tinha dado certo e só a página `localhost:8080` aparecia. Agora ele espera alguns segundos, confere se o programa está aberto e, se não estiver, mostra o motivo (também guardado em `overlay/overlay.log`) e o que fazer. O `verificar` passou a conferir isso, e o aviso final explica que `localhost:8080` é só o painel de apoio.
+
 ## 1.5.0
 - **Tamanho dos funcionários.** Em Ajustes, escolha Pequeno, Médio, Grande ou Gigante. O tamanho muda de forma exata (cada pixel do desenho vira 2, 3, 4 ou 5 pixels da tela), então eles continuam nítidos, e a janela da barra acompanha.
 - O atualizador agora explica quando a versão nova ainda está sendo publicada, em vez de pedir um login que não existe.

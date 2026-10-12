@@ -106,6 +106,7 @@ Na primeira vez o `npm install` do aplicativo dos funcionários leva de 1 a 2 mi
 | `loggedIn: False`, ou o painel avisa "A conta Claude saiu do escritório" | 🧍 login (passo 3): `docker exec -it clodfarm clodfarm login`. O painel tem o botão "Mostrar como". |
 | O painel avisa que o plano chegou no limite de uso | Nada a consertar: o escritório espera e volta sozinho quando o limite renovar. |
 | A equipe sumiu ou ficou errada | Ajustes > "Cópia de segurança da equipe" > Restaurar (o escritório também guarda as 10 últimas equipes). |
+| Só aparece a página `localhost:8080` no navegador, sem personagens | Essa página é só o painel de apoio. Os funcionários são um programa à parte: rode `node scripts/escritorio.mjs abrir`. Se falhar, o motivo aparece na tela e em `overlay/overlay.log` (no Mac, pode ser o aviso de segurança: Ajustes do Sistema > Privacidade e Segurança > "Abrir mesmo assim"). `verificar` agora diz se eles estão abertos. |
 | Os funcionários não aparecem | Ícone perto do relógio → "Mostrar funcionários". Sem ícone: `node scripts/escritorio.mjs abrir`. |
 | Os funcionários dão erro de conexão | `verificar` e seguir a correção. No Mac, abrir o Docker Desktop. |
 | Porta 8080 ocupada | Fechar o programa que a usa: o escritório usa `127.0.0.1:8080`. |

@@ -7,3 +7,6 @@ build/
 dist/
 .pytest_cache/
 node_modules/
+
+# registro do programa dos funcionários (gerado ao abrir)
+overlay/overlay.log

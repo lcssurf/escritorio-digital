@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: LicenseRef-PolyForm-Shield-1.0.0 -->
+<!-- Required Notice: Copyright (c) 2026 lcssurf (https://github.com/lcssurf/escritorio-digital) -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Escritório Digital</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="escritorio.css">
+<script src="escritorio.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Escritório <span>Digital</span></h1>
+    <p id="sub"></p>
+  </header>
+
+  <section class="card" id="status" aria-live="polite">
+    <div class="pill" id="pill"><i></i><span id="pilltext"></span></div>
+    <p id="statustext" class="dim"></p>
+  </section>
+
+  <section class="card">
+    <h2 id="t-where"></h2>
+    <p id="p-where"></p>
+    <p class="dim" id="p-notseen"></p>
+    <div class="cmd"><code>node scripts/escritorio.mjs abrir</code><button type="button" data-copy="node scripts/escritorio.mjs abrir"></button></div>
+    <div class="cmd"><code>node scripts/escritorio.mjs verificar</code><button type="button" data-copy="node scripts/escritorio.mjs verificar"></button></div>
+  </section>
+
+  <section class="card">
+    <h2 id="t-how"></h2>
+    <ol id="steps"></ol>
+  </section>
+
+  <section class="card">
+    <h2 id="t-help"></h2>
+    <p id="p-help"></p>
+    <div class="cmd"><code>node scripts/escritorio.mjs atualizar</code><button type="button" data-copy="node scripts/escritorio.mjs atualizar"></button></div>
+    <p><a href="https://github.com/lcssurf/escritorio-digital" target="_blank" rel="noopener" id="a-repo"></a></p>
+  </section>
+
+  <footer>
+    <span id="credit"></span>
+    <a href="farm" id="a-adv"></a>
+  </footer>
+</main>
+</body>
+</html>

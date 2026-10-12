@@ -1483,7 +1483,9 @@ def make_handler(ui: FarmUI):
             try:
                 if path == "":
                     return self._err(404, "not found")
-                if path in ("/", "/index.html"):
+                if path in ("/", "/index.html"):   # the office's own calm page; the original clodfarm farm is kept apart, at /farm
+                    return self._static("escritorio.html")
+                if path in ("/farm", "/farm/"):
                     return self._static("index.html")
                 if path == "/healthz":
                     return self._json(ui.health())

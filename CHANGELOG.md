@@ -1,5 +1,8 @@
 # Novidades
 
+## 1.6.0
+- **A página `localhost:8080` agora é a do Escritório Digital.** Em vez da fazendinha do clodfarm original, ela mostra uma página calma de apoio, em português ou inglês: se o escritório está no ar, onde ficam os funcionários (num programa à parte, sobre a barra de tarefas ou o Dock), os comandos para abri-los quando não aparecem, como usar e como atualizar. O painel original do clodfarm continua existindo, escondido em `/farm`, para quem quiser.
+
 ## 1.5.1
 - **Quando os funcionários não abrem, o instalador agora diz.** Antes, se o programa dos funcionários falhasse ao abrir (visto num Mac), o instalador dizia que tinha dado certo e só a página `localhost:8080` aparecia. Agora ele espera alguns segundos, confere se o programa está aberto e, se não estiver, mostra o motivo (também guardado em `overlay/overlay.log`) e o que fazer. O `verificar` passou a conferir isso, e o aviso final explica que `localhost:8080` é só o painel de apoio.
 
